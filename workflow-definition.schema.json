@@ -1,0 +1,711 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bbt.workflow/schemas/workflow-definition.schema.json",
+  "title": "BBT Workflow Definition",
+  "description": "Schema for BBT Workflow Definition JSON files",
+  "type": "object",
+  "required": [
+    "key",
+    "attributes"
+  ],
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Unique identifier for the workflow",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "tags": {
+      "type": "array",
+      "description": "Tags for categorizing the workflow",
+      "items": {
+        "type": "string"
+      }
+    },
+    "attributes": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Workflow type",
+          "enum": [
+            "C",
+            "F",
+            "S",
+            "P"
+          ],
+          "enumDescriptions": [
+            "Core",
+            "Flow",
+            "SubFlow",
+            "Sub Process"
+          ]
+        },
+        "subFlowType": {
+          "type": "string",
+          "description": "Sub flow type (when type is S or P)",
+          "enum": [
+            "S",
+            "P"
+          ],
+          "enumDescriptions": [
+            "SubFlow",
+            "Sub Process"
+          ]
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "type": "object",
+              "description": "Timeout configuration for the workflow",
+              "required": [
+                "key",
+                "target",
+                "versionStrategy",
+                "timer"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "description": "Timeout key identifier"
+                },
+                "target": {
+                  "type": "string",
+                  "description": "Target state for timeout"
+                },
+                "versionStrategy": {
+                  "$ref": "#/definitions/versionStrategy"
+                },
+                "timer": {
+                  "type": "object",
+                  "required": [
+                    "reset",
+                    "duration"
+                  ],
+                  "properties": {
+                    "reset": {
+                      "type": "string",
+                      "description": "Timer reset strategy",
+                      "enum": [
+                        "N",
+                        "R"
+                      ],
+                      "enumDescriptions": [
+                        "Never",
+                        "Reset"
+                      ]
+                    },
+                    "duration": {
+                      "type": "string",
+                      "description": "Duration in ISO 8601 format (e.g., PT1H, PT30M)",
+                      "pattern": "^P(?:T(?:\\d+H)?(?:\\d+M)?(?:\\d+S)?)?$"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "labels": {
+          "$ref": "#/definitions/labels"
+        },
+        "functions": {
+          "type": "array",
+          "description": "Functions used in the workflow",
+          "items": {
+            "$ref": "#/definitions/functionReference"
+          }
+        },
+        "extensions": {
+          "type": "array",
+          "description": "Extensions used in the workflow",
+          "items": {
+            "$ref": "#/definitions/extensionReference"
+          }
+        },
+        "sharedTransitions": {
+          "type": "array",
+          "description": "Shared transitions available across multiple states",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/transitionBase"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "availableIn"
+                ],
+                "properties": {
+                  "availableIn": {
+                    "type": "array",
+                    "description": "States where this shared transition is available",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "startTransition": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/transitionBase"
+            },
+            {
+              "type": "object",
+              "required": [
+                "key",
+                "target",
+                "triggerType",
+                "versionStrategy"
+              ],
+              "properties": {
+                "triggerType": {
+                  "const": 0,
+                  "description": "Start transition must be manual"
+                }
+              }
+            }
+          ]
+        },
+        "states": {
+          "type": "array",
+          "description": "States in the workflow",
+          "items": {
+            "$ref": "#/definitions/state"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "versionStrategy": {
+      "type": "string",
+      "enum": [
+        "Major",
+        "Minor",
+        "Patch"
+      ],
+      "enumDescriptions": [
+        "Major version update",
+        "Minor version update",
+        "Patch version update"
+      ],
+      "description": "Version strategy for updates"
+    },
+    "triggerType": {
+      "type": "integer",
+      "enum": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "enumDescriptions": [
+        "Manual trigger",
+        "Automatic trigger",
+        "Timeout trigger",
+        "Event trigger"
+      ],
+      "description": "Type of trigger for the transition"
+    },
+    "stateType": {
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "enumDescriptions": [
+        "Initial state",
+        "Intermediate state",
+        "Final state",
+        "SubFlow state"
+      ],
+      "description": "Type of workflow state"
+    },
+    "stateSubType": {
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3
+      ],
+      "enumDescriptions": [
+        "Success completion",
+        "Failed completion",
+        "Cancelled completion"
+      ],
+      "description": "Sub-type for final states"
+    },
+    "viewType": {
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3
+      ],
+      "enumDescriptions": [
+        "JSON view",
+        "HTML view",
+        "Markdown view"
+      ],
+      "description": "Type of view content"
+    },
+    "viewTarget": {
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3
+      ],
+      "enumDescriptions": [
+        "State view",
+        "Transition view",
+        "Task view"
+      ],
+      "description": "Target for the view"
+    },
+    "labels": {
+      "type": "array",
+      "description": "Multi-language labels",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "language"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Label text"
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code (ISO 639-1 with optional region code: en, en-US, tr, tr-TR)",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+          }
+        }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "required": [
+        "key",
+        "domain",
+        "flow",
+        "version"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Reference key"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name"
+        },
+        "flow": {
+          "type": "string",
+          "description": "Flow name"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version in Major.Minor.Patch format",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "functionReference": {
+      "type": "object",
+      "required": [
+        "key",
+        "domain",
+        "flow",
+        "version"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Function key"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name"
+        },
+        "flow": {
+          "type": "string",
+          "description": "Flow name for functions",
+          "const": "sys-functions"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version in Major.Minor.Patch format",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "extensionReference": {
+      "type": "object",
+      "required": [
+        "key",
+        "domain",
+        "flow",
+        "version"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Extension key"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name"
+        },
+        "flow": {
+          "type": "string",
+          "description": "Flow name for extensions",
+          "const": "sys-extensions"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version in Major.Minor.Patch format",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "taskReference": {
+      "type": "object",
+      "required": [
+        "key",
+        "domain",
+        "flow",
+        "version"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Task key"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name"
+        },
+        "flow": {
+          "type": "string",
+          "description": "Flow name for tasks",
+          "const": "sys-tasks"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version in Major.Minor.Patch format",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "viewReference": {
+      "type": "object",
+      "required": [
+        "key",
+        "domain",
+        "flow",
+        "version"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "View key"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name"
+        },
+        "flow": {
+          "type": "string",
+          "description": "Flow name for views",
+          "const": "sys-views"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version in Major.Minor.Patch format",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "schemaReference": {
+      "type": "object",
+      "required": [
+        "key",
+        "domain",
+        "flow",
+        "version"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Schema key"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name"
+        },
+        "flow": {
+          "type": "string",
+          "description": "Flow name for schemas",
+          "const": "sys-schemas"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version in Major.Minor.Patch format",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "mapping": {
+      "type": "object",
+      "required": [
+        "location",
+        "code"
+      ],
+      "properties": {
+        "location": {
+          "type": "string",
+          "description": "Path to the mapping file",
+          "pattern": "^\\./src/.*\\.csx$"
+        },
+        "code": {
+          "type": "string",
+          "description": "Base64 encoded code"
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": [
+        "location",
+        "code"
+      ],
+      "properties": {
+        "location": {
+          "type": "string",
+          "description": "Path to the rule file",
+          "pattern": "^\\./src/.*\\.csx$"
+        },
+        "code": {
+          "type": "string",
+          "description": "Base64 encoded code"
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": [
+        "key",
+        "domain",
+        "flow",
+        "version"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Task key"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name"
+        },
+        "flow": {
+          "type": "string",
+          "description": "Flow name for tasks",
+          "const": "sys-tasks"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version in Major.Minor.Patch format",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "executionTask": {
+      "type": "object",
+      "required": [
+        "order",
+        "task"
+      ],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "description": "Execution order",
+          "minimum": 1
+        },
+        "task": {
+          "$ref": "#/definitions/task"
+        },
+        "mapping": {
+          "$ref": "#/definitions/mapping"
+        }
+      }
+    },
+    "transitionBase": {
+      "type": "object",
+      "required": [
+        "key",
+        "target",
+        "triggerType",
+        "versionStrategy"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Transition key"
+        },
+        "target": {
+          "type": "string",
+          "description": "Target state key"
+        },
+        "triggerType": {
+          "$ref": "#/definitions/triggerType"
+        },
+        "versionStrategy": {
+          "$ref": "#/definitions/versionStrategy"
+        },
+        "labels": {
+          "$ref": "#/definitions/labels"
+        },
+        "rule": {
+          "$ref": "#/definitions/rule"
+        },
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/schemaReference"
+            },
+            {
+              "type": "object",
+              "description": "Inline JSON schema for transition validation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "transition": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/transitionBase"
+        },
+        {
+          "type": "object",
+          "required": [
+            "from"
+          ],
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "Source state key"
+            },
+            "availableIn": {
+              "type": "array",
+              "description": "States where this transition is available",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "state": {
+      "type": "object",
+      "required": [
+        "key",
+        "stateType",
+        "versionStrategy",
+        "labels"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "State key"
+        },
+        "stateType": {
+          "$ref": "#/definitions/stateType"
+        },
+        "stateSubType": {
+          "$ref": "#/definitions/stateSubType"
+        },
+        "versionStrategy": {
+          "$ref": "#/definitions/versionStrategy"
+        },
+        "labels": {
+          "$ref": "#/definitions/labels"
+        },
+        "onEntries": {
+          "type": "array",
+          "description": "Tasks to execute when entering the state",
+          "items": {
+            "$ref": "#/definitions/executionTask"
+          }
+        },
+        "onExit": {
+          "type": "array",
+          "description": "Tasks to execute when exiting the state",
+          "items": {
+            "$ref": "#/definitions/executionTask"
+          }
+        },
+        "onExecutionTasks": {
+          "type": "array",
+          "description": "Tasks to execute during state execution",
+          "items": {
+            "$ref": "#/definitions/executionTask"
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "description": "Transitions from this state",
+          "items": {
+            "$ref": "#/definitions/transition"
+          }
+        },
+        "views": {
+          "type": "array",
+          "description": "Views for this state",
+          "items": {
+            "type": "object",
+            "required": [
+              "viewType",
+              "viewTarget"
+            ],
+            "properties": {
+              "viewType": {
+                "$ref": "#/definitions/viewType"
+              },
+              "viewTarget": {
+                "$ref": "#/definitions/viewTarget"
+              },
+              "content": {
+                "type": "string",
+                "description": "View content"
+              },
+              "reference": {
+                "$ref": "#/definitions/viewReference"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

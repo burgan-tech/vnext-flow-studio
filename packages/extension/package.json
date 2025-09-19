@@ -1,0 +1,85 @@
+{
+  "name": "nextcredit-bbt-flow-editor",
+  "displayName": "NextCredit BBT Flow Editor",
+  "publisher": "your-org",
+  "version": "0.1.0",
+  "description": "Visual editor for BBT Workflow Definitions using React Flow",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/nextcredit-bbt-flow-editor"
+  },
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onLanguage:json"
+  ],
+  "main": "./dist/extension.js",
+  "files": [
+    "dist/extension.js",
+    "dist/extension.js.map",
+    "../webview/dist-web/**",
+    "../../schemas/**"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "flowEditor.open",
+        "title": "Open BBT Flow in Canvas"
+      },
+      {
+        "command": "flowEditor.freezeVersions",
+        "title": "Freeze Versions (Lock)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "when": "resourceExtname == .json && resourceFilename =~ /\\.flow\\.json$/",
+          "command": "flowEditor.open",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "when": "resourceExtname == .json && resourceFilename =~ /\\.flow\\.json$/",
+          "command": "flowEditor.open",
+          "group": "navigation"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "flowEditor.canvas",
+        "displayName": "BBT Flow Canvas",
+        "selector": [
+          {
+            "filenamePattern": "*.flow.json"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": ["**/*.flow.json"],
+        "url": "./../../schemas/workflow-definition.schema.json"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "@nextcredit/core": "*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0",
+    "typescript": "^5.4.0",
+    "vsce": "^2.15.0",
+    "@types/vscode": "^1.92.0"
+  }
+}

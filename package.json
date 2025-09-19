@@ -1,0 +1,17 @@
+{
+  "name": "nextcredit-bbt-flow-editor",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "npm run -w packages/core build && npm run -w packages/webview build && npm run -w packages/extension build",
+    "watch": "npm -w packages/core run watch & npm -w packages/webview run dev & npm -w packages/extension run watch",
+    "lint": "eslint .",
+    "package": "npm -w packages/extension run package"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.4.0"
+  }
+}

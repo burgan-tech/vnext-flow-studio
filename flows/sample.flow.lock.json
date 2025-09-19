@@ -1,0 +1,16 @@
+{
+  "lockfileVersion": 1,
+  "generated": "2024-01-01T00:00:00.000Z",
+  "dependencies": {
+    "sys-tasks": {
+      "applicant-application-active": "1.0.0"
+    },
+    "sys-functions": {},
+    "sys-extensions": {},
+    "sys-views": {},
+    "sys-schemas": {}
+  },
+  "checksums": {
+    "sample-workflow": "sha256:abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab"
+  }
+}

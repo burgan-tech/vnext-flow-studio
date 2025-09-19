@@ -1,0 +1,17 @@
+{
+  "nodePos": {
+    "initial-state": {
+      "x": 100,
+      "y": 100
+    },
+    "intermediate-state": {
+      "x": 100,
+      "y": 200
+    },
+    "final-state": {
+      "x": 100,
+      "y": 300
+    }
+  },
+  "collapsed": {}
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-web/
+*.vsix
+.env
+.env.local
+.DS_Store
+*.log
+coverage/
+.nyc_output/
+.vscode-test/
+out/

@@ -1,0 +1,183 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "BBT Workflow Definition",
+  "required": ["key", "attributes"],
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Unique workflow identifier"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "attributes": {
+      "type": "object",
+      "required": ["type", "states"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["C", "F", "S", "P"],
+          "description": "Workflow type"
+        },
+        "subFlowType": {
+          "type": "string",
+          "enum": ["S", "P"]
+        },
+        "timeout": {
+          "type": ["object", "null"],
+          "properties": {
+            "key": { "type": "string" },
+            "target": { "type": "string" },
+            "versionStrategy": { "type": "string", "enum": ["Major", "Minor", "Patch"] },
+            "timer": {
+              "type": "object",
+              "properties": {
+                "reset": { "type": "string", "enum": ["N", "R"] },
+                "duration": { "type": "string", "pattern": "^PT\\d+[HMS]$" }
+              },
+              "required": ["reset", "duration"]
+            }
+          },
+          "required": ["key", "target", "versionStrategy", "timer"]
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "language": { "type": "string" }
+            },
+            "required": ["label", "language"]
+          }
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "domain": { "type": "string" },
+              "flow": { "type": "string", "const": "sys-functions" },
+              "version": { "type": "string" }
+            },
+            "required": ["key", "domain", "flow", "version"]
+          }
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "domain": { "type": "string" },
+              "flow": { "type": "string", "const": "sys-extensions" },
+              "version": { "type": "string" }
+            },
+            "required": ["key", "domain", "flow", "version"]
+          }
+        },
+        "sharedTransitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "target": { "type": "string" },
+              "triggerType": { "type": "integer", "enum": [0, 1, 2, 3] },
+              "versionStrategy": { "type": "string", "enum": ["Major", "Minor", "Patch"] },
+              "availableIn": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "labels": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": { "type": "string" },
+                    "language": { "type": "string" }
+                  },
+                  "required": ["label", "language"]
+                }
+              }
+            },
+            "required": ["key", "target", "triggerType", "versionStrategy", "availableIn"]
+          }
+        },
+        "startTransition": {
+          "type": "object",
+          "properties": {
+            "key": { "type": "string" },
+            "target": { "type": "string" },
+            "triggerType": { "type": "integer", "const": 0 },
+            "versionStrategy": { "type": "string", "enum": ["Major", "Minor", "Patch"] },
+            "labels": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": { "type": "string" },
+                  "language": { "type": "string" }
+                },
+                "required": ["label", "language"]
+              }
+            }
+          },
+          "required": ["key", "target", "triggerType", "versionStrategy"]
+        },
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "stateType": { "type": "integer", "enum": [1, 2, 3, 4] },
+              "stateSubType": { "type": "integer", "enum": [1, 2, 3] },
+              "versionStrategy": { "type": "string", "enum": ["Major", "Minor", "Patch"] },
+              "labels": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": { "type": "string" },
+                    "language": { "type": "string" }
+                  },
+                  "required": ["label", "language"]
+                }
+              },
+              "transitions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": { "type": "string" },
+                    "from": { "type": "string" },
+                    "target": { "type": "string" },
+                    "triggerType": { "type": "integer", "enum": [0, 1, 2, 3] },
+                    "versionStrategy": { "type": "string", "enum": ["Major", "Minor", "Patch"] },
+                    "labels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": { "type": "string" },
+                          "language": { "type": "string" }
+                        },
+                        "required": ["label", "language"]
+                      }
+                    }
+                  },
+                  "required": ["key", "from", "target", "triggerType", "versionStrategy"]
+                }
+              }
+            },
+            "required": ["key", "stateType", "versionStrategy", "labels"]
+          }
+        }
+      }
+    }
+  }
+}
