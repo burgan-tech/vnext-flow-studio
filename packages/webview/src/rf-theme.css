@@ -5,18 +5,16 @@
 }
 
 .react-flow__node-default {
-  background: #ffffff;
-  border: 2px solid #1a192b;
-  border-radius: 8px;
-  padding: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  min-width: 120px;
-  text-align: center;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  min-width: 160px;
+  box-shadow: none;
 }
 
 .react-flow__node-default.selected {
-  border-color: #007acc;
-  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+  box-shadow: none;
 }
 
 .react-flow__node-input {
@@ -32,25 +30,106 @@
   font-weight: bold;
 }
 
-/* State type specific styling */
-.state-node-initial {
-  border-color: #22c55e;
-  background: #f0fdf4;
+.state-node {
+  --state-color: #1f2937;
+  --state-surface: #ffffff;
+  --state-muted: #6b7280;
+  background: var(--state-surface);
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+  text-align: left;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.state-node-intermediate {
-  border-color: #3b82f6;
-  background: #eff6ff;
+.state-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
 }
 
-.state-node-final {
-  border-color: #ef4444;
-  background: #fef2f2;
+.state-node.selected {
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.25),
+    0 14px 32px rgba(15, 23, 42, 0.2);
 }
 
-.state-node-subflow {
-  border-color: #8b5cf6;
-  background: #f5f3ff;
+.state-node__header {
+  background: var(--state-color);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.state-node__type {
+  opacity: 0.85;
+}
+
+.state-node__pill {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.state-node__body {
+  padding: 14px 16px 16px;
+}
+
+.state-node__title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.state-node__key {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--state-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.state-node .react-flow__handle {
+  width: 14px;
+  height: 14px;
+  border-radius: 6px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+}
+
+.state-node--initial {
+  --state-color: #16a34a;
+  --state-surface: #f0fdf4;
+  --state-muted: #166534;
+}
+
+.state-node--intermediate {
+  --state-color: #2563eb;
+  --state-surface: #eff6ff;
+  --state-muted: #1d4ed8;
+}
+
+.state-node--final {
+  --state-color: #dc2626;
+  --state-surface: #fef2f2;
+  --state-muted: #b91c1c;
+}
+
+.state-node--subflow {
+  --state-color: #7c3aed;
+  --state-surface: #f5f3ff;
+  --state-muted: #6d28d9;
 }
 
 /* Edge styling by trigger type */
@@ -81,15 +160,10 @@
   stroke: #6b7280;
 }
 
-/* Node labels */
-.node-title {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
+/* Legacy helpers kept for compatibility */
+.node-title,
 .node-subtitle {
-  font-size: 11px;
-  color: #6b7280;
+  display: none;
 }
 
 /* Controls */
