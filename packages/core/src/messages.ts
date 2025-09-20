@@ -1,4 +1,4 @@
-import type { Workflow, Diagram } from './types.js';
+import type { Workflow, Diagram, State } from './types.js';
 
 export type MsgToWebview =
   | { type: 'init'; workflow: Workflow; diagram: Diagram; derived: { nodes: any[]; edges: any[] }; problemsById: Record<string, any> }
@@ -12,4 +12,5 @@ export type MsgFromWebview =
   | { type: 'domain:addTransition'; from: string; target: string; triggerType?: 1 | 3 }
   | { type: 'domain:moveTransition'; oldFrom: string; tKey: string; newFrom: string; newTarget: string }
   | { type: 'domain:removeTransition'; from: string; tKey: string }
+  | { type: 'domain:addState'; state: State; position: { x: number; y: number } }
   | { type: 'request:lint' };

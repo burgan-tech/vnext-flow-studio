@@ -122,6 +122,11 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             console.log('TODO: Remove transition', message);
             break;
 
+          case 'domain:addState':
+            // TODO: Implement domain mutations
+            console.log('TODO: Add state', message.state, 'at', message.position);
+            break;
+
           case 'request:lint':
             const updatedProblems = lint(workflow);
             panel.webview.postMessage({
