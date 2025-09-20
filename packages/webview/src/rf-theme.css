@@ -108,6 +108,21 @@
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
 }
 
+.state-node .react-flow__handle-left,
+.state-node .react-flow__handle-right {
+  top: 50%;
+}
+
+.state-node .react-flow__handle-left {
+  left: -7px;
+  transform: translate(-50%, -50%);
+}
+
+.state-node .react-flow__handle-right {
+  right: -7px;
+  transform: translate(50%, -50%);
+}
+
 .state-node--initial {
   --state-color: #16a34a;
   --state-surface: #f0fdf4;

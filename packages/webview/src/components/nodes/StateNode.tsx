@@ -64,7 +64,7 @@ export function StateNode({ data, selected }: StateNodeProps) {
       {canHaveIncoming && (
         <Handle
           type="target"
-          position={Position.Top}
+          position={Position.Left}
           style={handleStyle}
         />
       )}
@@ -84,7 +84,7 @@ export function StateNode({ data, selected }: StateNodeProps) {
       {canHaveOutgoing && (
         <Handle
           type="source"
-          position={Position.Bottom}
+          position={Position.Right}
           style={handleStyle}
         />
       )}

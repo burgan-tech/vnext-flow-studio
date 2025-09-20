@@ -10,6 +10,8 @@ export interface ReactFlowNode {
   data: any;
   draggable?: boolean;
   selectable?: boolean;
+  sourcePosition?: 'left' | 'right' | 'top' | 'bottom';
+  targetPosition?: 'left' | 'right' | 'top' | 'bottom';
 }
 
 export interface ReactFlowEdge {
@@ -37,7 +39,9 @@ export function toReactFlow(
       position: { x: 0, y: 0 },
       data: { label: 'Start' },
       draggable: false,
-      selectable: false
+      selectable: false,
+      sourcePosition: 'right',
+      targetPosition: 'left'
     });
   }
 
@@ -48,7 +52,9 @@ export function toReactFlow(
       position: { x: -120, y: 0 },
       data: { label: 'Timeout' },
       draggable: false,
-      selectable: false
+      selectable: false,
+      sourcePosition: 'right',
+      targetPosition: 'left'
     });
   }
 
@@ -68,7 +74,9 @@ export function toReactFlow(
         stateType: state.stateType,
         stateSubType: state.stateSubType
       },
-      type: 'default'
+      type: 'default',
+      sourcePosition: 'right',
+      targetPosition: 'left'
     });
 
     // Add local transitions
