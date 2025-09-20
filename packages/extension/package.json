@@ -19,8 +19,9 @@
   "files": [
     "dist/extension.js",
     "dist/extension.js.map",
-    "../webview/dist-web/**",
-    "../../schemas/**"
+    "dist-web/**",
+    "schemas/**",
+    "LICENSE"
   ],
   "contributes": {
     "commands": [
@@ -64,14 +65,14 @@
     "jsonValidation": [
       {
         "fileMatch": ["**/*.flow.json"],
-        "url": "./../../schemas/workflow-definition.schema.json"
+        "url": "./schemas/workflow-definition.schema.json"
       }
     ]
   },
   "scripts": {
     "build": "node esbuild.config.mjs",
     "watch": "node esbuild.config.mjs --watch",
-    "package": "vsce package"
+    "package": "vsce package --no-dependencies"
   },
   "dependencies": {
     "@nextcredit/core": "*"

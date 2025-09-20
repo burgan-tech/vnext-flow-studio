@@ -9,12 +9,12 @@ vsc-extension-quickstart.md
 **/*.map
 node_modules/**
 **/node_modules/**
-../core/node_modules/**
-../webview/node_modules/**
-../../node_modules/**
 .github/**
 .nvmrc
 .eslintrc*
 **/*.ts
 esbuild.config.mjs
 !dist/**
+!dist-web/**
+!schemas/**
+!LICENSE

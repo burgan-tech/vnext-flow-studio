@@ -32,6 +32,18 @@ jobs:
       - name: Build packages
         run: npm run build
 
+      - name: Stage extension assets
+        run: |
+          rm -rf packages/extension/dist-web
+          mkdir -p packages/extension/dist-web
+          cp -R packages/webview/dist-web/. packages/extension/dist-web/
+          rm -rf packages/extension/schemas
+          mkdir -p packages/extension/schemas
+          cp -R schemas/. packages/extension/schemas/
+          if [ -f LICENSE ]; then
+            cp LICENSE packages/extension/
+          fi
+
       - name: Package VSIX
         run: npm run package
 
