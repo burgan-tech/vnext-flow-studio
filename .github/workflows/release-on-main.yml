@@ -1,0 +1,68 @@
+name: Release on main merge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build packages
+        run: npm run build
+
+      - name: Package VSIX
+        run: npm run package
+
+      - name: Locate VSIX artifact
+        id: vsix
+        run: |
+          VSIX_FILE=$(find packages/extension -maxdepth 1 -name "*.vsix" -print -quit)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "VSIX package not found" >&2
+            exit 1
+          fi
+          echo "file=$VSIX_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Compute release metadata
+        id: meta
+        run: |
+          VERSION=$(node -p "require('./packages/extension/package.json').version")
+          TAG="v${VERSION}-${GITHUB_RUN_NUMBER}"
+          NAME="${VERSION} (build ${GITHUB_RUN_NUMBER})"
+          BODY="Automatic release for commit ${GITHUB_SHA}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "body=$BODY" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Release ${{ steps.meta.outputs.name }}
+          body: ${{ steps.meta.outputs.body }}
+          files: ${{ steps.vsix.outputs.file }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

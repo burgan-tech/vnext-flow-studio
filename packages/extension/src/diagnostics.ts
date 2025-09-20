@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import { lint, type Problem } from '@nextcredit/core';
-import type { Workflow } from '@nextcredit/core';
+import { lint, type Workflow } from '@nextcredit/core';
 
 export class FlowDiagnosticsProvider {
   private diagnosticsCollection: vscode.DiagnosticCollection;
@@ -14,7 +13,7 @@ export class FlowDiagnosticsProvider {
     const diagnostics: vscode.Diagnostic[] = [];
 
     // Convert problems to VS Code diagnostics
-    for (const [ownerId, problemList] of Object.entries(problems)) {
+    for (const [_ownerId, problemList] of Object.entries(problems)) {
       for (const problem of problemList) {
         const diagnostic = new vscode.Diagnostic(
           new vscode.Range(0, 0, 0, 0), // TODO: Map to actual line/column

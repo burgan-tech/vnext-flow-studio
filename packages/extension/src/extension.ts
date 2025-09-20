@@ -235,15 +235,15 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             }
             break;
 
-          case 'request:lint':
+          case 'request:lint': {
             const updatedProblems = lint(currentWorkflow);
-            // Update VS Code diagnostics
             diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow);
             panel.webview.postMessage({
               type: 'lint:update',
               problemsById: updatedProblems
             });
             break;
+          }
         }
       } catch (error) {
         vscode.window.showErrorMessage(`Webview message error: ${error}`);
@@ -307,7 +307,7 @@ class FlowEditorProvider implements vscode.CustomTextEditorProvider {
 
   async resolveCustomTextEditor(
     document: vscode.TextDocument,
-    webviewPanel: vscode.WebviewPanel
+    _webviewPanel: vscode.WebviewPanel
   ): Promise<void> {
     await openFlowEditor(document.uri, this.context, this.diagnosticsProvider);
   }

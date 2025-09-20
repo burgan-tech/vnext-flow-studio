@@ -6,7 +6,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
   // Stub for freeze versions command
   const freezeVersionsCommand = vscode.commands.registerCommand(
     'flowEditor.freezeVersions',
-    async (uri?: vscode.Uri) => {
+    async (_uri?: vscode.Uri) => {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) {
         vscode.window.showErrorMessage('No workspace folder found');

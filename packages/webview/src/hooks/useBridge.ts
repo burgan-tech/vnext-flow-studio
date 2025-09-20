@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import type { MsgToWebview, MsgFromWebview } from '@nextcredit/core';
 
 // VS Code API type
