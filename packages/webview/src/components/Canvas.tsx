@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -14,7 +14,8 @@ import {
   OnEdgesDelete,
   OnReconnect,
   OnNodesChange,
-  OnEdgesChange
+  OnEdgesChange,
+  MarkerType
 } from '@xyflow/react';
 import { StateNode } from './nodes/StateNode';
 import { useBridge } from '../hooks/useBridge';
@@ -23,6 +24,26 @@ import type { Workflow, Diagram, MsgToWebview } from '@nextcredit/core';
 const nodeTypes = {
   default: StateNode
 };
+
+const triggerClassMap: Record<number, string> = {
+  0: 'trigger-manual',
+  1: 'trigger-auto',
+  2: 'trigger-timeout',
+  3: 'trigger-event'
+};
+
+const decorateEdges = (edges: Edge[]): Edge[] =>
+  edges.map((edge) => {
+    const triggerType = typeof edge.data?.triggerType === 'number'
+      ? edge.data?.triggerType as number
+      : undefined;
+    const triggerClass = triggerType !== undefined ? triggerClassMap[triggerType] : undefined;
+    const dash = edge.style?.strokeDasharray;
+    const sharedClass = dash === '4 4' ? 'shared-transition' : undefined;
+    const className = [edge.className, triggerClass, sharedClass].filter(Boolean).join(' ');
+
+    return className ? { ...edge, className } : edge;
+  });
 
 interface CanvasProps {
   initialWorkflow?: Workflow;
@@ -36,6 +57,20 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [workflow, setWorkflow] = useState<Workflow | null>(initialWorkflow || null);
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
 
+  const defaultEdgeOptions = useMemo(() => ({
+    type: 'smoothstep' as const,
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: 18,
+      height: 18,
+      color: '#334155'
+    },
+    style: {
+      stroke: '#334155',
+      strokeWidth: 1.6
+    }
+  }), []);
+
   // Handle messages from host
   useEffect(() => {
     return onMessage((message: MsgToWebview) => {
@@ -44,12 +79,12 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           setWorkflow(message.workflow);
           setDiagram(message.diagram);
           setNodes(message.derived.nodes);
-          setEdges(message.derived.edges);
+          setEdges(decorateEdges(message.derived.edges));
           break;
         case 'workflow:update':
           setWorkflow(message.workflow);
           setNodes(message.derived.nodes);
-          setEdges(message.derived.edges);
+          setEdges(decorateEdges(message.derived.edges));
           break;
         case 'diagram:update':
           setDiagram(message.diagram);
@@ -175,6 +210,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
         nodeTypes={nodeTypes}
         isValidConnection={isValidConnection}
         edgesReconnectable
+        defaultEdgeOptions={defaultEdgeOptions}
+        defaultMarkerColor="#334155"
         fitView
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
       >

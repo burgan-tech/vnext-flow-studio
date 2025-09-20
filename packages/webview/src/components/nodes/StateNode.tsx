@@ -46,6 +46,8 @@ export function StateNode({ data, selected }: StateNodeProps) {
   const stateTypeClass = getStateTypeClass(stateType);
   const stateTypeName = getStateTypeName(stateType);
   const stateSubTypeName = getStateSubTypeName(stateSubType);
+  const isEventType = stateType === 1 || stateType === 3;
+  const isSubFlow = stateType === 4;
 
   const canHaveIncoming = stateType !== 1; // Not initial
   const canHaveOutgoing = stateType !== 3; // Not final
@@ -57,36 +59,76 @@ export function StateNode({ data, selected }: StateNodeProps) {
     selected ? 'selected' : ''
   ].filter(Boolean).join(' ');
 
-  const handleStyle = { background: 'var(--state-color)' } as const;
+  const handleGap = 4;
+
+  const baseHandleStyle = {
+    background: 'var(--state-color)',
+    border: '2px solid var(--state-surface)'
+  } as const;
+
+  const incomingHandleStyle: React.CSSProperties = {
+    ...baseHandleStyle,
+    transform: `translate(calc(-50% - ${handleGap}px), -50%)`
+  };
+
+  const outgoingHandleStyle: React.CSSProperties = {
+    ...baseHandleStyle,
+    transform: `translate(calc(50% + ${handleGap}px), -50%)`
+  };
+
+  const incomingHandle = canHaveIncoming ? (
+    <Handle
+      className="state-node__handle state-node__handle--target"
+      type="target"
+      position={Position.Left}
+      style={incomingHandleStyle}
+    />
+  ) : null;
+
+  const outgoingHandle = canHaveOutgoing ? (
+    <Handle
+      className="state-node__handle state-node__handle--source"
+      type="source"
+      position={Position.Right}
+      style={outgoingHandleStyle}
+    />
+  ) : null;
 
   return (
     <div className={classNames}>
-      {canHaveIncoming && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          style={handleStyle}
-        />
-      )}
-
-      <div className="state-node__header">
-        <span className="state-node__type">{stateTypeName}</span>
-        {stateSubTypeName && (
-          <span className="state-node__pill">{stateSubTypeName}</span>
-        )}
-      </div>
-
-      <div className="state-node__body">
-        <div className="state-node__title">{title}</div>
-        <div className="state-node__key">{state.key}</div>
-      </div>
-
-      {canHaveOutgoing && (
-        <Handle
-          type="source"
-          position={Position.Right}
-          style={handleStyle}
-        />
+      {isEventType ? (
+        <div className="state-node__event">
+          <div className="state-node__shape-wrapper">
+            {incomingHandle}
+            <div className="state-node__shape" aria-hidden="true" />
+            {outgoingHandle}
+          </div>
+          <div className="state-node__label">{title}</div>
+          <div className="state-node__meta">
+            <span className="state-node__type">{stateTypeName}</span>
+            <span className="state-node__key">{state.key}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="state-node__activity">
+          <div className="state-node__shape-wrapper">
+            {incomingHandle}
+            <div className="state-node__shape">
+              <div className="state-node__title">{title}</div>
+              {stateSubTypeName && (
+                <span className="state-node__badge">{stateSubTypeName}</span>
+              )}
+              {isSubFlow && (
+                <div className="state-node__marker" aria-label="Subflow" role="img" />
+              )}
+            </div>
+            {outgoingHandle}
+          </div>
+          <div className="state-node__meta">
+            <span className="state-node__type">{stateTypeName}</span>
+            <span className="state-node__key">{state.key}</span>
+          </div>
+        </div>
       )}
     </div>
   );
