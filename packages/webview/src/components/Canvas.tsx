@@ -21,6 +21,9 @@ import { StateNode } from './nodes/StateNode';
 import { EventNode } from './nodes/EventNode';
 import { useBridge } from '../hooks/useBridge';
 import type { Workflow, Diagram, MsgToWebview } from '@nextcredit/core';
+import { PropertyPanel, type PropertySelection } from './PropertyPanel';
+
+type SelectionChange = { nodes: Node[]; edges: Edge[] };
 
 const nodeTypes = {
   default: StateNode,
@@ -58,6 +61,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [workflow, setWorkflow] = useState<Workflow | null>(initialWorkflow || null);
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
+  const [selection, setSelection] = useState<PropertySelection>(null);
 
   const defaultEdgeOptions = useMemo(() => ({
     type: 'smoothstep' as const,
@@ -178,6 +182,59 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     });
   }, [postMessage]);
 
+  const onSelectionChange = useCallback(
+    ({ nodes: selectedNodes, edges: selectedEdges }: SelectionChange) => {
+      if (!workflow) {
+        setSelection(null);
+        return;
+      }
+
+      const firstNode = selectedNodes[0];
+      if (firstNode && workflow.attributes.states.some((state) => state.key === firstNode.id)) {
+        setSelection({ kind: 'state', stateKey: firstNode.id });
+        return;
+      }
+
+      const firstEdge = selectedEdges[0];
+      if (firstEdge) {
+        const match = /^t:local:([^:]+):(.+)$/.exec(firstEdge.id);
+        if (match) {
+          setSelection({ kind: 'transition', from: match[1], transitionKey: match[2] });
+          return;
+        }
+      }
+
+      setSelection(null);
+    },
+    [workflow]
+  );
+
+  useEffect(() => {
+    if (!workflow) {
+      setSelection(null);
+      return;
+    }
+
+    setSelection((current) => {
+      if (!current) return current;
+      if (current.kind === 'state') {
+        return workflow.attributes.states.some((state) => state.key === current.stateKey)
+          ? current
+          : null;
+      }
+
+      if (current.kind === 'transition') {
+        const fromState = workflow.attributes.states.find((state) => state.key === current.from);
+        if (!fromState || !fromState.transitions) return null;
+        return fromState.transitions.some((transition) => transition.key === current.transitionKey)
+          ? current
+          : null;
+      }
+
+      return null;
+    });
+  }, [workflow]);
+
   // Prevent connections from final states
   const isValidConnection = useCallback((connection: Connection) => {
     if (!connection.source || !workflow) return true;
@@ -200,26 +257,30 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   }
 
   return (
-    <div style={{ height: '100vh' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onReconnect={onReconnect}
-        onEdgesDelete={onEdgesDelete}
-        nodeTypes={nodeTypes}
-        isValidConnection={isValidConnection}
-        edgesReconnectable
-        defaultEdgeOptions={defaultEdgeOptions}
-        defaultMarkerColor="#334155"
-        fitView
-        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-      >
-        <Background />
-        <Controls />
-      </ReactFlow>
+    <div className="canvas-shell">
+      <div className="canvas-shell__flow">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onReconnect={onReconnect}
+          onEdgesDelete={onEdgesDelete}
+          onSelectionChange={onSelectionChange}
+          nodeTypes={nodeTypes}
+          isValidConnection={isValidConnection}
+          edgesReconnectable
+          defaultEdgeOptions={defaultEdgeOptions}
+          defaultMarkerColor="#334155"
+          fitView
+          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        >
+          <Background />
+          <Controls />
+        </ReactFlow>
+      </div>
+      <PropertyPanel workflow={workflow} selection={selection} />
     </div>
   );
 }

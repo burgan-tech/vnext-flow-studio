@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { toReactFlow, lint } from '@nextcredit/core';
-import type { Workflow, Diagram } from '@nextcredit/core';
+import type { Workflow, Diagram, MsgFromWebview } from '@nextcredit/core';
 import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics';
 import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';
@@ -72,34 +72,35 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     }
 
     // Load workflow and diagram
-    const workflow = await readJson<Workflow>(flowUri);
-    let diagram: Diagram;
+    let currentWorkflow = await readJson<Workflow>(flowUri);
+    let currentDiagram: Diagram;
 
     try {
-      diagram = await readJson<Diagram>(getDiagramUri(flowUri));
+      currentDiagram = await readJson<Diagram>(getDiagramUri(flowUri));
     } catch {
-      diagram = { nodePos: {} };
+      currentDiagram = { nodePos: {} };
     }
 
     // Convert to React Flow format
-    const derived = toReactFlow(workflow, diagram, 'en');
-    const problemsById = lint(workflow);
+    const derived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+    const problemsById = lint(currentWorkflow);
 
     // Send initial data to webview
     panel.webview.postMessage({
       type: 'init',
-      workflow,
-      diagram,
+      workflow: currentWorkflow,
+      diagram: currentDiagram,
       derived,
       problemsById
     });
 
     // Handle messages from webview
-    panel.webview.onDidReceiveMessage(async (message: any) => {
+    panel.webview.onDidReceiveMessage(async (message: MsgFromWebview) => {
       try {
         switch (message.type) {
           case 'persist:diagram':
-            await writeJson(getDiagramUri(flowUri), message.diagram);
+            currentDiagram = message.diagram;
+            await writeJson(getDiagramUri(flowUri), currentDiagram);
             break;
 
           case 'domain:setStart':
@@ -122,8 +123,63 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             console.log('TODO: Remove transition', message);
             break;
 
+          case 'domain:updateState': {
+            const { stateKey, state } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+            const stateIndex = updatedWorkflow.attributes.states.findIndex((item) => item.key === stateKey);
+
+            if (stateIndex === -1) {
+              vscode.window.showWarningMessage(`State ${stateKey} could not be found in the workflow.`);
+              break;
+            }
+
+            updatedWorkflow.attributes.states[stateIndex] = state;
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            break;
+          }
+
+          case 'domain:updateTransition': {
+            const { from, transitionKey, transition } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+            const state = updatedWorkflow.attributes.states.find((item) => item.key === from);
+
+            if (!state) {
+              vscode.window.showWarningMessage(`State ${from} could not be found in the workflow.`);
+              break;
+            }
+
+            const transitions = [...(state.transitions ?? [])];
+            const transitionIndex = transitions.findIndex((item) => item.key === transitionKey);
+
+            if (transitionIndex === -1) {
+              vscode.window.showWarningMessage(`Transition ${transitionKey} was not found for state ${from}.`);
+              break;
+            }
+
+            transitions[transitionIndex] = { ...transition, from };
+            state.transitions = transitions;
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            break;
+          }
+
           case 'request:lint':
-            const updatedProblems = lint(workflow);
+            const updatedProblems = lint(currentWorkflow);
             panel.webview.postMessage({
               type: 'lint:update',
               problemsById: updatedProblems
@@ -147,7 +203,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       try {
         if (changedUri.path === flowUri.path) {
           const updatedWorkflow = await readJson<Workflow>(flowUri);
-          const updatedDerived = toReactFlow(updatedWorkflow, diagram, 'en');
+          currentWorkflow = updatedWorkflow;
+          const updatedDerived = toReactFlow(updatedWorkflow, currentDiagram, 'en');
           panel.webview.postMessage({
             type: 'workflow:update',
             workflow: updatedWorkflow,
@@ -155,6 +212,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
           });
         } else if (changedUri.path === getDiagramUri(flowUri).path) {
           const updatedDiagram = await readJson<Diagram>(getDiagramUri(flowUri));
+          currentDiagram = updatedDiagram;
           panel.webview.postMessage({
             type: 'diagram:update',
             diagram: updatedDiagram

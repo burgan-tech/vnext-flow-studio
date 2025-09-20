@@ -354,3 +354,247 @@
   bottom: 20px;
   left: 20px;
 }
+
+.canvas-shell {
+  display: flex;
+  height: 100vh;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.canvas-shell__flow {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.property-panel {
+  width: 340px;
+  border-left: 1px solid #e2e8f0;
+  background: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.property-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.property-panel__title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+}
+
+.property-panel__tag {
+  background: #e2e8f0;
+  color: #1e293b;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.property-panel__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.property-panel__empty {
+  background: #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.property-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.property-panel__section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.property-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.property-panel__field > input,
+.property-panel__field > select,
+.property-panel__field > textarea {
+  font-family: inherit;
+  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #0f172a;
+  resize: vertical;
+}
+
+.property-panel__field > textarea {
+  min-height: 80px;
+  line-height: 1.4;
+}
+
+.property-panel__save {
+  align-self: flex-start;
+  background: #2563eb;
+  border: none;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.property-panel__save:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.property-panel__save:not(:disabled):hover {
+  background: #1d4ed8;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+}
+
+.property-panel__error {
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.property-panel__group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.property-panel__group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.property-panel__pill-button {
+  border: none;
+  background: #e2e8f0;
+  color: #1e293b;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.property-panel__pill-button:hover {
+  background: #cbd5f5;
+}
+
+.property-panel__pill-button--ghost {
+  border: 1px solid #cbd5f5;
+  background: transparent;
+  color: #1e293b;
+}
+
+.property-panel__pill-button--ghost:hover {
+  background: #e2e8f0;
+}
+
+.property-panel__muted {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.property-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.property-panel__list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5f5;
+  background: #f8fafc;
+}
+
+.property-panel__inline-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.property-panel__nested {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-radius: 8px;
+  border: 1px dashed #cbd5f5;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.property-panel__list-remove {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.property-panel__list-remove:hover {
+  text-decoration: underline;
+}
+
+.property-panel__radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.property-panel__radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
