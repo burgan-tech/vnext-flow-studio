@@ -15,20 +15,37 @@ import {
   OnReconnect,
   OnNodesChange,
   OnEdgesChange,
-  MarkerType
+  MarkerType,
+  XYPosition,
+  ReactFlowInstance,
+  OnSelectionChangeParams
 } from '@xyflow/react';
 import { StateNode } from './nodes/StateNode';
 import { EventNode } from './nodes/EventNode';
-import { useBridge } from '../hooks/useBridge';
-import type { Workflow, Diagram, MsgToWebview } from '@nextcredit/core';
 import { PropertyPanel, type PropertySelection } from './PropertyPanel';
-
-type SelectionChange = { nodes: Node[]; edges: Edge[] };
+import { useBridge } from '../hooks/useBridge';
+import type {
+  Workflow,
+  Diagram,
+  MsgToWebview,
+  State,
+  StateType,
+  StateSubType
+} from '@nextcredit/core';
 
 const nodeTypes = {
   default: StateNode,
   event: EventNode
 };
+
+interface StateTemplate {
+  type: StateType;
+  label: string;
+  description: string;
+  keyPrefix: string;
+  defaultLabel: string;
+  stateSubType?: StateSubType;
+}
 
 const triggerClassMap: Record<number, string> = {
   0: 'trigger-manual',
@@ -62,6 +79,39 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [workflow, setWorkflow] = useState<Workflow | null>(initialWorkflow || null);
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
   const [selection, setSelection] = useState<PropertySelection>(null);
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+
+  const stateTemplates = useMemo<StateTemplate[]>(() => ([
+    {
+      type: 1,
+      label: 'Initial state',
+      description: 'Entry point for the flow',
+      keyPrefix: 'initial-state',
+      defaultLabel: 'Initial State'
+    },
+    {
+      type: 2,
+      label: 'Intermediate state',
+      description: 'Progress step within the journey',
+      keyPrefix: 'state',
+      defaultLabel: 'New State'
+    },
+    {
+      type: 3,
+      label: 'Final state',
+      description: 'Marks a successful completion',
+      keyPrefix: 'final-state',
+      defaultLabel: 'Final State',
+      stateSubType: 1
+    },
+    {
+      type: 4,
+      label: 'Subflow state',
+      description: 'Delegates to another flow',
+      keyPrefix: 'subflow-state',
+      defaultLabel: 'Subflow State'
+    }
+  ]), []);
 
   const defaultEdgeOptions = useMemo(() => ({
     type: 'smoothstep' as const,
@@ -106,7 +156,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     // Update diagram when nodes are moved
     const positionChanges = changes.filter(
       (change): change is NodeChange & { type: 'position' } =>
-        change.type === 'position' && change.position && !change.dragging
+        change.type === 'position' && change.position && change.dragging !== true
     );
 
     if (positionChanges.length > 0) {
@@ -183,7 +233,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   }, [postMessage]);
 
   const onSelectionChange = useCallback(
-    ({ nodes: selectedNodes, edges: selectedEdges }: SelectionChange) => {
+    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
       if (!workflow) {
         setSelection(null);
         return;
@@ -236,7 +286,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   }, [workflow]);
 
   // Prevent connections from final states
-  const isValidConnection = useCallback((connection: Connection) => {
+  const isValidConnection = useCallback((edge: Edge | Connection) => {
+    const connection = 'sourceHandle' in edge ? edge as Connection : edge as Connection;
     if (!connection.source || !workflow) return true;
 
     // Find source node
@@ -247,6 +298,163 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
     return true;
   }, [nodes, workflow]);
+
+  const handleAddState = useCallback((template: StateTemplate, positionOverride?: XYPosition) => {
+    if (!workflow) {
+      return;
+    }
+
+    const existingKeys = new Set(workflow.attributes.states.map((state) => state.key));
+
+    let stateKey = template.keyPrefix;
+    if (existingKeys.has(stateKey)) {
+      let suffix = 1;
+      while (existingKeys.has(`${template.keyPrefix}-${suffix}`)) {
+        suffix += 1;
+      }
+      stateKey = `${template.keyPrefix}-${suffix}`;
+    }
+
+    const sameTypeCount = workflow.attributes.states.filter((state) => state.stateType === template.type).length;
+    const labelSuffix = sameTypeCount > 0 ? ` ${sameTypeCount + 1}` : '';
+    const defaultLanguage =
+      workflow.attributes.states.find((state) => state.labels && state.labels.length > 0)?.labels?.[0]?.language ||
+      workflow.attributes.labels?.[0]?.language ||
+      'en';
+
+    const stateLabel = `${template.defaultLabel}${labelSuffix}`.trim();
+
+    const newState: State = {
+      key: stateKey,
+      stateType: template.type,
+      versionStrategy: 'Minor',
+      labels: [
+        {
+          label: stateLabel,
+          language: defaultLanguage
+        }
+      ],
+      transitions: []
+    };
+
+    if (template.stateSubType) {
+      newState.stateSubType = template.stateSubType;
+    }
+
+    const newWorkflow: Workflow = {
+      ...workflow,
+      attributes: {
+        ...workflow.attributes,
+        states: [...workflow.attributes.states, newState]
+      }
+    };
+    setWorkflow(newWorkflow);
+
+    const stateIndex = workflow.attributes.states.length;
+    const column = stateIndex % 4;
+    const row = Math.floor(stateIndex / 4);
+    const fallbackPosition: XYPosition = {
+      x: 200 + column * 220,
+      y: 120 + row * 160
+    };
+    const position = positionOverride ?? fallbackPosition;
+
+    const newDiagram = {
+      ...diagram,
+      nodePos: {
+        ...diagram.nodePos,
+        [stateKey]: position
+      }
+    };
+    setDiagram(newDiagram);
+
+    const newNode: Node = {
+      id: stateKey,
+      position,
+      data: {
+        title: stateLabel,
+        state: newState,
+        stateType: newState.stateType,
+        stateSubType: newState.stateSubType
+      },
+      type: 'default',
+      sourcePosition: 'right',
+      targetPosition: 'left',
+      selected: true
+    };
+
+    setNodes((prevNodes) => [
+      ...prevNodes.map((node) => ({ ...node, selected: false })),
+      newNode
+    ]);
+
+    postMessage({
+      type: 'domain:addState',
+      state: newState,
+      position
+    });
+  }, [diagram, postMessage, workflow]);
+
+  const handleDragStart = useCallback((event: React.DragEvent, template: StateTemplate) => {
+    event.dataTransfer.setData(
+      'application/reactflow',
+      JSON.stringify({ type: template.type, stateSubType: template.stateSubType ?? null })
+    );
+    event.dataTransfer.effectAllowed = 'copy';
+  }, []);
+
+  const onDragOverCanvas = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const onDropCanvas = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+
+    if (!reactFlowInstance) {
+      return;
+    }
+
+    const raw = event.dataTransfer.getData('application/reactflow');
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const payload = JSON.parse(raw) as { type: StateType; stateSubType: StateSubType | null };
+      const template = stateTemplates.find((candidate) =>
+        candidate.type === payload.type && (candidate.stateSubType ?? null) === payload.stateSubType
+      );
+
+      if (!template) {
+        return;
+      }
+
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY
+      });
+
+      handleAddState(template, position);
+    } catch (error) {
+      console.warn('Failed to parse drag payload', error);
+    }
+  }, [handleAddState, reactFlowInstance, stateTemplates]);
+
+  const getToolbarStateClass = useCallback((type: StateType) => {
+    switch (type) {
+      case 1:
+        return 'state-node--initial';
+      case 2:
+        return 'state-node--intermediate';
+      case 3:
+        return 'state-node--final';
+      case 4:
+        return 'state-node--subflow';
+      default:
+        return '';
+    }
+  }, []);
 
   if (!workflow) {
     return (
@@ -259,26 +467,62 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   return (
     <div className="canvas-shell">
       <div className="canvas-shell__flow">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onReconnect={onReconnect}
-          onEdgesDelete={onEdgesDelete}
-          onSelectionChange={onSelectionChange}
-          nodeTypes={nodeTypes}
-          isValidConnection={isValidConnection}
-          edgesReconnectable
-          defaultEdgeOptions={defaultEdgeOptions}
-          defaultMarkerColor="#334155"
-          fitView
-          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-        >
-          <Background />
-          <Controls />
-        </ReactFlow>
+        <div className="flow-canvas" style={{ height: '100vh' }}>
+          <div className="flow-canvas__toolbar" role="toolbar" aria-label="Add new state">
+            {stateTemplates.map((template) => {
+              const stateClass = getToolbarStateClass(template.type);
+              const isEvent = template.type === 1 || template.type === 3;
+              const isFinal = template.type === 3;
+              const isSubflow = template.type === 4;
+
+              return (
+                <button
+                  key={`${template.type}-${template.stateSubType ?? 'default'}`}
+                  type="button"
+                  className="flow-canvas__palette-item"
+                  onClick={() => handleAddState(template)}
+                  onDragStart={(event) => handleDragStart(event, template)}
+                  draggable
+                  title={template.description}
+                >
+                  <span
+                    className={`flow-canvas__palette-preview ${stateClass} ${
+                      isEvent ? 'flow-canvas__palette-preview--event' : 'flow-canvas__palette-preview--activity'
+                    }`}
+                  >
+                    <span className="flow-canvas__palette-shape" aria-hidden="true" />
+                    {isFinal && <span className="flow-canvas__palette-ring" aria-hidden="true" />}
+                    {isSubflow && <span className="flow-canvas__palette-marker" aria-hidden="true" />}
+                  </span>
+                  <span className="flow-canvas__palette-label">{template.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onReconnect={onReconnect}
+            onEdgesDelete={onEdgesDelete}
+            onSelectionChange={onSelectionChange}
+            nodeTypes={nodeTypes}
+            isValidConnection={isValidConnection}
+            edgesReconnectable
+            defaultEdgeOptions={defaultEdgeOptions}
+            defaultMarkerColor="#334155"
+            fitView
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            onInit={setReactFlowInstance}
+            onDrop={onDropCanvas}
+            onDragOver={onDragOverCanvas}
+          >
+            <Background />
+            <Controls />
+          </ReactFlow>
+        </div>
       </div>
       <PropertyPanel workflow={workflow} selection={selection} />
     </div>

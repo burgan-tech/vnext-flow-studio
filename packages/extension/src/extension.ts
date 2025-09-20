@@ -21,7 +21,7 @@ function getDiagramUri(flowUri: vscode.Uri): vscode.Uri {
   });
 }
 
-async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionContext) {
+async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionContext, diagnosticsProvider: FlowDiagnosticsProvider) {
   try {
     // Create webview panel
     const panel = vscode.window.createWebviewPanel(
@@ -74,6 +74,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     // Load workflow and diagram
     let currentWorkflow = await readJson<Workflow>(flowUri);
     let currentDiagram: Diagram;
+    let workflow = await readJson<Workflow>(flowUri);
+    let diagram: Diagram;
 
     try {
       currentDiagram = await readJson<Diagram>(getDiagramUri(flowUri));
@@ -84,6 +86,9 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     // Convert to React Flow format
     const derived = toReactFlow(currentWorkflow, currentDiagram, 'en');
     const problemsById = lint(currentWorkflow);
+
+    // Update VS Code diagnostics
+    diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow);
 
     // Send initial data to webview
     panel.webview.postMessage({
@@ -178,8 +183,62 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             break;
           }
 
+          case 'domain:addState':
+            {
+              const { state, position } = message;
+
+              const existingIndex = workflow.attributes.states.findIndex((item) => item.key === state.key);
+              const nextStates = existingIndex === -1
+                ? [...workflow.attributes.states, state]
+                : workflow.attributes.states.map((item, index) => (index === existingIndex ? state : item));
+
+              workflow = {
+                ...workflow,
+                attributes: {
+                  ...workflow.attributes,
+                  states: nextStates
+                }
+              };
+
+              diagram = {
+                ...diagram,
+                nodePos: {
+                  ...diagram.nodePos,
+                  [state.key]: position
+                }
+              };
+
+              await writeJson(flowUri, workflow);
+              await writeJson(getDiagramUri(flowUri), diagram);
+
+              const derived = toReactFlow(workflow, diagram, 'en');
+              const problemsById = lint(workflow);
+
+              // Update VS Code diagnostics
+              diagnosticsProvider.updateDiagnostics(flowUri, workflow);
+
+              panel.webview.postMessage({
+                type: 'workflow:update',
+                workflow,
+                derived
+              });
+
+              panel.webview.postMessage({
+                type: 'diagram:update',
+                diagram
+              });
+
+              panel.webview.postMessage({
+                type: 'lint:update',
+                problemsById
+              });
+            }
+            break;
+
           case 'request:lint':
             const updatedProblems = lint(currentWorkflow);
+            // Update VS Code diagnostics
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow);
             panel.webview.postMessage({
               type: 'lint:update',
               problemsById: updatedProblems
@@ -207,15 +266,23 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
           const updatedDerived = toReactFlow(updatedWorkflow, currentDiagram, 'en');
           panel.webview.postMessage({
             type: 'workflow:update',
-            workflow: updatedWorkflow,
+            workflow,
             derived: updatedDerived
+          });
+          const updatedProblems = lint(workflow);
+          // Update VS Code diagnostics
+          diagnosticsProvider.updateDiagnostics(flowUri, workflow);
+          panel.webview.postMessage({
+            type: 'lint:update',
+            problemsById: updatedProblems
           });
         } else if (changedUri.path === getDiagramUri(flowUri).path) {
           const updatedDiagram = await readJson<Diagram>(getDiagramUri(flowUri));
           currentDiagram = updatedDiagram;
+          diagram = await readJson<Diagram>(getDiagramUri(flowUri));
           panel.webview.postMessage({
             type: 'diagram:update',
-            diagram: updatedDiagram
+            diagram
           });
         }
       } catch (error) {
@@ -236,13 +303,13 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
 }
 
 class FlowEditorProvider implements vscode.CustomTextEditorProvider {
-  constructor(private context: vscode.ExtensionContext) {}
+  constructor(private context: vscode.ExtensionContext, private diagnosticsProvider: FlowDiagnosticsProvider) {}
 
   async resolveCustomTextEditor(
     document: vscode.TextDocument,
     webviewPanel: vscode.WebviewPanel
   ): Promise<void> {
-    await openFlowEditor(document.uri, this.context);
+    await openFlowEditor(document.uri, this.context, this.diagnosticsProvider);
   }
 }
 
@@ -263,7 +330,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Register custom editor provider
-  const customEditorProvider = new FlowEditorProvider(context);
+  const customEditorProvider = new FlowEditorProvider(context, diagnosticsProvider);
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(
       'flowEditor.canvas',
@@ -289,7 +356,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (!flowUri) return;
 
-      await openFlowEditor(flowUri, context);
+      await openFlowEditor(flowUri, context, diagnosticsProvider);
     }
   );
 
