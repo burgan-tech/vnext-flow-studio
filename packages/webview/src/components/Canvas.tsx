@@ -17,10 +17,12 @@ import {
   OnEdgesChange,
   MarkerType,
   XYPosition,
-  ReactFlowInstance
+  ReactFlowInstance,
+  OnSelectionChangeParams
 } from '@xyflow/react';
 import { StateNode } from './nodes/StateNode';
 import { EventNode } from './nodes/EventNode';
+import { PropertyPanel, type PropertySelection } from './PropertyPanel';
 import { useBridge } from '../hooks/useBridge';
 import type {
   Workflow,
@@ -76,6 +78,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [workflow, setWorkflow] = useState<Workflow | null>(initialWorkflow || null);
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
+  const [selection, setSelection] = useState<PropertySelection>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
 
   const stateTemplates = useMemo<StateTemplate[]>(() => ([
@@ -153,7 +156,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     // Update diagram when nodes are moved
     const positionChanges = changes.filter(
       (change): change is NodeChange & { type: 'position' } =>
-        change.type === 'position' && change.position && !change.dragging
+        change.type === 'position' && change.position && change.dragging !== true
     );
 
     if (positionChanges.length > 0) {
@@ -229,8 +232,62 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     });
   }, [postMessage]);
 
+  const onSelectionChange = useCallback(
+    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+      if (!workflow) {
+        setSelection(null);
+        return;
+      }
+
+      const firstNode = selectedNodes[0];
+      if (firstNode && workflow.attributes.states.some((state) => state.key === firstNode.id)) {
+        setSelection({ kind: 'state', stateKey: firstNode.id });
+        return;
+      }
+
+      const firstEdge = selectedEdges[0];
+      if (firstEdge) {
+        const match = /^t:local:([^:]+):(.+)$/.exec(firstEdge.id);
+        if (match) {
+          setSelection({ kind: 'transition', from: match[1], transitionKey: match[2] });
+          return;
+        }
+      }
+
+      setSelection(null);
+    },
+    [workflow]
+  );
+
+  useEffect(() => {
+    if (!workflow) {
+      setSelection(null);
+      return;
+    }
+
+    setSelection((current) => {
+      if (!current) return current;
+      if (current.kind === 'state') {
+        return workflow.attributes.states.some((state) => state.key === current.stateKey)
+          ? current
+          : null;
+      }
+
+      if (current.kind === 'transition') {
+        const fromState = workflow.attributes.states.find((state) => state.key === current.from);
+        if (!fromState || !fromState.transitions) return null;
+        return fromState.transitions.some((transition) => transition.key === current.transitionKey)
+          ? current
+          : null;
+      }
+
+      return null;
+    });
+  }, [workflow]);
+
   // Prevent connections from final states
-  const isValidConnection = useCallback((connection: Connection) => {
+  const isValidConnection = useCallback((edge: Edge | Connection) => {
+    const connection = 'sourceHandle' in edge ? edge as Connection : edge as Connection;
     if (!connection.source || !workflow) return true;
 
     // Find source node
@@ -408,60 +465,66 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   }
 
   return (
-    <div className="flow-canvas" style={{ height: '100vh' }}>
-      <div className="flow-canvas__toolbar" role="toolbar" aria-label="Add new state">
-        {stateTemplates.map((template) => {
-          const stateClass = getToolbarStateClass(template.type);
-          const isEvent = template.type === 1 || template.type === 3;
-          const isFinal = template.type === 3;
-          const isSubflow = template.type === 4;
+    <div className="canvas-shell">
+      <div className="canvas-shell__flow">
+        <div className="flow-canvas" style={{ height: '100vh' }}>
+          <div className="flow-canvas__toolbar" role="toolbar" aria-label="Add new state">
+            {stateTemplates.map((template) => {
+              const stateClass = getToolbarStateClass(template.type);
+              const isEvent = template.type === 1 || template.type === 3;
+              const isFinal = template.type === 3;
+              const isSubflow = template.type === 4;
 
-          return (
-            <button
-              key={`${template.type}-${template.stateSubType ?? 'default'}`}
-              type="button"
-              className="flow-canvas__palette-item"
-              onClick={() => handleAddState(template)}
-              onDragStart={(event) => handleDragStart(event, template)}
-              draggable
-              title={template.description}
-            >
-              <span
-                className={`flow-canvas__palette-preview ${stateClass} ${
-                  isEvent ? 'flow-canvas__palette-preview--event' : 'flow-canvas__palette-preview--activity'
-                }`}
-              >
-                <span className="flow-canvas__palette-shape" aria-hidden="true" />
-                {isFinal && <span className="flow-canvas__palette-ring" aria-hidden="true" />}
-                {isSubflow && <span className="flow-canvas__palette-marker" aria-hidden="true" />}
-              </span>
-              <span className="flow-canvas__palette-label">{template.label}</span>
-            </button>
-          );
-        })}
+              return (
+                <button
+                  key={`${template.type}-${template.stateSubType ?? 'default'}`}
+                  type="button"
+                  className="flow-canvas__palette-item"
+                  onClick={() => handleAddState(template)}
+                  onDragStart={(event) => handleDragStart(event, template)}
+                  draggable
+                  title={template.description}
+                >
+                  <span
+                    className={`flow-canvas__palette-preview ${stateClass} ${
+                      isEvent ? 'flow-canvas__palette-preview--event' : 'flow-canvas__palette-preview--activity'
+                    }`}
+                  >
+                    <span className="flow-canvas__palette-shape" aria-hidden="true" />
+                    {isFinal && <span className="flow-canvas__palette-ring" aria-hidden="true" />}
+                    {isSubflow && <span className="flow-canvas__palette-marker" aria-hidden="true" />}
+                  </span>
+                  <span className="flow-canvas__palette-label">{template.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onReconnect={onReconnect}
+            onEdgesDelete={onEdgesDelete}
+            onSelectionChange={onSelectionChange}
+            nodeTypes={nodeTypes}
+            isValidConnection={isValidConnection}
+            edgesReconnectable
+            defaultEdgeOptions={defaultEdgeOptions}
+            defaultMarkerColor="#334155"
+            fitView
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            onInit={setReactFlowInstance}
+            onDrop={onDropCanvas}
+            onDragOver={onDragOverCanvas}
+          >
+            <Background />
+            <Controls />
+          </ReactFlow>
+        </div>
       </div>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onReconnect={onReconnect}
-        onEdgesDelete={onEdgesDelete}
-        nodeTypes={nodeTypes}
-        isValidConnection={isValidConnection}
-        edgesReconnectable
-        defaultEdgeOptions={defaultEdgeOptions}
-        defaultMarkerColor="#334155"
-        fitView
-        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-        onInit={setReactFlowInstance}
-        onDrop={onDropCanvas}
-        onDragOver={onDragOverCanvas}
-      >
-        <Background />
-        <Controls />
-      </ReactFlow>
+      <PropertyPanel workflow={workflow} selection={selection} />
     </div>
   );
 }

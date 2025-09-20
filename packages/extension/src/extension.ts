@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { toReactFlow, lint } from '@nextcredit/core';
-import type { Workflow, Diagram } from '@nextcredit/core';
+import type { Workflow, Diagram, MsgFromWebview } from '@nextcredit/core';
 import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics';
 import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';
@@ -21,7 +21,7 @@ function getDiagramUri(flowUri: vscode.Uri): vscode.Uri {
   });
 }
 
-async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionContext) {
+async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionContext, diagnosticsProvider: FlowDiagnosticsProvider) {
   try {
     // Create webview panel
     const panel = vscode.window.createWebviewPanel(
@@ -72,34 +72,40 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     }
 
     // Load workflow and diagram
+    let currentWorkflow = await readJson<Workflow>(flowUri);
+    let currentDiagram: Diagram;
     let workflow = await readJson<Workflow>(flowUri);
     let diagram: Diagram;
 
     try {
-      diagram = await readJson<Diagram>(getDiagramUri(flowUri));
+      currentDiagram = await readJson<Diagram>(getDiagramUri(flowUri));
     } catch {
-      diagram = { nodePos: {} };
+      currentDiagram = { nodePos: {} };
     }
 
     // Convert to React Flow format
-    const derived = toReactFlow(workflow, diagram, 'en');
-    const problemsById = lint(workflow);
+    const derived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+    const problemsById = lint(currentWorkflow);
+
+    // Update VS Code diagnostics
+    diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow);
 
     // Send initial data to webview
     panel.webview.postMessage({
       type: 'init',
-      workflow,
-      diagram,
+      workflow: currentWorkflow,
+      diagram: currentDiagram,
       derived,
       problemsById
     });
 
     // Handle messages from webview
-    panel.webview.onDidReceiveMessage(async (message: any) => {
+    panel.webview.onDidReceiveMessage(async (message: MsgFromWebview) => {
       try {
         switch (message.type) {
           case 'persist:diagram':
-            await writeJson(getDiagramUri(flowUri), message.diagram);
+            currentDiagram = message.diagram;
+            await writeJson(getDiagramUri(flowUri), currentDiagram);
             break;
 
           case 'domain:setStart':
@@ -121,6 +127,61 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             // TODO: Implement domain mutations
             console.log('TODO: Remove transition', message);
             break;
+
+          case 'domain:updateState': {
+            const { stateKey, state } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+            const stateIndex = updatedWorkflow.attributes.states.findIndex((item) => item.key === stateKey);
+
+            if (stateIndex === -1) {
+              vscode.window.showWarningMessage(`State ${stateKey} could not be found in the workflow.`);
+              break;
+            }
+
+            updatedWorkflow.attributes.states[stateIndex] = state;
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            break;
+          }
+
+          case 'domain:updateTransition': {
+            const { from, transitionKey, transition } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+            const state = updatedWorkflow.attributes.states.find((item) => item.key === from);
+
+            if (!state) {
+              vscode.window.showWarningMessage(`State ${from} could not be found in the workflow.`);
+              break;
+            }
+
+            const transitions = [...(state.transitions ?? [])];
+            const transitionIndex = transitions.findIndex((item) => item.key === transitionKey);
+
+            if (transitionIndex === -1) {
+              vscode.window.showWarningMessage(`Transition ${transitionKey} was not found for state ${from}.`);
+              break;
+            }
+
+            transitions[transitionIndex] = { ...transition, from };
+            state.transitions = transitions;
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            break;
+          }
 
           case 'domain:addState':
             {
@@ -153,6 +214,9 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               const derived = toReactFlow(workflow, diagram, 'en');
               const problemsById = lint(workflow);
 
+              // Update VS Code diagnostics
+              diagnosticsProvider.updateDiagnostics(flowUri, workflow);
+
               panel.webview.postMessage({
                 type: 'workflow:update',
                 workflow,
@@ -172,7 +236,9 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             break;
 
           case 'request:lint':
-            const updatedProblems = lint(workflow);
+            const updatedProblems = lint(currentWorkflow);
+            // Update VS Code diagnostics
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow);
             panel.webview.postMessage({
               type: 'lint:update',
               problemsById: updatedProblems
@@ -195,19 +261,24 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     watcher.onDidChange(async (changedUri) => {
       try {
         if (changedUri.path === flowUri.path) {
-          workflow = await readJson<Workflow>(flowUri);
-          const updatedDerived = toReactFlow(workflow, diagram, 'en');
+          const updatedWorkflow = await readJson<Workflow>(flowUri);
+          currentWorkflow = updatedWorkflow;
+          const updatedDerived = toReactFlow(updatedWorkflow, currentDiagram, 'en');
           panel.webview.postMessage({
             type: 'workflow:update',
             workflow,
             derived: updatedDerived
           });
           const updatedProblems = lint(workflow);
+          // Update VS Code diagnostics
+          diagnosticsProvider.updateDiagnostics(flowUri, workflow);
           panel.webview.postMessage({
             type: 'lint:update',
             problemsById: updatedProblems
           });
         } else if (changedUri.path === getDiagramUri(flowUri).path) {
+          const updatedDiagram = await readJson<Diagram>(getDiagramUri(flowUri));
+          currentDiagram = updatedDiagram;
           diagram = await readJson<Diagram>(getDiagramUri(flowUri));
           panel.webview.postMessage({
             type: 'diagram:update',
@@ -232,13 +303,13 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
 }
 
 class FlowEditorProvider implements vscode.CustomTextEditorProvider {
-  constructor(private context: vscode.ExtensionContext) {}
+  constructor(private context: vscode.ExtensionContext, private diagnosticsProvider: FlowDiagnosticsProvider) {}
 
   async resolveCustomTextEditor(
     document: vscode.TextDocument,
     webviewPanel: vscode.WebviewPanel
   ): Promise<void> {
-    await openFlowEditor(document.uri, this.context);
+    await openFlowEditor(document.uri, this.context, this.diagnosticsProvider);
   }
 }
 
@@ -259,7 +330,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Register custom editor provider
-  const customEditorProvider = new FlowEditorProvider(context);
+  const customEditorProvider = new FlowEditorProvider(context, diagnosticsProvider);
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(
       'flowEditor.canvas',
@@ -285,7 +356,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (!flowUri) return;
 
-      await openFlowEditor(flowUri, context);
+      await openFlowEditor(flowUri, context, diagnosticsProvider);
     }
   );
 
