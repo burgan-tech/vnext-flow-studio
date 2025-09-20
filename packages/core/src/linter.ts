@@ -16,6 +16,35 @@ export function lint(workflow: Workflow): Record<string, Problem[]> {
     (problems[ownerId] ||= []).push(p);
   };
 
+  const stateKeys = new Set<string>();
+  const duplicateStateKeys = new Set<string>();
+  const transitionKeys = new Set<string>();
+  const duplicateTransitionKeys = new Set<string>();
+
+  const registerTransitionKey = (key?: string | null) => {
+    if (!key) {
+      return;
+    }
+
+    if (transitionKeys.has(key)) {
+      duplicateTransitionKeys.add(key);
+    } else {
+      transitionKeys.add(key);
+    }
+  };
+
+  for (const state of workflow.attributes.states) {
+    if (stateKeys.has(state.key)) {
+      duplicateStateKeys.add(state.key);
+    }
+
+    stateKeys.add(state.key);
+
+    for (const transition of (state.transitions || [])) {
+      registerTransitionKey(transition.key);
+    }
+  }
+
   // Schema validation
   if (!validateWorkflow(workflow)) {
     for (const error of (validateWorkflow.errors || [])) {
@@ -29,15 +58,18 @@ export function lint(workflow: Workflow): Record<string, Problem[]> {
   }
 
   // Referential integrity checks
-  const stateKeys = new Set(workflow.attributes.states.map(s => s.key));
-
   // Check startTransition target
-  if (workflow.attributes.startTransition && !stateKeys.has(workflow.attributes.startTransition.target)) {
-    push('__start__', {
-      id: 'E_START_TARGET',
-      severity: 'error',
-      message: `startTransition.target '${workflow.attributes.startTransition.target}' not found`
-    });
+  if (workflow.attributes.startTransition) {
+    const startTransition = workflow.attributes.startTransition;
+    registerTransitionKey(startTransition.key);
+
+    if (!stateKeys.has(startTransition.target)) {
+      push('__start__', {
+        id: 'E_START_TARGET',
+        severity: 'error',
+        message: `startTransition.target '${startTransition.target}' not found`
+      });
+    }
   }
 
   // Check timeout target
@@ -126,6 +158,8 @@ export function lint(workflow: Workflow): Record<string, Problem[]> {
 
   // Check shared transitions
   for (const sharedTransition of (workflow.attributes.sharedTransitions || [])) {
+    registerTransitionKey(sharedTransition.key);
+
     if (!stateKeys.has(sharedTransition.target)) {
       push('__shared__', {
         id: 'E_BAD_TARGET',
@@ -143,6 +177,22 @@ export function lint(workflow: Workflow): Record<string, Problem[]> {
         });
       }
     }
+  }
+
+  for (const duplicateKey of duplicateStateKeys) {
+    push('__states__', {
+      id: 'E_DUP_STATE_KEY',
+      severity: 'error',
+      message: `state key '${duplicateKey}' is duplicated`
+    });
+  }
+
+  for (const duplicateKey of duplicateTransitionKeys) {
+    push('__transitions__', {
+      id: 'E_DUP_TRANSITION_KEY',
+      severity: 'error',
+      message: `transition key '${duplicateKey}' is duplicated`
+    });
   }
 
   return problems;
