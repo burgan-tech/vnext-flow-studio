@@ -18,11 +18,13 @@ import {
   MarkerType
 } from '@xyflow/react';
 import { StateNode } from './nodes/StateNode';
+import { EventNode } from './nodes/EventNode';
 import { useBridge } from '../hooks/useBridge';
 import type { Workflow, Diagram, MsgToWebview } from '@nextcredit/core';
 
 const nodeTypes = {
-  default: StateNode
+  default: StateNode,
+  event: EventNode
 };
 
 const triggerClassMap: Record<number, string> = {

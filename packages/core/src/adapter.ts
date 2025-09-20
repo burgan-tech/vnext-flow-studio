@@ -35,10 +35,10 @@ export function toReactFlow(
   if (workflow.attributes.startTransition) {
     nodes.push({
       id: START_NODE_ID,
-      type: 'input',
+      type: 'event',
       position: { x: 0, y: 0 },
-      data: { label: 'Start' },
-      draggable: false,
+      data: { label: 'Start', variant: 'start' as const },
+      draggable: true,
       selectable: false,
       sourcePosition: 'right',
       targetPosition: 'left'
@@ -48,10 +48,10 @@ export function toReactFlow(
   if (workflow.attributes.timeout) {
     nodes.push({
       id: TIMEOUT_NODE_ID,
-      type: 'input',
+      type: 'event',
       position: { x: -120, y: 0 },
-      data: { label: 'Timeout' },
-      draggable: false,
+      data: { label: 'Timeout', variant: 'timeout' as const },
+      draggable: true,
       selectable: false,
       sourcePosition: 'right',
       targetPosition: 'left'

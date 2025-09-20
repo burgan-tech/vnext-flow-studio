@@ -49,7 +49,7 @@ export function StateNode({ data, selected }: StateNodeProps) {
   const isEventType = stateType === 1 || stateType === 3;
   const isSubFlow = stateType === 4;
 
-  const canHaveIncoming = stateType !== 1; // Not initial
+  const canHaveIncoming = true // stateType !== 1; // Not initial
   const canHaveOutgoing = stateType !== 3; // Not final
 
   const classNames = [
