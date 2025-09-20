@@ -15,7 +15,9 @@ import {
   OnReconnect,
   OnNodesChange,
   OnEdgesChange,
-  MarkerType
+  MarkerType,
+  XYPosition,
+  ReactFlowInstance
 } from '@xyflow/react';
 import { StateNode } from './nodes/StateNode';
 import { EventNode } from './nodes/EventNode';
@@ -74,6 +76,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [workflow, setWorkflow] = useState<Workflow | null>(initialWorkflow || null);
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
 
   const stateTemplates = useMemo<StateTemplate[]>(() => ([
     {
@@ -239,7 +242,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     return true;
   }, [nodes, workflow]);
 
-  const handleAddState = useCallback((template: StateTemplate) => {
+  const handleAddState = useCallback((template: StateTemplate, positionOverride?: XYPosition) => {
     if (!workflow) {
       return;
     }
@@ -293,10 +296,11 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     const stateIndex = workflow.attributes.states.length;
     const column = stateIndex % 4;
     const row = Math.floor(stateIndex / 4);
-    const position = {
+    const fallbackPosition: XYPosition = {
       x: 200 + column * 220,
       y: 120 + row * 160
     };
+    const position = positionOverride ?? fallbackPosition;
 
     const newDiagram = {
       ...diagram,
@@ -334,6 +338,67 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     });
   }, [diagram, postMessage, workflow]);
 
+  const handleDragStart = useCallback((event: React.DragEvent, template: StateTemplate) => {
+    event.dataTransfer.setData(
+      'application/reactflow',
+      JSON.stringify({ type: template.type, stateSubType: template.stateSubType ?? null })
+    );
+    event.dataTransfer.effectAllowed = 'copy';
+  }, []);
+
+  const onDragOverCanvas = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const onDropCanvas = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+
+    if (!reactFlowInstance) {
+      return;
+    }
+
+    const raw = event.dataTransfer.getData('application/reactflow');
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const payload = JSON.parse(raw) as { type: StateType; stateSubType: StateSubType | null };
+      const template = stateTemplates.find((candidate) =>
+        candidate.type === payload.type && (candidate.stateSubType ?? null) === payload.stateSubType
+      );
+
+      if (!template) {
+        return;
+      }
+
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY
+      });
+
+      handleAddState(template, position);
+    } catch (error) {
+      console.warn('Failed to parse drag payload', error);
+    }
+  }, [handleAddState, reactFlowInstance, stateTemplates]);
+
+  const getToolbarStateClass = useCallback((type: StateType) => {
+    switch (type) {
+      case 1:
+        return 'state-node--initial';
+      case 2:
+        return 'state-node--intermediate';
+      case 3:
+        return 'state-node--final';
+      case 4:
+        return 'state-node--subflow';
+      default:
+        return '';
+    }
+  }, []);
+
   if (!workflow) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -345,20 +410,35 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   return (
     <div className="flow-canvas" style={{ height: '100vh' }}>
       <div className="flow-canvas__toolbar" role="toolbar" aria-label="Add new state">
-        <div className="flow-canvas__toolbar-heading">New state</div>
-        <div className="flow-canvas__toolbar-buttons">
-          {stateTemplates.map((template) => (
+        {stateTemplates.map((template) => {
+          const stateClass = getToolbarStateClass(template.type);
+          const isEvent = template.type === 1 || template.type === 3;
+          const isFinal = template.type === 3;
+          const isSubflow = template.type === 4;
+
+          return (
             <button
               key={`${template.type}-${template.stateSubType ?? 'default'}`}
               type="button"
-              className="flow-canvas__toolbar-button"
+              className="flow-canvas__palette-item"
               onClick={() => handleAddState(template)}
+              onDragStart={(event) => handleDragStart(event, template)}
+              draggable
+              title={template.description}
             >
-              <span className="flow-canvas__toolbar-button-label">{template.label}</span>
-              <span className="flow-canvas__toolbar-button-desc">{template.description}</span>
+              <span
+                className={`flow-canvas__palette-preview ${stateClass} ${
+                  isEvent ? 'flow-canvas__palette-preview--event' : 'flow-canvas__palette-preview--activity'
+                }`}
+              >
+                <span className="flow-canvas__palette-shape" aria-hidden="true" />
+                {isFinal && <span className="flow-canvas__palette-ring" aria-hidden="true" />}
+                {isSubflow && <span className="flow-canvas__palette-marker" aria-hidden="true" />}
+              </span>
+              <span className="flow-canvas__palette-label">{template.label}</span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
       <ReactFlow
         nodes={nodes}
@@ -375,6 +455,9 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
         defaultMarkerColor="#334155"
         fitView
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        onInit={setReactFlowInstance}
+        onDrop={onDropCanvas}
+        onDragOver={onDragOverCanvas}
       >
         <Background />
         <Controls />

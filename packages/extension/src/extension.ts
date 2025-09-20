@@ -72,7 +72,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     }
 
     // Load workflow and diagram
-    const workflow = await readJson<Workflow>(flowUri);
+    let workflow = await readJson<Workflow>(flowUri);
     let diagram: Diagram;
 
     try {
@@ -123,8 +123,52 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             break;
 
           case 'domain:addState':
-            // TODO: Implement domain mutations
-            console.log('TODO: Add state', message.state, 'at', message.position);
+            {
+              const { state, position } = message;
+
+              const existingIndex = workflow.attributes.states.findIndex((item) => item.key === state.key);
+              const nextStates = existingIndex === -1
+                ? [...workflow.attributes.states, state]
+                : workflow.attributes.states.map((item, index) => (index === existingIndex ? state : item));
+
+              workflow = {
+                ...workflow,
+                attributes: {
+                  ...workflow.attributes,
+                  states: nextStates
+                }
+              };
+
+              diagram = {
+                ...diagram,
+                nodePos: {
+                  ...diagram.nodePos,
+                  [state.key]: position
+                }
+              };
+
+              await writeJson(flowUri, workflow);
+              await writeJson(getDiagramUri(flowUri), diagram);
+
+              const derived = toReactFlow(workflow, diagram, 'en');
+              const problemsById = lint(workflow);
+
+              panel.webview.postMessage({
+                type: 'workflow:update',
+                workflow,
+                derived
+              });
+
+              panel.webview.postMessage({
+                type: 'diagram:update',
+                diagram
+              });
+
+              panel.webview.postMessage({
+                type: 'lint:update',
+                problemsById
+              });
+            }
             break;
 
           case 'request:lint':
@@ -151,18 +195,23 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     watcher.onDidChange(async (changedUri) => {
       try {
         if (changedUri.path === flowUri.path) {
-          const updatedWorkflow = await readJson<Workflow>(flowUri);
-          const updatedDerived = toReactFlow(updatedWorkflow, diagram, 'en');
+          workflow = await readJson<Workflow>(flowUri);
+          const updatedDerived = toReactFlow(workflow, diagram, 'en');
           panel.webview.postMessage({
             type: 'workflow:update',
-            workflow: updatedWorkflow,
+            workflow,
             derived: updatedDerived
           });
+          const updatedProblems = lint(workflow);
+          panel.webview.postMessage({
+            type: 'lint:update',
+            problemsById: updatedProblems
+          });
         } else if (changedUri.path === getDiagramUri(flowUri).path) {
-          const updatedDiagram = await readJson<Diagram>(getDiagramUri(flowUri));
+          diagram = await readJson<Diagram>(getDiagramUri(flowUri));
           panel.webview.postMessage({
             type: 'diagram:update',
-            diagram: updatedDiagram
+            diagram
           });
         }
       } catch (error) {
