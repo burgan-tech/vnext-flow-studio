@@ -105,11 +105,12 @@
   border-radius: 16px;
   min-width: 140px;
   text-align: center;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .state-node:hover {
-  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-color: #3b82f6;
 }
 
 .state-node.selected {
