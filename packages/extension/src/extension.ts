@@ -115,6 +115,13 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       tasks: currentTasks
     });
 
+    // Utility function to generate unique transition keys
+    const generateTransitionKey = (stateKey: string, targetKey: string): string => {
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(7);
+      return `t_${stateKey}_${targetKey}_${timestamp}_${random}`;
+    };
+
     // Handle messages from webview
     panel.webview.onDidReceiveMessage(async (message: MsgFromWebview) => {
       try {
@@ -124,25 +131,204 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             await writeJson(diagramUri, currentDiagram);
             break;
 
-          case 'domain:setStart':
-            // TODO: Implement domain mutations
-            console.log('TODO: Set start transition target to', message.target);
-            break;
+          case 'domain:setStart': {
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
 
-          case 'domain:addTransition':
-            // TODO: Implement domain mutations
-            console.log('TODO: Add transition from', message.from, 'to', message.target);
-            break;
+            // Create or update start transition
+            updatedWorkflow.attributes.startTransition = {
+              key: 'start',
+              target: message.target,
+              versionStrategy: 'Major',
+              triggerType: 1 // Automatic
+            };
 
-          case 'domain:moveTransition':
-            // TODO: Implement domain mutations
-            console.log('TODO: Move transition', message);
-            break;
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
 
-          case 'domain:removeTransition':
-            // TODO: Implement domain mutations
-            console.log('TODO: Remove transition', message);
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
             break;
+          }
+
+          case 'domain:addTransition': {
+            const { from, target, triggerType = 1 } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+
+            // Find the source state
+            const sourceState = updatedWorkflow.attributes.states.find(s => s.key === from);
+            if (!sourceState) {
+              vscode.window.showWarningMessage(`Source state ${from} not found`);
+              break;
+            }
+
+            // Initialize transitions array if needed
+            if (!sourceState.transitions) {
+              sourceState.transitions = [];
+            }
+
+            // Check for duplicate transition
+            const existingTransition = sourceState.transitions.find(t => t.target === target);
+            if (existingTransition) {
+              vscode.window.showInformationMessage(`A transition from ${from} to ${target} already exists`);
+              break;
+            }
+
+            // Create new transition
+            const newTransition = {
+              key: generateTransitionKey(from, target),
+              from,
+              target,
+              versionStrategy: 'Major' as const,
+              triggerType
+            };
+
+            // Add the transition
+            sourceState.transitions.push(newTransition);
+
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
+
+          case 'domain:moveTransition': {
+            const { oldFrom, tKey, newFrom, newTarget } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+
+            // Find the old source state
+            const oldSourceState = updatedWorkflow.attributes.states.find(s => s.key === oldFrom);
+            if (!oldSourceState) {
+              vscode.window.showWarningMessage(`Old source state ${oldFrom} not found`);
+              break;
+            }
+
+            // Find the transition to move
+            const transitionIndex = oldSourceState.transitions?.findIndex(t => t.key === tKey) ?? -1;
+            if (transitionIndex === -1) {
+              vscode.window.showWarningMessage(`Transition ${tKey} not found in state ${oldFrom}`);
+              break;
+            }
+
+            // Get the transition
+            const transition = oldSourceState.transitions![transitionIndex];
+
+            // Remove from old source
+            oldSourceState.transitions!.splice(transitionIndex, 1);
+
+            // If old state has no more transitions, delete the array
+            if (oldSourceState.transitions!.length === 0) {
+              delete oldSourceState.transitions;
+            }
+
+            // Find or create new source state
+            const newSourceState = updatedWorkflow.attributes.states.find(s => s.key === newFrom);
+            if (!newSourceState) {
+              vscode.window.showWarningMessage(`New source state ${newFrom} not found`);
+              break;
+            }
+
+            // Initialize transitions if needed
+            if (!newSourceState.transitions) {
+              newSourceState.transitions = [];
+            }
+
+            // Update transition properties
+            transition.from = newFrom;
+            transition.target = newTarget;
+
+            // Add to new source
+            newSourceState.transitions.push(transition);
+
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
+
+          case 'domain:removeTransition': {
+            const { from, tKey } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+
+            // Find the source state
+            const sourceState = updatedWorkflow.attributes.states.find(s => s.key === from);
+            if (!sourceState) {
+              vscode.window.showWarningMessage(`Source state ${from} not found`);
+              break;
+            }
+
+            // Find and remove the transition
+            if (sourceState.transitions) {
+              const transitionIndex = sourceState.transitions.findIndex(t => t.key === tKey);
+
+              if (transitionIndex === -1) {
+                vscode.window.showWarningMessage(`Transition ${tKey} not found in state ${from}`);
+                break;
+              }
+
+              // Remove the transition
+              sourceState.transitions.splice(transitionIndex, 1);
+
+              // If no more transitions, delete the array
+              if (sourceState.transitions.length === 0) {
+                delete sourceState.transitions;
+              }
+            }
+
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
 
           case 'domain:updateState': {
             const { stateKey, state } = message;

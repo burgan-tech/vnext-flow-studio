@@ -18,7 +18,8 @@ import {
   MarkerType,
   XYPosition,
   ReactFlowInstance,
-  OnSelectionChangeParams
+  OnSelectionChangeParams,
+  Position
 } from '@xyflow/react';
 import { StateNode } from './nodes/StateNode';
 import { EventNode } from './nodes/EventNode';
@@ -316,19 +317,46 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     selectionRef.current = next;
   }, [workflow]);
 
-  // Prevent connections from final states
+  // Validate connections
   const isValidConnection = useCallback((edge: Edge | Connection) => {
     const connection = 'sourceHandle' in edge ? edge as Connection : edge as Connection;
-    if (!connection.source || !workflow) return true;
+    if (!connection.source || !connection.target || !workflow) return true;
 
-    // Find source node
-    const sourceNode = nodes.find(n => n.id === connection.source);
-    if (sourceNode?.data?.stateType === 3) { // Final state
+    // Prevent self-connections
+    if (connection.source === connection.target) {
       return false;
     }
 
+    // Find source node
+    const sourceNode = nodes.find(n => n.id === connection.source);
+
+    // Prevent connections from final states (stateType === 3)
+    if (sourceNode?.data?.stateType === 3) {
+      return false;
+    }
+
+    // Check for duplicate connections
+    const isDuplicate = edges.some(existingEdge =>
+      existingEdge.source === connection.source &&
+      existingEdge.target === connection.target &&
+      existingEdge.id !== (edge as Edge).id // Allow reconnecting existing edges
+    );
+
+    if (isDuplicate) {
+      return false;
+    }
+
+    // Special handling for start node
+    if (connection.source === 'start') {
+      // Start node can only have one outgoing connection
+      const hasExistingStartConnection = edges.some(e => e.source === 'start');
+      if (hasExistingStartConnection && !(edge as Edge).id) {
+        return false;
+      }
+    }
+
     return true;
-  }, [nodes, workflow]);
+  }, [nodes, edges, workflow]);
 
   const handleAddState = useCallback((template: StateTemplate, positionOverride?: XYPosition) => {
     if (!workflow) {
@@ -409,8 +437,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
         stateSubType: newState.stateSubType
       },
       type: 'default',
-      sourcePosition: 'right',
-      targetPosition: 'left',
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
       selected: true
     };
 
@@ -477,7 +505,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     setContextMenu({ x: event.clientX, y: event.clientY });
   }, []);
 
-  const handlePaneClick = useCallback(() => {
+  const handlePaneClick = useCallback((_event: MouseEvent | React.MouseEvent) => {
     setContextMenu(null);
     setSelection(null);
     selectionRef.current = null;
