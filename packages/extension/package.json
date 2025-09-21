@@ -37,14 +37,14 @@
     "menus": {
       "explorer/context": [
         {
-          "when": "resourceExtname == .json && resourceFilename =~ /\\.flow\\.json$/",
+          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceDirname =~ /(^|\\\\|\/)workflows(\\\\|\/|$)/)",
           "command": "flowEditor.open",
           "group": "navigation"
         }
       ],
       "editor/title": [
         {
-          "when": "resourceExtname == .json && resourceFilename =~ /\\.flow\\.json$/",
+          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceDirname =~ /(^|\\\\|\/)workflows(\\\\|\/|$)/)",
           "command": "flowEditor.open",
           "group": "navigation"
         }
@@ -57,6 +57,9 @@
         "selector": [
           {
             "filenamePattern": "*.flow.json"
+          },
+          {
+            "filenamePattern": "**/workflows/**/*.json"
           }
         ],
         "priority": "option"
@@ -64,7 +67,7 @@
     ],
     "jsonValidation": [
       {
-        "fileMatch": ["**/*.flow.json"],
+        "fileMatch": ["**/*.flow.json", "**/workflows/**/*.json"],
         "url": "./schemas/workflow-definition.schema.json"
       }
     ]
