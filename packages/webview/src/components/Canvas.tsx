@@ -83,7 +83,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [selection, setSelection] = useState<PropertySelection>(null);
   const selectionRef = useRef<PropertySelection>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string } | null>(null);
   const [taskCatalog, setTaskCatalog] = useState<TaskDefinition[]>([]);
 
   const stateTemplates = useMemo<StateTemplate[]>(() => ([
@@ -486,6 +486,14 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     setContextMenu({ x: event.clientX, y: event.clientY });
   }, []);
 
+  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    // Only show context menu for state nodes, not for start/timeout nodes
+    if (node.id !== '__start__' && node.id !== '__timeout__') {
+      setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
+    }
+  }, []);
+
   const handlePaneClick = useCallback((_event: MouseEvent | React.MouseEvent) => {
     setContextMenu(null);
     setSelection(null);
@@ -494,6 +502,11 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
   const handleAutoLayoutRequest = useCallback(() => {
     postMessage({ type: 'request:autoLayout' });
+    setContextMenu(null);
+  }, [postMessage]);
+
+  const handleSetStartNode = useCallback((nodeId: string) => {
+    postMessage({ type: 'domain:setStart', target: nodeId });
     setContextMenu(null);
   }, [postMessage]);
 
@@ -603,6 +616,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             onDrop={onDropCanvas}
             onDragOver={onDragOverCanvas}
             onPaneContextMenu={handlePaneContextMenu}
+            onNodeContextMenu={handleNodeContextMenu}
             onPaneClick={handlePaneClick}
           >
             <Background />
@@ -626,9 +640,21 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           onClick={(event) => event.stopPropagation()}
           onContextMenu={(event) => event.preventDefault()}
         >
-          <button type="button" className="flow-context-menu__item" onClick={handleAutoLayoutRequest}>
-            Auto layout
-          </button>
+          {contextMenu.nodeId ? (
+            <>
+              <button
+                type="button"
+                className="flow-context-menu__item"
+                onClick={() => handleSetStartNode(contextMenu.nodeId!)}
+              >
+                Start from here
+              </button>
+            </>
+          ) : (
+            <button type="button" className="flow-context-menu__item" onClick={handleAutoLayoutRequest}>
+              Auto layout
+            </button>
+          )}
         </div>
       )}
     </div>
