@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { toReactFlow, lint, autoLayout } from '@nextcredit/core';
 import type { Workflow, Diagram, MsgFromWebview, TaskDefinition } from '@nextcredit/core';
 import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics';
@@ -249,6 +250,127 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               });
             }
             break;
+
+          case 'mapping:loadFromFile': {
+            const { stateKey, list, index } = message;
+
+            const picks = await vscode.window.showOpenDialog({
+              canSelectFiles: true,
+              canSelectFolders: false,
+              canSelectMany: false,
+              filters: { CSX: ['csx'] },
+              defaultUri: vscode.Uri.file(path.dirname(flowUri.fsPath))
+            });
+
+            if (!picks || picks.length === 0) {
+              break;
+            }
+
+            const fileUri = picks[0];
+            const bytes = await vscode.workspace.fs.readFile(fileUri);
+            const base64 = Buffer.from(bytes).toString('base64');
+            let rel = path.relative(path.dirname(flowUri.fsPath), fileUri.fsPath);
+            if (!rel.startsWith('.')) {
+              rel = `./${rel}`;
+            }
+
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+            const s = updatedWorkflow.attributes.states.find((st) => st.key === stateKey);
+            if (!s) {
+              vscode.window.showWarningMessage(`State ${stateKey} could not be found in the workflow.`);
+              break;
+            }
+
+            const arrName = list as 'onEntries' | 'onExit' | 'onExecutionTasks';
+            const arr = ((s as any)[arrName] as any[]) ?? [];
+            if (!arr[index]) {
+              vscode.window.showWarningMessage(`Task reference at index ${index} not found in '${arrName}'.`);
+              break;
+            }
+
+            const task = { ...arr[index] } as any;
+            task.mapping = { location: rel, code: base64 };
+            const nextArr = [...arr];
+            nextArr[index] = task;
+            (s as any)[arrName] = nextArr;
+
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
+
+          case 'rule:loadFromFile': {
+            const { from, transitionKey } = message;
+
+            const picks = await vscode.window.showOpenDialog({
+              canSelectFiles: true,
+              canSelectFolders: false,
+              canSelectMany: false,
+              filters: { CSX: ['csx'] },
+              defaultUri: vscode.Uri.file(path.dirname(flowUri.fsPath))
+            });
+
+            if (!picks || picks.length === 0) {
+              break;
+            }
+
+            const fileUri = picks[0];
+            const bytes = await vscode.workspace.fs.readFile(fileUri);
+            const base64 = Buffer.from(bytes).toString('base64');
+            let rel = path.relative(path.dirname(flowUri.fsPath), fileUri.fsPath);
+            if (!rel.startsWith('.')) {
+              rel = `./${rel}`;
+            }
+
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+            const s = updatedWorkflow.attributes.states.find((st) => st.key === from);
+            if (!s) {
+              vscode.window.showWarningMessage(`State ${from} could not be found in the workflow.`);
+              break;
+            }
+
+            const trIndex = (s.transitions || []).findIndex((t) => t.key === transitionKey);
+            if (trIndex === -1) {
+              vscode.window.showWarningMessage(`Transition ${transitionKey} could not be found in state '${from}'.`);
+              break;
+            }
+
+            const tr = { ...(s.transitions as any[])[trIndex] } as any;
+            tr.rule = { location: rel, code: base64 };
+            const nextTransitions = [...(s.transitions as any[])];
+            nextTransitions[trIndex] = tr;
+            s.transitions = nextTransitions as any;
+
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
 
           case 'request:lint': {
             const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });

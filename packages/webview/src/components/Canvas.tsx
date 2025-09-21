@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -80,6 +80,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [workflow, setWorkflow] = useState<Workflow | null>(initialWorkflow || null);
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
   const [selection, setSelection] = useState<PropertySelection>(null);
+  const selectionRef = useRef<PropertySelection>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [taskCatalog, setTaskCatalog] = useState<TaskDefinition[]>([]);
@@ -252,14 +253,22 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
   const onSelectionChange = useCallback(
     ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+      // Preserve last selection when ReactFlow reports an empty selection
+      // (e.g., when the webview loses focus during file pickers).
+      if (selectedNodes.length === 0 && selectedEdges.length === 0) {
+        return;
+      }
       if (!workflow) {
         setSelection(null);
+        selectionRef.current = null;
         return;
       }
 
       const firstNode = selectedNodes[0];
       if (firstNode && workflow.attributes.states.some((state) => state.key === firstNode.id)) {
-        setSelection({ kind: 'state', stateKey: firstNode.id });
+        const nextSel: PropertySelection = { kind: 'state', stateKey: firstNode.id };
+        setSelection(nextSel);
+        selectionRef.current = nextSel;
         return;
       }
 
@@ -267,12 +276,15 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
       if (firstEdge) {
         const match = /^t:local:([^:]+):(.+)$/.exec(firstEdge.id);
         if (match) {
-          setSelection({ kind: 'transition', from: match[1], transitionKey: match[2] });
+          const nextSel: PropertySelection = { kind: 'transition', from: match[1], transitionKey: match[2] };
+          setSelection(nextSel);
+          selectionRef.current = nextSel;
           return;
         }
       }
 
       setSelection(null);
+      selectionRef.current = null;
     },
     [workflow]
   );
@@ -280,27 +292,28 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   useEffect(() => {
     if (!workflow) {
       setSelection(null);
+      selectionRef.current = null;
       return;
     }
 
-    setSelection((current) => {
-      if (!current) return current;
+    const current = selectionRef.current;
+    let next: PropertySelection = null;
+    if (current) {
       if (current.kind === 'state') {
-        return workflow.attributes.states.some((state) => state.key === current.stateKey)
+        next = workflow.attributes.states.some((state) => state.key === current.stateKey)
           ? current
           : null;
-      }
-
-      if (current.kind === 'transition') {
+      } else if (current.kind === 'transition') {
         const fromState = workflow.attributes.states.find((state) => state.key === current.from);
-        if (!fromState || !fromState.transitions) return null;
-        return fromState.transitions.some((transition) => transition.key === current.transitionKey)
-          ? current
-          : null;
+        if (fromState && fromState.transitions) {
+          next = fromState.transitions.some((t) => t.key === current.transitionKey) ? current : null;
+        } else {
+          next = null;
+        }
       }
-
-      return null;
-    });
+    }
+    setSelection(next);
+    selectionRef.current = next;
   }, [workflow]);
 
   // Prevent connections from final states
@@ -466,6 +479,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
   const handlePaneClick = useCallback(() => {
     setContextMenu(null);
+    setSelection(null);
+    selectionRef.current = null;
   }, []);
 
   const handleAutoLayoutRequest = useCallback(() => {

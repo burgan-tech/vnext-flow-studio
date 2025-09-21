@@ -24,4 +24,15 @@ export type MsgFromWebview =
   | { type: 'domain:updateTransition'; from: string; transitionKey: string; transition: Transition }
   | { type: 'domain:addState'; state: State; position: { x: number; y: number } }
   | { type: 'request:lint' }
-  | { type: 'request:autoLayout' };
+  | { type: 'request:autoLayout' }
+  | {
+      type: 'mapping:loadFromFile';
+      stateKey: string;
+      list: 'onEntries' | 'onExit' | 'onExecutionTasks';
+      index: number;
+    }
+  | {
+      type: 'rule:loadFromFile';
+      from: string;
+      transitionKey: string;
+    };

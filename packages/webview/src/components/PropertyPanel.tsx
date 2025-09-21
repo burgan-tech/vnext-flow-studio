@@ -354,9 +354,10 @@ interface ExecutionTaskListEditorProps {
   tasks?: ExecutionTask[];
   onChange: (tasks?: ExecutionTask[]) => void;
   availableTasks: TaskDefinition[];
+  onLoadFromFile?: (index: number) => void;
 }
 
-function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks }: ExecutionTaskListEditorProps) {
+function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks, onLoadFromFile }: ExecutionTaskListEditorProps) {
   const list = tasks ?? [];
 
   const setTasks = (next: ExecutionTask[]) => {
@@ -381,16 +382,20 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks }: Exe
     [availableTasks]
   );
 
+  const canAdd = availableTasks.length > 0;
+
   const handleAdd = () => {
+    if (!canAdd) return;
+    const first = availableTasks[0];
     setTasks([
       ...list,
       {
         order: list.length + 1,
         task: {
-          key: '',
-          domain: '',
+          key: first.key,
+          domain: first.domain,
           flow: 'sys-tasks',
-          version: ''
+          version: first.version
         }
       }
     ]);
@@ -462,12 +467,18 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks }: Exe
     <div className="property-panel__group">
       <div className="property-panel__group-header">
         <span>{title}</span>
-        <button type="button" className="property-panel__pill-button" onClick={handleAdd}>
-          Add task
+        <button
+          type="button"
+          className="property-panel__pill-button"
+          onClick={handleAdd}
+          disabled={!canAdd}
+          title={canAdd ? 'Add a reference to an existing task' : 'No catalog tasks available'}
+        >
+          Add task reference
         </button>
       </div>
       {list.length === 0 ? (
-        <p className="property-panel__muted">No tasks configured.</p>
+        <p className="property-panel__muted">No task references configured.</p>
       ) : (
         <div className="property-panel__list">
           {list.map((task, index) => (
@@ -487,7 +498,7 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks }: Exe
               </label>
               <div className="property-panel__inline-fields">
                 <label className="property-panel__field">
-                  <span>Catalog task</span>
+                  <span>Select task</span>
                   <select
                     value={(() => {
                       const identifier = makeTaskIdentifier(task.task);
@@ -497,7 +508,7 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks }: Exe
                     disabled={taskOptions.length === 0}
                   >
                     <option value="">
-                      {taskOptions.length === 0 ? 'No tasks available' : 'Select task…'}
+                      {taskOptions.length === 0 ? 'No tasks available' : 'Select existing task…'}
                     </option>
                     {taskOptions.map((option) => (
                       <option key={option.id} value={option.id} title={option.detail}>
@@ -506,80 +517,49 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks }: Exe
                     ))}
                   </select>
                 </label>
-                <label className="property-panel__field">
-                  <span>Task key</span>
-                  <input
-                    type="text"
-                    value={task.task.key}
-                    onChange={(event) =>
-                      handleTaskChange(index, (current) => ({
-                        ...current,
-                        task: { ...current.task, key: event.target.value }
-                      }))
-                    }
-                  />
-                </label>
-                <label className="property-panel__field">
-                  <span>Task domain</span>
-                  <input
-                    type="text"
-                    value={task.task.domain}
-                    onChange={(event) =>
-                      handleTaskChange(index, (current) => ({
-                        ...current,
-                        task: { ...current.task, domain: event.target.value }
-                      }))
-                    }
-                  />
-                </label>
-                <label className="property-panel__field">
-                  <span>Task version</span>
-                  <input
-                    type="text"
-                    value={task.task.version}
-                    onChange={(event) =>
-                      handleTaskChange(index, (current) => ({
-                        ...current,
-                        task: { ...current.task, version: event.target.value }
-                      }))
-                    }
-                  />
-                </label>
-                <label className="property-panel__field">
-                  <span>Task flow</span>
-                  <input type="text" value="sys-tasks" readOnly />
-                </label>
               </div>
               {task.mapping ? (
                 <div className="property-panel__nested">
                   <div className="property-panel__group-header">
-                    <span>Mapping</span>
-                    <button
-                      type="button"
-                      className="property-panel__pill-button property-panel__pill-button--ghost"
-                      onClick={() => handleRemoveMapping(index)}
-                    >
-                      Remove mapping
-                    </button>
+                    <span>Mapping reference</span>
+                    <div className="property-panel__group-actions">
+                      <button
+                        type="button"
+                        className="property-panel__pill-button property-panel__pill-button--ghost"
+                        onClick={() => onLoadFromFile?.(index)}
+                        title="Select a .csx file and embed its base64 content"
+                      >
+                        Load from file…
+                      </button>
+                      <button
+                        type="button"
+                        className="property-panel__pill-button property-panel__pill-button--ghost"
+                        onClick={() => handleRemoveMapping(index)}
+                      >
+                        Remove mapping reference
+                      </button>
+                    </div>
                   </div>
                   <div className="property-panel__inline-fields">
                     <label className="property-panel__field">
-                      <span>Location</span>
+                      <span>Location (relative .csx)</span>
                       <input
                         type="text"
                         value={task.mapping.location}
                         onChange={(event) =>
                           handleMappingChange(index, 'location', event.target.value)
                         }
+                        placeholder="./src/MyMapping.csx"
                       />
                     </label>
                     <label className="property-panel__field">
-                      <span>Code</span>
-                      <textarea
-                        value={task.mapping.code}
-                        onChange={(event) =>
-                          handleMappingChange(index, 'code', event.target.value)
-                        }
+                      <span>Code (base64)</span>
+                      <input
+                        type="text"
+                        value={task.mapping.code ? `(${task.mapping.code.length} bytes)` : ''}
+                        readOnly
+                        placeholder="Populated from the .csx file"
+                        title="Base64-encoded content of the referenced .csx file"
                       />
                     </label>
                   </div>
@@ -590,7 +570,7 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks }: Exe
                   className="property-panel__pill-button property-panel__pill-button--ghost"
                   onClick={() => handleAddMapping(index)}
                 >
-                  Add mapping
+                  Add mapping reference
                 </button>
               )}
               <button
@@ -598,7 +578,7 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks }: Exe
                 className="property-panel__list-remove"
                 onClick={() => handleRemove(index)}
               >
-                Remove task
+                Remove reference
               </button>
             </div>
           ))}
@@ -1200,9 +1180,17 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
             />
 
             <ExecutionTaskListEditor
-              title="On entry tasks"
+              title="On entry task references"
               tasks={stateDraft.onEntries}
               availableTasks={availableTasks}
+              onLoadFromFile={(taskIndex) => {
+                postMessage({
+                  type: 'mapping:loadFromFile',
+                  stateKey: stateDraft.key,
+                  list: 'onEntries',
+                  index: taskIndex
+                });
+              }}
               onChange={(tasks) =>
                 setStateDraft((prev) => {
                   if (!prev) return prev;
@@ -1218,9 +1206,17 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
             />
 
             <ExecutionTaskListEditor
-              title="On exit tasks"
+              title="On exit task references"
               tasks={stateDraft.onExit}
               availableTasks={availableTasks}
+              onLoadFromFile={(taskIndex) => {
+                postMessage({
+                  type: 'mapping:loadFromFile',
+                  stateKey: stateDraft.key,
+                  list: 'onExit',
+                  index: taskIndex
+                });
+              }}
               onChange={(tasks) =>
                 setStateDraft((prev) => {
                   if (!prev) return prev;
@@ -1236,9 +1232,17 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
             />
 
             <ExecutionTaskListEditor
-              title="Execution tasks"
+              title="Execution task references"
               tasks={stateDraft.onExecutionTasks}
               availableTasks={availableTasks}
+              onLoadFromFile={(taskIndex) => {
+                postMessage({
+                  type: 'mapping:loadFromFile',
+                  stateKey: stateDraft.key,
+                  list: 'onExecutionTasks',
+                  index: taskIndex
+                });
+              }}
               onChange={(tasks) =>
                 setStateDraft((prev) => {
                   if (!prev) return prev;
@@ -1355,14 +1359,46 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
 
             <div className="property-panel__group">
               <div className="property-panel__group-header">
-                <span>Rule</span>
+                <span>Rule reference</span>
+                <div className="property-panel__group-actions">
+                  <button
+                    type="button"
+                    className="property-panel__pill-button property-panel__pill-button--ghost"
+                    onClick={() =>
+                      selection?.kind === 'transition' &&
+                      postMessage({
+                        type: 'rule:loadFromFile',
+                        from: selection.from,
+                        transitionKey: selection.transitionKey
+                      })
+                    }
+                    title="Select a .csx file and embed its base64 content"
+                  >
+                    Load from file…
+                  </button>
+                  <button
+                    type="button"
+                    className="property-panel__pill-button property-panel__pill-button--ghost"
+                    onClick={() =>
+                      setTransitionDraft((prev) => {
+                        if (!prev) return prev;
+                        const next = { ...prev } as Transition & Record<string, unknown>;
+                        delete next.rule;
+                        return next as Transition;
+                      })
+                    }
+                  >
+                    Remove rule reference
+                  </button>
+                </div>
               </div>
               <div className="property-panel__inline-fields">
                 <label className="property-panel__field">
-                  <span>Location</span>
+                  <span>Location (relative .csx)</span>
                   <input
                     type="text"
                     value={transitionDraft.rule?.location ?? ''}
+                    placeholder="./src/MyCondition.csx"
                     onChange={(event) =>
                       setTransitionDraft((prev) => {
                         if (!prev) return prev;
@@ -1379,22 +1415,16 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
                   />
                 </label>
                 <label className="property-panel__field">
-                  <span>Code</span>
-                  <textarea
-                    value={transitionDraft.rule?.code ?? ''}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) => {
-                        if (!prev) return prev;
-                        const code = event.target.value;
-                        const location = prev.rule?.location ?? '';
-                        if (!code && !location) {
-                          const next = { ...prev } as Transition & Record<string, unknown>;
-                          delete next.rule;
-                          return next as Transition;
-                        }
-                        return { ...prev, rule: { location, code } };
-                      })
-                    }
+                  <span>Code (base64)</span>
+                  <input
+                    type="text"
+                    value={(() => {
+                      const code = transitionDraft.rule?.code ?? '';
+                      return code ? `(${code.length} bytes)` : '';
+                    })()}
+                    readOnly
+                    placeholder="Populated from the .csx file"
+                    title="Base64-encoded content of the referenced .csx file"
                   />
                 </label>
               </div>

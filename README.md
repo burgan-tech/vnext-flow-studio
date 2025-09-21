@@ -1,6 +1,6 @@
-# NextCredit BBT Flow Editor
+# Amorphie Flow Studio
 
-A VS Code extension for editing BBT Workflow Definitions with a visual React Flow canvas.
+A VS Code extension for editing Amorphie Workflow Definitions.
 
 ## Features
 
