@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { FLOW_FILE_GLOBS } from './flowFileUtils';
 
 export function registerCommands(context: vscode.ExtensionContext) {
   // flowEditor.open is registered in extension.ts as it needs context
@@ -13,7 +14,13 @@ export function registerCommands(context: vscode.ExtensionContext) {
         return;
       }
 
-      const flowFiles = await vscode.workspace.findFiles('**/*.flow.json');
+      const searchResults = await Promise.all(
+        FLOW_FILE_GLOBS.map((pattern) => vscode.workspace.findFiles(pattern))
+      );
+
+      const flowFiles = Array.from(
+        new Map(searchResults.flat().map((uri) => [uri.toString(), uri])).values()
+      );
       if (flowFiles.length === 0) {
         vscode.window.showInformationMessage('No flow files found to freeze');
         return;

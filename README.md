@@ -34,7 +34,7 @@ npm run package
 
 ## File Types
 
-- `*.flow.json`: Workflow definitions (source of truth)
+- `*.flow.json` or `workflows/**/*.json`: Workflow definitions (source of truth)
 - `*.diagram.json`: Layout and positioning data
 - `*.flow.lock.json`: Deterministic build versions (optional)
 

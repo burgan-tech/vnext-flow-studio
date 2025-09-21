@@ -4,6 +4,12 @@ import type { Workflow, Diagram, MsgFromWebview } from '@nextcredit/core';
 import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics';
 import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';
+import {
+  FLOW_AND_DIAGRAM_GLOBS,
+  FLOW_FILE_GLOBS,
+  getDiagramUri,
+  isFlowDefinitionUri
+} from './flowFileUtils';
 
 async function readJson<T>(uri: vscode.Uri): Promise<T> {
   const buffer = await vscode.workspace.fs.readFile(uri);
@@ -15,14 +21,15 @@ async function writeJson(uri: vscode.Uri, data: any): Promise<void> {
   await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(content));
 }
 
-function getDiagramUri(flowUri: vscode.Uri): vscode.Uri {
-  return flowUri.with({
-    path: flowUri.path.replace(/\.flow\.json$/, '.diagram.json')
-  });
-}
-
 async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionContext, diagnosticsProvider: FlowDiagnosticsProvider) {
   try {
+    if (!isFlowDefinitionUri(flowUri)) {
+      vscode.window.showErrorMessage(
+        'BBT Flow Editor can only open *.flow.json files or JSON files within a workflows directory.'
+      );
+      return;
+    }
+
     // Create webview panel
     const panel = vscode.window.createWebviewPanel(
       'bbtFlow',
@@ -73,12 +80,13 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
 
     // Load workflow and diagram
     let currentWorkflow = await readJson<Workflow>(flowUri);
+    const diagramUri = getDiagramUri(flowUri);
     let currentDiagram: Diagram;
     let workflow = await readJson<Workflow>(flowUri);
     let diagram: Diagram;
 
     try {
-      currentDiagram = await readJson<Diagram>(getDiagramUri(flowUri));
+      currentDiagram = await readJson<Diagram>(diagramUri);
     } catch {
       currentDiagram = { nodePos: {} };
     }
@@ -105,7 +113,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
         switch (message.type) {
           case 'persist:diagram':
             currentDiagram = message.diagram;
-            await writeJson(getDiagramUri(flowUri), currentDiagram);
+            await writeJson(diagramUri, currentDiagram);
             break;
 
           case 'domain:setStart':
@@ -209,7 +217,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               };
 
               await writeJson(flowUri, workflow);
-              await writeJson(getDiagramUri(flowUri), diagram);
+              await writeJson(diagramUri, diagram);
 
               const derived = toReactFlow(workflow, diagram, 'en');
               const problemsById = lint(workflow);
@@ -251,51 +259,63 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     });
 
     // Watch for file changes
-    const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(
-        vscode.workspace.getWorkspaceFolder(flowUri)!,
-        '**/*.{flow,diagram}.json'
-      )
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(flowUri);
+    const watchers = (workspaceFolder
+      ? FLOW_AND_DIAGRAM_GLOBS.map((pattern) =>
+          vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(workspaceFolder, pattern))
+        )
+      : FLOW_AND_DIAGRAM_GLOBS.map((pattern) => vscode.workspace.createFileSystemWatcher(pattern))
     );
 
-    watcher.onDidChange(async (changedUri) => {
+    const flowUriKey = flowUri.toString();
+    const diagramUriKey = diagramUri.toString();
+
+    const handleFileChange = async (changedUri: vscode.Uri) => {
       try {
-        if (changedUri.path === flowUri.path) {
+        const changedKey = changedUri.toString();
+
+        if (changedKey === flowUriKey) {
           const updatedWorkflow = await readJson<Workflow>(flowUri);
           currentWorkflow = updatedWorkflow;
+          workflow = updatedWorkflow;
           const updatedDerived = toReactFlow(updatedWorkflow, currentDiagram, 'en');
           panel.webview.postMessage({
             type: 'workflow:update',
-            workflow,
+            workflow: updatedWorkflow,
             derived: updatedDerived
           });
-          const updatedProblems = lint(workflow);
-          // Update VS Code diagnostics
-          diagnosticsProvider.updateDiagnostics(flowUri, workflow);
+          const updatedProblems = lint(updatedWorkflow);
+          diagnosticsProvider.updateDiagnostics(flowUri, updatedWorkflow);
           panel.webview.postMessage({
             type: 'lint:update',
             problemsById: updatedProblems
           });
-        } else if (changedUri.path === getDiagramUri(flowUri).path) {
-          const updatedDiagram = await readJson<Diagram>(getDiagramUri(flowUri));
+        } else if (changedKey === diagramUriKey) {
+          const updatedDiagram = await readJson<Diagram>(diagramUri);
           currentDiagram = updatedDiagram;
-          diagram = await readJson<Diagram>(getDiagramUri(flowUri));
+          diagram = updatedDiagram;
           panel.webview.postMessage({
             type: 'diagram:update',
-            diagram
+            diagram: updatedDiagram
           });
         }
       } catch (error) {
         console.warn('File change handling error:', error);
       }
-    });
+    };
+
+    for (const watcher of watchers) {
+      watcher.onDidChange(handleFileChange);
+    }
 
     // Cleanup on panel disposal
     panel.onDidDispose(() => {
-      watcher.dispose();
+      for (const watcher of watchers) {
+        watcher.dispose();
+      }
     });
 
-    context.subscriptions.push(watcher);
+    context.subscriptions.push(...watchers);
 
   } catch (error) {
     vscode.window.showErrorMessage(`Failed to open flow editor: ${error}`);
@@ -322,9 +342,10 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register code action provider
   const codeActionProvider = createCodeActionProvider();
+  const documentSelectors: vscode.DocumentSelector = FLOW_FILE_GLOBS.map((pattern) => ({ pattern }));
   context.subscriptions.push(
     vscode.languages.registerCodeActionsProvider(
-      { pattern: '**/*.flow.json' },
+      documentSelectors,
       codeActionProvider
     )
   );
@@ -349,12 +370,19 @@ export function activate(context: vscode.ExtensionContext) {
     async (uri?: vscode.Uri) => {
       const flowUri = uri ?? (
         await vscode.window.showOpenDialog({
-          filters: { 'BBT Flow': ['flow.json'] },
+          filters: { 'BBT Flow': ['json'] },
           canSelectMany: false
         })
       )?.[0];
 
       if (!flowUri) return;
+
+      if (!isFlowDefinitionUri(flowUri)) {
+        vscode.window.showErrorMessage(
+          'Select a *.flow.json file or a JSON workflow stored under a workflows directory.'
+        );
+        return;
+      }
 
       await openFlowEditor(flowUri, context, diagnosticsProvider);
     }
