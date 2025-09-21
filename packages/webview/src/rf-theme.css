@@ -330,11 +330,28 @@
   fill: #1e293b;
   font-size: 14px;
   font-weight: 600;
+  pointer-events: none; /* Prevent label from blocking edge interaction */
 }
 
 .react-flow__edge-textbg {
   fill: white;
   fill-opacity: 0.95;
+  stroke: #e2e8f0;
+  stroke-width: 1;
+  rx: 4;
+  ry: 4;
+}
+
+/* Make edge labels more prominent on hover */
+.react-flow__edge:hover .react-flow__edge-text {
+  fill: #0f172a;
+  font-weight: 700;
+}
+
+.react-flow__edge:hover .react-flow__edge-textbg {
+  fill-opacity: 1;
+  stroke: #cbd5e1;
+  stroke-width: 1.5;
 }
 
 /* Edge hover effect */

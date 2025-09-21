@@ -119,7 +119,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   ]), []);
 
   const defaultEdgeOptions = useMemo(() => ({
-    type: 'smoothstep' as const,
+    type: 'default' as const, // Bezier curves handle multiple edges better
     markerEnd: {
       type: MarkerType.ArrowClosed,
       width: 22,
@@ -129,7 +129,18 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     style: {
       stroke: '#334155',
       strokeWidth: 2.5
-    }
+    },
+    labelStyle: {
+      fill: '#1e293b',
+      fontSize: 14,
+      fontWeight: 600
+    },
+    labelBgStyle: {
+      fill: '#ffffff',
+      fillOpacity: 0.9
+    },
+    labelBgPadding: [8, 4] as [number, number],
+    labelBgBorderRadius: 4
   }), []);
 
   // Handle messages from host
@@ -175,8 +186,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
     // Update diagram when nodes are moved
     const positionChanges = changes.filter(
-      (change): change is NodeChange & { type: 'position' } =>
-        change.type === 'position' && change.position && change.dragging !== true
+      (change): change is NodeChange & { type: 'position'; position: XYPosition; dragging?: boolean } =>
+        change.type === 'position' && !!change.position && change.dragging !== true
     );
 
     if (positionChanges.length > 0) {
