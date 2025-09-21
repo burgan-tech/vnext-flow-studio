@@ -281,8 +281,11 @@ interface LabelListEditorProps {
 }
 
 function LabelListEditor({ title, labels, onChange }: LabelListEditorProps) {
+  const [collapsed, setCollapsed] = useState(false);
+
   const handleAdd = () => {
     onChange([...labels, { language: '', label: '' }]);
+    setCollapsed(false);
   };
 
   const handleRemove = (index: number) => {
@@ -303,11 +306,18 @@ function LabelListEditor({ title, labels, onChange }: LabelListEditorProps) {
   };
 
   return (
-    <div className="property-panel__group">
-      <div className="property-panel__group-header">
+    <div className={`property-panel__group ${collapsed ? 'property-panel__group--collapsed' : ''}`}>
+      <div className="property-panel__group-header" onClick={() => setCollapsed(!collapsed)}>
         <span>{title}</span>
-        <button type="button" className="property-panel__pill-button" onClick={handleAdd}>
-          Add label
+        <button
+          type="button"
+          className="property-panel__pill-button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAdd();
+          }}
+        >
+          +
         </button>
       </div>
       {labels.length === 0 ? (
@@ -358,6 +368,7 @@ interface ExecutionTaskListEditorProps {
 }
 
 function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks, onLoadFromFile }: ExecutionTaskListEditorProps) {
+  const [collapsed, setCollapsed] = useState(false);
   const list = tasks ?? [];
 
   const setTasks = (next: ExecutionTask[]) => {
@@ -464,17 +475,21 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks, onLoa
   };
 
   return (
-    <div className="property-panel__group">
-      <div className="property-panel__group-header">
+    <div className={`property-panel__group ${collapsed ? 'property-panel__group--collapsed' : ''}`}>
+      <div className="property-panel__group-header" onClick={() => setCollapsed(!collapsed)}>
         <span>{title}</span>
         <button
           type="button"
           className="property-panel__pill-button"
-          onClick={handleAdd}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAdd();
+            setCollapsed(false);
+          }}
           disabled={!canAdd}
           title={canAdd ? 'Add a reference to an existing task' : 'No catalog tasks available'}
         >
-          Add task reference
+          +
         </button>
       </div>
       {list.length === 0 ? (
@@ -550,6 +565,7 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks, onLoa
                           handleMappingChange(index, 'location', event.target.value)
                         }
                         placeholder="./src/MyMapping.csx"
+                        title={task.mapping.location || "Enter the relative path to the .csx file"}
                       />
                     </label>
                     <label className="property-panel__field">
@@ -594,6 +610,7 @@ interface ViewListEditorProps {
 }
 
 function ViewListEditor({ views, onChange }: ViewListEditorProps) {
+  const [collapsed, setCollapsed] = useState(false);
   const list = views ?? [];
 
   const setViews = (next: ViewItem[]) => {
@@ -660,11 +677,19 @@ function ViewListEditor({ views, onChange }: ViewListEditorProps) {
   };
 
   return (
-    <div className="property-panel__group">
-      <div className="property-panel__group-header">
+    <div className={`property-panel__group ${collapsed ? 'property-panel__group--collapsed' : ''}`}>
+      <div className="property-panel__group-header" onClick={() => setCollapsed(!collapsed)}>
         <span>Views</span>
-        <button type="button" className="property-panel__pill-button" onClick={handleAdd}>
-          Add view
+        <button
+          type="button"
+          className="property-panel__pill-button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAdd();
+            setCollapsed(false);
+          }}
+        >
+          +
         </button>
       </div>
       {list.length === 0 ? (
@@ -825,9 +850,11 @@ function SchemaEditor({
         flow: 'sys-schemas'
       };
 
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <div className="property-panel__group">
-      <div className="property-panel__group-header">
+    <div className={`property-panel__group ${collapsed ? 'property-panel__group--collapsed' : ''}`}>
+      <div className="property-panel__group-header" onClick={() => setCollapsed(!collapsed)}>
         <span>Schema</span>
       </div>
       <div className="property-panel__radio-group">
@@ -1399,6 +1426,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
                     type="text"
                     value={transitionDraft.rule?.location ?? ''}
                     placeholder="./src/MyCondition.csx"
+                    title={transitionDraft.rule?.location || "Enter the relative path to the .csx file"}
                     onChange={(event) =>
                       setTransitionDraft((prev) => {
                         if (!prev) return prev;
