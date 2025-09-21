@@ -277,6 +277,7 @@
 .state-node .react-flow__handle-left,
 .state-node .react-flow__handle-right {
   top: 50%;
+  z-index: 10; /* Ensure handles are above edges */
 }
 
 .state-node .react-flow__handle-left {
@@ -287,6 +288,54 @@
 .state-node .react-flow__handle-right {
   right: -7px;
   transform: translate(50%, -50%);
+}
+
+/* Ensure all handles are interactive and above edges */
+.react-flow__handle {
+  z-index: 10;
+  pointer-events: all;
+}
+
+/* Make handle areas larger for easier interaction */
+.react-flow__handle-left,
+.react-flow__handle-right,
+.react-flow__handle-top,
+.react-flow__handle-bottom {
+  width: 16px;
+  height: 16px;
+}
+
+/* Layer ordering for proper interaction */
+.react-flow__edges {
+  z-index: 1;
+}
+
+.react-flow__nodes {
+  z-index: 2;
+}
+
+/* Edge updaters must be above nodes to be selectable */
+.react-flow__edgeupdater-source,
+.react-flow__edgeupdater-target {
+  z-index: 1001 !important; /* Above nodes and everything else */
+  position: relative;
+}
+
+/* Also ensure the SVG container for updaters is above nodes */
+.react-flow__edges svg {
+  z-index: 1000 !important;
+  position: relative;
+}
+
+/* Force edge layer above node layer when hovering */
+.react-flow__edges:has(.react-flow__edge:hover) {
+  z-index: 100 !important;
+}
+
+/* Alternative: bring specific edge to front when hovering */
+.react-flow__edge:hover {
+  z-index: 100 !important;
+  position: relative;
 }
 
 .state-node--initial {
@@ -320,10 +369,7 @@
   stroke-linecap: round;
 }
 
-.react-flow__edge.selected .react-flow__edge-path {
-  stroke-width: 3.5;
-  stroke: #2563eb;
-}
+/* Remove duplicate - will be defined later */
 
 /* Edge labels */
 .react-flow__edge-text {
@@ -354,15 +400,121 @@
   stroke-width: 1.5;
 }
 
-/* Edge hover effect */
+/* Edge hover effect - show it's interactive */
 .react-flow__edge:hover .react-flow__edge-path {
-  stroke-width: 3;
+  stroke-width: 3.5;
+  stroke-dasharray: none;
+  animation: pulse-edge 2s infinite;
+  cursor: pointer;
+}
+
+/* Subtle animation to show edges are interactive */
+@keyframes pulse-edge {
+  0%, 100% {
+    stroke-opacity: 1;
+  }
+  50% {
+    stroke-opacity: 0.6;
+  }
+}
+
+/* Selected edge - show reconnection is available */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 3.5 !important;
+  stroke: #2563eb !important;
+  stroke-dasharray: 8 4;
+  animation: dash-move 20s linear infinite;
+}
+
+@keyframes dash-move {
+  to {
+    stroke-dashoffset: -12;
+  }
 }
 
 /* Arrow/marker styles */
 .react-flow__arrowhead {
   fill: #334155;
   stroke: #334155;
+}
+
+/* When edge is selected, show the endpoints more prominently */
+.react-flow__edge.selected .react-flow__edgeupdater circle {
+  fill: #2563eb !important;
+  stroke: white !important;
+  stroke-width: 2.5 !important;
+  r: 12 !important;
+  opacity: 1 !important;
+  animation: pulse-handle 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-handle {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+/* Edge endpoint interaction areas for reconnection */
+.react-flow__edge.selectable .react-flow__edge-interaction {
+  z-index: 5;
+  stroke-width: 20; /* Larger area for easier selection */
+  stroke: transparent;
+  pointer-events: stroke;
+}
+
+/* Visual feedback when hovering edge endpoints */
+.react-flow__edgeupdater {
+  cursor: grab;
+  pointer-events: all;
+  z-index: 1000 !important; /* Above everything else for interaction */
+  position: relative;
+}
+
+.react-flow__edgeupdater circle {
+  fill: #2563eb;
+  stroke: white;
+  stroke-width: 2;
+  r: 10; /* Larger radius for easier grabbing */
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+  cursor: grab;
+  z-index: 1001 !important;
+}
+
+.react-flow__edgeupdater:hover .react-flow__edgeupdater-source,
+.react-flow__edgeupdater:hover .react-flow__edgeupdater-target {
+  fill: #1d4ed8;
+  r: 12;
+  stroke-width: 3;
+}
+
+/* Show edge endpoints on hover */
+.react-flow__edge:hover .react-flow__edgeupdater {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Make sure edge interaction area is large enough */
+.react-flow__edge-interaction {
+  stroke-width: 30 !important;
+  stroke: transparent;
+  fill: none;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+/* Visual hint that edges are interactive */
+.react-flow__edge {
+  transition: all 0.2s ease;
+}
+
+/* Change cursor to indicate interactivity */
+.react-flow__edge-path {
+  cursor: pointer;
 }
 
 .trigger-manual .react-flow__edge-path {

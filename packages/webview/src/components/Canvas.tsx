@@ -119,7 +119,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   ]), []);
 
   const defaultEdgeOptions = useMemo(() => ({
-    type: 'default' as const, // Bezier curves handle multiple edges better
+    type: 'default' as const, // Back to bezier curves as requested
     markerEnd: {
       type: MarkerType.ArrowClosed,
       width: 22,
@@ -140,7 +140,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
       fillOpacity: 0.9
     },
     labelBgPadding: [8, 4] as [number, number],
-    labelBgBorderRadius: 4
+    labelBgBorderRadius: 4,
+    interactionWidth: 20 // Larger area for edge interaction
   }), []);
 
   // Handle messages from host
@@ -607,7 +608,10 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
             isValidConnection={isValidConnection}
-            edgesReconnectable
+            edgesReconnectable={true}
+            edgesFocusable={true}
+            elementsSelectable={true}
+            selectNodesOnDrag={false}
             defaultEdgeOptions={defaultEdgeOptions}
             defaultMarkerColor="#334155"
             fitView
