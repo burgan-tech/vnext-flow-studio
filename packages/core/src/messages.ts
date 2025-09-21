@@ -1,10 +1,18 @@
-import type { Workflow, Diagram, State, Transition } from './types.js';
+import type { Workflow, Diagram, State, Transition, TaskDefinition } from './types.js';
 
 export type MsgToWebview =
-  | { type: 'init'; workflow: Workflow; diagram: Diagram; derived: { nodes: any[]; edges: any[] }; problemsById: Record<string, any> }
+  | {
+      type: 'init';
+      workflow: Workflow;
+      diagram: Diagram;
+      derived: { nodes: any[]; edges: any[] };
+      problemsById: Record<string, any>;
+      tasks: TaskDefinition[];
+    }
   | { type: 'workflow:update'; workflow: Workflow; derived: { nodes: any[]; edges: any[] } }
   | { type: 'diagram:update'; diagram: Diagram }
-  | { type: 'lint:update'; problemsById: Record<string, any> };
+  | { type: 'lint:update'; problemsById: Record<string, any> }
+  | { type: 'catalog:update'; tasks: TaskDefinition[] };
 
 export type MsgFromWebview =
   | { type: 'persist:diagram'; diagram: Diagram }

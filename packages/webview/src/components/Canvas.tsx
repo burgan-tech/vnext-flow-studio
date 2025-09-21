@@ -30,7 +30,8 @@ import type {
   MsgToWebview,
   State,
   StateType,
-  StateSubType
+  StateSubType,
+  TaskDefinition
 } from '@nextcredit/core';
 
 const nodeTypes = {
@@ -81,6 +82,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [selection, setSelection] = useState<PropertySelection>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [taskCatalog, setTaskCatalog] = useState<TaskDefinition[]>([]);
 
   const stateTemplates = useMemo<StateTemplate[]>(() => ([
     {
@@ -137,6 +139,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           setDiagram(message.diagram);
           setNodes(message.derived.nodes);
           setEdges(decorateEdges(message.derived.edges));
+          setTaskCatalog(message.tasks);
           break;
         case 'workflow:update':
           setWorkflow(message.workflow);
@@ -156,6 +159,9 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
               reactFlowInstance.fitView({ padding: 0.2, duration: 200 });
             });
           }
+          break;
+        case 'catalog:update':
+          setTaskCatalog(message.tasks);
           break;
       }
     });
@@ -580,7 +586,14 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           </ReactFlow>
         </div>
       </div>
-      <PropertyPanel workflow={workflow} selection={selection} collapsed={!selection}/>
+      {workflow ? (
+        <PropertyPanel
+          workflow={workflow}
+          selection={selection}
+          collapsed={!selection}
+          availableTasks={taskCatalog}
+        />
+      ) : null}
       {contextMenu && (
         <div
           className="flow-context-menu"

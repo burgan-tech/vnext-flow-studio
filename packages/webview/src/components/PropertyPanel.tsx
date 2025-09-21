@@ -9,6 +9,7 @@ import {
   type StateSubType,
   type Label,
   type ExecutionTask,
+  type TaskDefinition,
   type ViewItem,
   type SchemaRef,
   type ViewRef
@@ -24,6 +25,7 @@ interface PropertyPanelProps {
   workflow: Workflow;
   selection: PropertySelection;
   collapsed: boolean;
+  availableTasks: TaskDefinition[];
 }
 
 const versionStrategies: VersionStrategy[] = ['Major', 'Minor', 'Patch'];
@@ -114,6 +116,25 @@ function sanitizeExecutionTasks(tasks?: ExecutionTask[]): ExecutionTask[] | unde
     .filter((task) => task.task.key || task.task.domain || task.task.version);
 
   return sanitized.length > 0 ? sanitized : undefined;
+}
+
+function makeTaskIdentifier(task: {
+  domain?: string;
+  flow?: string;
+  key?: string;
+  version?: string;
+}): string {
+  const domain = task.domain?.trim() ?? '';
+  const flow = task.flow?.trim() ?? '';
+  const key = task.key?.trim() ?? '';
+  const version = task.version?.trim() ?? '';
+  return `${domain}::${flow}::${key}::${version}`;
+}
+
+function formatTaskOptionLabel(task: TaskDefinition): string {
+  const base = `${task.domain}/${task.key} @ ${task.version}`;
+  const withFlow = task.flow && task.flow !== 'sys-tasks' ? `${base} (${task.flow})` : base;
+  return task.title ? `${withFlow} – ${task.title}` : withFlow;
 }
 
 function sanitizeViews(views?: ViewItem[]): ViewItem[] | undefined {
@@ -332,14 +353,33 @@ interface ExecutionTaskListEditorProps {
   title: string;
   tasks?: ExecutionTask[];
   onChange: (tasks?: ExecutionTask[]) => void;
+  availableTasks: TaskDefinition[];
 }
 
-function ExecutionTaskListEditor({ title, tasks, onChange }: ExecutionTaskListEditorProps) {
+function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks }: ExecutionTaskListEditorProps) {
   const list = tasks ?? [];
 
   const setTasks = (next: ExecutionTask[]) => {
     onChange(next.length > 0 ? next : undefined);
   };
+
+  const taskLookup = useMemo(() => {
+    const map = new Map<string, TaskDefinition>();
+    for (const task of availableTasks) {
+      map.set(makeTaskIdentifier(task), task);
+    }
+    return map;
+  }, [availableTasks]);
+
+  const taskOptions = useMemo(
+    () =>
+      availableTasks.map((task) => ({
+        id: makeTaskIdentifier(task),
+        label: formatTaskOptionLabel(task),
+        detail: task.title ?? task.path ?? `${task.domain}/${task.key}`
+      })),
+    [availableTasks]
+  );
 
   const handleAdd = () => {
     setTasks([
@@ -396,6 +436,28 @@ function ExecutionTaskListEditor({ title, tasks, onChange }: ExecutionTaskListEd
     }));
   };
 
+  const handleCatalogSelect = (index: number, identifier: string) => {
+    if (!identifier) {
+      return;
+    }
+
+    const definition = taskLookup.get(identifier);
+    if (!definition) {
+      return;
+    }
+
+    handleTaskChange(index, (current) => ({
+      ...current,
+      task: {
+        ...current.task,
+        key: definition.key,
+        domain: definition.domain,
+        version: definition.version,
+        flow: 'sys-tasks'
+      }
+    }));
+  };
+
   return (
     <div className="property-panel__group">
       <div className="property-panel__group-header">
@@ -424,6 +486,26 @@ function ExecutionTaskListEditor({ title, tasks, onChange }: ExecutionTaskListEd
                 />
               </label>
               <div className="property-panel__inline-fields">
+                <label className="property-panel__field">
+                  <span>Catalog task</span>
+                  <select
+                    value={(() => {
+                      const identifier = makeTaskIdentifier(task.task);
+                      return taskLookup.has(identifier) ? identifier : '';
+                    })()}
+                    onChange={(event) => handleCatalogSelect(index, event.target.value)}
+                    disabled={taskOptions.length === 0}
+                  >
+                    <option value="">
+                      {taskOptions.length === 0 ? 'No tasks available' : 'Select task…'}
+                    </option>
+                    {taskOptions.map((option) => (
+                      <option key={option.id} value={option.id} title={option.detail}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="property-panel__field">
                   <span>Task key</span>
                   <input
@@ -843,7 +925,7 @@ function SchemaEditor({
   );
 }
 
-export function PropertyPanel({ workflow, selection, collapsed }: PropertyPanelProps) {
+export function PropertyPanel({ workflow, selection, collapsed, availableTasks }: PropertyPanelProps) {
   const { postMessage } = useBridge();
 
   const panelClassName = useMemo(() => {
@@ -1120,6 +1202,7 @@ export function PropertyPanel({ workflow, selection, collapsed }: PropertyPanelP
             <ExecutionTaskListEditor
               title="On entry tasks"
               tasks={stateDraft.onEntries}
+              availableTasks={availableTasks}
               onChange={(tasks) =>
                 setStateDraft((prev) => {
                   if (!prev) return prev;
@@ -1137,6 +1220,7 @@ export function PropertyPanel({ workflow, selection, collapsed }: PropertyPanelP
             <ExecutionTaskListEditor
               title="On exit tasks"
               tasks={stateDraft.onExit}
+              availableTasks={availableTasks}
               onChange={(tasks) =>
                 setStateDraft((prev) => {
                   if (!prev) return prev;
@@ -1154,6 +1238,7 @@ export function PropertyPanel({ workflow, selection, collapsed }: PropertyPanelP
             <ExecutionTaskListEditor
               title="Execution tasks"
               tasks={stateDraft.onExecutionTasks}
+              availableTasks={availableTasks}
               onChange={(tasks) =>
                 setStateDraft((prev) => {
                   if (!prev) return prev;

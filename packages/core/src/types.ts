@@ -16,6 +16,14 @@ export interface TaskRef {
   version: string;
 }
 
+export interface TaskDefinition extends Omit<TaskRef, 'flow'> {
+  flow: string;
+  flowVersion?: string;
+  title?: string;
+  tags?: string[];
+  path?: string;
+}
+
 export interface FunctionRef {
   key: string;
   domain: string;

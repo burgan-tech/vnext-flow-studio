@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { toReactFlow, lint, autoLayout } from '@nextcredit/core';
-import type { Workflow, Diagram, MsgFromWebview } from '@nextcredit/core';
+import type { Workflow, Diagram, MsgFromWebview, TaskDefinition } from '@nextcredit/core';
 import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics';
 import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';
@@ -10,6 +10,7 @@ import {
   getDiagramUri,
   isFlowDefinitionUri
 } from './flowFileUtils';
+import { loadTaskCatalog, TASK_FILE_GLOBS } from './taskCatalog';
 
 async function readJson<T>(uri: vscode.Uri): Promise<T> {
   const buffer = await vscode.workspace.fs.readFile(uri);
@@ -84,6 +85,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     let currentDiagram: Diagram;
     let workflow = await readJson<Workflow>(flowUri);
     let diagram: Diagram;
+    let currentTasks: TaskDefinition[] = [];
 
     try {
       currentDiagram = await readJson<Diagram>(diagramUri);
@@ -93,12 +95,14 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     }
     diagram = currentDiagram;
 
+    currentTasks = await loadTaskCatalog();
+
     // Convert to React Flow format
     const derived = toReactFlow(currentWorkflow, currentDiagram, 'en');
-    const problemsById = lint(currentWorkflow);
+    const problemsById = lint(currentWorkflow, { tasks: currentTasks });
 
     // Update VS Code diagnostics
-    diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow);
+    diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
 
     // Send initial data to webview
     panel.webview.postMessage({
@@ -106,7 +110,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       workflow: currentWorkflow,
       diagram: currentDiagram,
       derived,
-      problemsById
+      problemsById,
+      tasks: currentTasks
     });
 
     // Handle messages from webview
@@ -222,10 +227,10 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               await writeJson(diagramUri, diagram);
 
               const derived = toReactFlow(workflow, diagram, 'en');
-              const problemsById = lint(workflow);
+              const problemsById = lint(workflow, { tasks: currentTasks });
 
               // Update VS Code diagnostics
-              diagnosticsProvider.updateDiagnostics(flowUri, workflow);
+              diagnosticsProvider.updateDiagnostics(flowUri, workflow, currentTasks);
 
               panel.webview.postMessage({
                 type: 'workflow:update',
@@ -246,8 +251,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             break;
 
           case 'request:lint': {
-            const updatedProblems = lint(currentWorkflow);
-            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow);
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
             panel.webview.postMessage({
               type: 'lint:update',
               problemsById: updatedProblems
@@ -279,14 +284,35 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       }
     });
 
+    const refreshTasks = async () => {
+      try {
+        const nextTasks = await loadTaskCatalog();
+        currentTasks = nextTasks;
+        panel.webview.postMessage({ type: 'catalog:update', tasks: currentTasks });
+
+        const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+        diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+        panel.webview.postMessage({ type: 'lint:update', problemsById: updatedProblems });
+      } catch (error) {
+        console.warn('Failed to refresh task catalog:', error);
+      }
+    };
+
     // Watch for file changes
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(flowUri);
-    const watchers = (workspaceFolder
+    const flowWatchers = (workspaceFolder
       ? FLOW_AND_DIAGRAM_GLOBS.map((pattern) =>
           vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(workspaceFolder, pattern))
         )
       : FLOW_AND_DIAGRAM_GLOBS.map((pattern) => vscode.workspace.createFileSystemWatcher(pattern))
     );
+    const taskWatchers = (workspaceFolder
+      ? TASK_FILE_GLOBS.map((pattern) =>
+          vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(workspaceFolder, pattern))
+        )
+      : TASK_FILE_GLOBS.map((pattern) => vscode.workspace.createFileSystemWatcher(pattern))
+    );
+    const watchers = [...flowWatchers, ...taskWatchers];
 
     const flowUriKey = flowUri.toString();
 
@@ -304,8 +330,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             workflow: updatedWorkflow,
             derived: updatedDerived
           });
-          const updatedProblems = lint(updatedWorkflow);
-          diagnosticsProvider.updateDiagnostics(flowUri, updatedWorkflow);
+          const updatedProblems = lint(updatedWorkflow, { tasks: currentTasks });
+          diagnosticsProvider.updateDiagnostics(flowUri, updatedWorkflow, currentTasks);
           panel.webview.postMessage({
             type: 'lint:update',
             problemsById: updatedProblems
@@ -330,8 +356,18 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       }
     };
 
-    for (const watcher of watchers) {
+    for (const watcher of flowWatchers) {
       watcher.onDidChange(handleFileChange);
+    }
+
+    const handleTaskFileEvent = () => {
+      void refreshTasks();
+    };
+
+    for (const watcher of taskWatchers) {
+      watcher.onDidChange(handleTaskFileEvent);
+      watcher.onDidCreate(handleTaskFileEvent);
+      watcher.onDidDelete(handleTaskFileEvent);
     }
 
     // Cleanup on panel disposal

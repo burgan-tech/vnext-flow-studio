@@ -1,5 +1,5 @@
 import { validateWorkflow } from './schema.js';
-import type { Workflow } from './types.js';
+import type { TaskDefinition, TaskRef, Workflow } from './types.js';
 
 export type Severity = 'error' | 'warning';
 
@@ -10,10 +10,61 @@ export interface Problem {
   path?: string;
 }
 
-export function lint(workflow: Workflow): Record<string, Problem[]> {
+export interface LintContext {
+  tasks?: TaskDefinition[];
+}
+
+export function lint(
+  workflow: Workflow,
+  context: LintContext = {}
+): Record<string, Problem[]> {
   const problems: Record<string, Problem[]> = {};
   const push = (ownerId: string, p: Problem) => {
     (problems[ownerId] ||= []).push(p);
+  };
+
+  const taskIndex = new Set<string>();
+  if (context.tasks) {
+    for (const task of context.tasks) {
+      const key = task.key?.trim();
+      const domain = task.domain?.trim();
+      const version = task.version?.trim();
+      const flow = task.flow?.trim();
+
+      if (key && domain && version && flow) {
+        taskIndex.add(`${domain}/${flow}/${key}@${version}`);
+      }
+    }
+  }
+
+  const shouldValidateTasks = context.tasks !== undefined;
+
+  const hasTaskReference = (ref: TaskRef | undefined): boolean => {
+    if (!shouldValidateTasks || !ref) {
+      return true;
+    }
+
+    const key = ref.key?.trim();
+    const domain = ref.domain?.trim();
+    const version = ref.version?.trim();
+    const flow = ref.flow?.trim();
+
+    if (!key || !domain || !version || !flow) {
+      return false;
+    }
+
+    return taskIndex.has(`${domain}/${flow}/${key}@${version}`);
+  };
+
+  const describeTaskRef = (ref: TaskRef | undefined): string => {
+    if (!ref) {
+      return '<missing task>';
+    }
+
+    const domain = ref.domain?.trim() || '<missing-domain>';
+    const key = ref.key?.trim() || '<missing-key>';
+    const version = ref.version?.trim() || '<missing-version>';
+    return `${domain}/${key}@${version}`;
   };
 
   const stateKeys = new Set<string>();
@@ -115,6 +166,14 @@ export function lint(workflow: Workflow): Record<string, Problem[]> {
 
     // PATH checks for mappings and rules
     for (const task of (state.onEntries || [])) {
+      if (!hasTaskReference(task.task)) {
+        push(state.key, {
+          id: 'E_TASK_MISSING',
+          severity: 'error',
+          message: `task '${describeTaskRef(task.task)}' not found in catalog`
+        });
+      }
+
       if (task.mapping?.location && !task.mapping.location.match(/^\.\/src\/.*\.csx$/)) {
         push(state.key, {
           id: 'E_BAD_PATH',
@@ -125,6 +184,14 @@ export function lint(workflow: Workflow): Record<string, Problem[]> {
     }
 
     for (const task of (state.onExit || [])) {
+      if (!hasTaskReference(task.task)) {
+        push(state.key, {
+          id: 'E_TASK_MISSING',
+          severity: 'error',
+          message: `task '${describeTaskRef(task.task)}' not found in catalog`
+        });
+      }
+
       if (task.mapping?.location && !task.mapping.location.match(/^\.\/src\/.*\.csx$/)) {
         push(state.key, {
           id: 'E_BAD_PATH',
@@ -135,6 +202,14 @@ export function lint(workflow: Workflow): Record<string, Problem[]> {
     }
 
     for (const task of (state.onExecutionTasks || [])) {
+      if (!hasTaskReference(task.task)) {
+        push(state.key, {
+          id: 'E_TASK_MISSING',
+          severity: 'error',
+          message: `task '${describeTaskRef(task.task)}' not found in catalog`
+        });
+      }
+
       if (task.mapping?.location && !task.mapping.location.match(/^\.\/src\/.*\.csx$/)) {
         push(state.key, {
           id: 'E_BAD_PATH',

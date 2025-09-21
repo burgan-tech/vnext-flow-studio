@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { lint, type Workflow } from '@nextcredit/core';
+import { lint, type Workflow, type TaskDefinition } from '@nextcredit/core';
 
 export class FlowDiagnosticsProvider {
   private diagnosticsCollection: vscode.DiagnosticCollection;
@@ -8,8 +8,12 @@ export class FlowDiagnosticsProvider {
     this.diagnosticsCollection = vscode.languages.createDiagnosticCollection('amorphie-flow');
   }
 
-  public updateDiagnostics(uri: vscode.Uri, workflow: Workflow): void {
-    const problems = lint(workflow);
+  public updateDiagnostics(
+    uri: vscode.Uri,
+    workflow: Workflow,
+    tasks?: TaskDefinition[]
+  ): void {
+    const problems = lint(workflow, { tasks });
     const diagnostics: vscode.Diagnostic[] = [];
 
     // Convert problems to VS Code diagnostics
