@@ -1131,7 +1131,15 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
             <h3 className="property-panel__section-title">{stateDraft.key}</h3>
             <label className="property-panel__field">
               <span>Key</span>
-              <input type="text" value={stateDraft.key} readOnly />
+              <input
+                type="text"
+                value={stateDraft.key}
+                onChange={(event) =>
+                  setStateDraft((prev) =>
+                    prev ? { ...prev, key: event.target.value } : prev
+                  )
+                }
+              />
             </label>
 
             <label className="property-panel__field">

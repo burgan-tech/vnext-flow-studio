@@ -337,6 +337,76 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               break;
             }
 
+            // Check if the key is being changed
+            const oldKey = updatedWorkflow.attributes.states[stateIndex].key;
+            const newKey = state.key;
+            const keyChanged = oldKey !== newKey;
+
+            if (keyChanged) {
+              // Check if new key already exists
+              if (updatedWorkflow.attributes.states.some(s => s.key === newKey && s.key !== oldKey)) {
+                vscode.window.showErrorMessage(`State key "${newKey}" already exists in the workflow.`);
+                break;
+              }
+
+              // Update all references to the old key
+              // 1. Update transitions that reference this state as target
+              for (const otherState of updatedWorkflow.attributes.states) {
+                if (otherState.transitions) {
+                  for (const transition of otherState.transitions) {
+                    if (transition.target === oldKey) {
+                      transition.target = newKey;
+                    }
+                  }
+                }
+              }
+
+              // 2. Update transitions from this state (update the 'from' field)
+              if (state.transitions) {
+                for (const transition of state.transitions) {
+                  transition.from = newKey;
+                }
+              }
+
+              // 3. Update shared transitions
+              if (updatedWorkflow.attributes.sharedTransitions) {
+                for (const sharedTransition of updatedWorkflow.attributes.sharedTransitions) {
+                  // Update target references
+                  if (sharedTransition.target === oldKey) {
+                    sharedTransition.target = newKey;
+                  }
+                  // Update availableIn references
+                  const availableInIndex = sharedTransition.availableIn.indexOf(oldKey);
+                  if (availableInIndex !== -1) {
+                    sharedTransition.availableIn[availableInIndex] = newKey;
+                  }
+                }
+              }
+
+              // 4. Update start transition
+              if (updatedWorkflow.attributes.startTransition?.target === oldKey) {
+                updatedWorkflow.attributes.startTransition.target = newKey;
+              }
+
+              // 5. Update timeout transition
+              if (updatedWorkflow.attributes.timeout?.target === oldKey) {
+                updatedWorkflow.attributes.timeout.target = newKey;
+              }
+
+              // 6. Update diagram node positions
+              if (currentDiagram.nodePos[oldKey]) {
+                currentDiagram = {
+                  ...currentDiagram,
+                  nodePos: {
+                    ...currentDiagram.nodePos,
+                    [newKey]: currentDiagram.nodePos[oldKey]
+                  }
+                };
+                delete currentDiagram.nodePos[oldKey];
+                await writeJson(diagramUri, currentDiagram);
+              }
+            }
+
             updatedWorkflow.attributes.states[stateIndex] = state;
             currentWorkflow = updatedWorkflow;
             await writeJson(flowUri, currentWorkflow);
@@ -347,6 +417,13 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               workflow: currentWorkflow,
               derived: updatedDerived
             });
+
+            if (keyChanged) {
+              panel.webview.postMessage({
+                type: 'diagram:update',
+                diagram: currentDiagram
+              });
+            }
             break;
           }
 
