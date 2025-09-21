@@ -122,13 +122,13 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     type: 'smoothstep' as const,
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      width: 18,
-      height: 18,
+      width: 22,
+      height: 22,
       color: '#334155'
     },
     style: {
       stroke: '#334155',
-      strokeWidth: 1.6
+      strokeWidth: 2.5
     }
   }), []);
 
