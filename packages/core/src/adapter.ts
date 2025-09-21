@@ -36,7 +36,7 @@ export function toReactFlow(
     nodes.push({
       id: START_NODE_ID,
       type: 'event',
-      position: { x: 0, y: 0 },
+      position: diagram.nodePos[START_NODE_ID] ?? { x: 0, y: 0 },
       data: { label: 'Start', variant: 'start' as const },
       draggable: true,
       selectable: false,
@@ -49,7 +49,7 @@ export function toReactFlow(
     nodes.push({
       id: TIMEOUT_NODE_ID,
       type: 'event',
-      position: { x: -120, y: 0 },
+      position: diagram.nodePos[TIMEOUT_NODE_ID] ?? { x: -120, y: 0 },
       data: { label: 'Timeout', variant: 'timeout' as const },
       draggable: true,
       selectable: false,

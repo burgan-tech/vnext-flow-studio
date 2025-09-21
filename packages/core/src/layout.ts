@@ -232,7 +232,8 @@ export async function autoLayout(
   const nodePos: Record<string, { x: number; y: number }> = {};
 
   for (const child of positionedChildren) {
-    if (!stateKeys.has(child.id)) {
+    // Include special nodes (START_NODE_ID and TIMEOUT_NODE_ID) as well as state nodes
+    if (!stateKeys.has(child.id) && child.id !== START_NODE_ID && child.id !== TIMEOUT_NODE_ID) {
       continue;
     }
 
