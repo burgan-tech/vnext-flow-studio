@@ -177,7 +177,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
         case 'catalog:update':
           setTaskCatalog(message.tasks);
           break;
-        case 'select:node':
+        case 'select:node': {
           // Find the node and select it
           const nodeToSelect = nodes.find(n => n.id === message.nodeId);
           if (nodeToSelect) {
@@ -202,6 +202,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             }
           }
           break;
+        }
       }
     });
   }, [onMessage, reactFlowInstance, nodes, workflow]);
