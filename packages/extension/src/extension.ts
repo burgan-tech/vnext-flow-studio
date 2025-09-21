@@ -39,13 +39,13 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [
-          vscode.Uri.joinPath(context.extensionUri, '../webview/dist-web')
+          vscode.Uri.joinPath(context.extensionUri, 'dist-web')
         ]
       }
     );
 
     // Load webview content
-    const webviewDistPath = vscode.Uri.joinPath(context.extensionUri, '../webview/dist-web');
+    const webviewDistPath = vscode.Uri.joinPath(context.extensionUri, 'dist-web');
 
     try {
       const indexHtmlUri = vscode.Uri.joinPath(webviewDistPath, 'index.html');

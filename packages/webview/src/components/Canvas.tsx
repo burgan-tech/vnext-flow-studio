@@ -580,7 +580,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           </ReactFlow>
         </div>
       </div>
-      <PropertyPanel workflow={workflow} selection={selection} />
+      <PropertyPanel workflow={workflow} selection={selection} collapsed={!selection}/>
       {contextMenu && (
         <div
           className="flow-context-menu"

@@ -23,6 +23,7 @@ export type PropertySelection =
 interface PropertyPanelProps {
   workflow: Workflow;
   selection: PropertySelection;
+  collapsed: boolean;
 }
 
 const versionStrategies: VersionStrategy[] = ['Major', 'Minor', 'Patch'];
@@ -842,8 +843,14 @@ function SchemaEditor({
   );
 }
 
-export function PropertyPanel({ workflow, selection }: PropertyPanelProps) {
+export function PropertyPanel({ workflow, selection, collapsed }: PropertyPanelProps) {
   const { postMessage } = useBridge();
+
+  const panelClassName = useMemo(() => {
+    return ['property-panel', collapsed ? 'property-panel--collapsed' : '']
+      .filter(Boolean)
+      .join(' ');
+  }, [collapsed]);
 
   const selectedState = useMemo(() => {
     if (selection?.kind !== 'state') return null;
@@ -1013,7 +1020,7 @@ export function PropertyPanel({ workflow, selection }: PropertyPanelProps) {
   const transitionHasErrors = schemaMode === 'inline' && inlineSchemaError !== null;
 
   return (
-    <aside className="property-panel">
+    <aside className={panelClassName} aria-hidden={collapsed}>
       <div className="property-panel__header">
         <h2 className="property-panel__title">Properties</h2>
         {selection?.kind === 'state' && stateDraft ? (
