@@ -7,6 +7,9 @@ export * from './schema.js';
 // React Flow adapter
 export * from './adapter.js';
 
+// Auto layout
+export * from './layout.js';
+
 // Linting
 export * from './linter.js';
 

@@ -15,4 +15,5 @@ export type MsgFromWebview =
   | { type: 'domain:updateState'; stateKey: string; state: State }
   | { type: 'domain:updateTransition'; from: string; transitionKey: string; transition: Transition }
   | { type: 'domain:addState'; state: State; position: { x: number; y: number } }
-  | { type: 'request:lint' };
+  | { type: 'request:lint' }
+  | { type: 'request:autoLayout' };

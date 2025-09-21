@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { toReactFlow, lint } from '@nextcredit/core';
+import { toReactFlow, lint, autoLayout } from '@nextcredit/core';
 import type { Workflow, Diagram, MsgFromWebview } from '@nextcredit/core';
 import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics';
 import { registerCommands } from './commands';
@@ -88,8 +88,10 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     try {
       currentDiagram = await readJson<Diagram>(diagramUri);
     } catch {
-      currentDiagram = { nodePos: {} };
+      currentDiagram = await autoLayout(currentWorkflow);
+      await writeJson(diagramUri, currentDiagram);
     }
+    diagram = currentDiagram;
 
     // Convert to React Flow format
     const derived = toReactFlow(currentWorkflow, currentDiagram, 'en');
@@ -252,6 +254,25 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             });
             break;
           }
+
+          case 'request:autoLayout': {
+            const nextDiagram = await autoLayout(currentWorkflow, currentDiagram);
+            currentDiagram = nextDiagram;
+            diagram = nextDiagram;
+            await writeJson(diagramUri, currentDiagram);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'diagram:update',
+              diagram: currentDiagram
+            });
+            break;
+          }
         }
       } catch (error) {
         vscode.window.showErrorMessage(`Webview message error: ${error}`);
@@ -268,7 +289,6 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     );
 
     const flowUriKey = flowUri.toString();
-    const diagramUriKey = diagramUri.toString();
 
     const handleFileChange = async (changedUri: vscode.Uri) => {
       try {
@@ -290,13 +310,19 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             type: 'lint:update',
             problemsById: updatedProblems
           });
-        } else if (changedKey === diagramUriKey) {
+        } else if (changedUri.path === diagramUri.path) {
           const updatedDiagram = await readJson<Diagram>(diagramUri);
           currentDiagram = updatedDiagram;
           diagram = updatedDiagram;
+          const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+          panel.webview.postMessage({
+            type: 'workflow:update',
+            workflow: currentWorkflow,
+            derived: updatedDerived
+          });
           panel.webview.postMessage({
             type: 'diagram:update',
-            diagram: updatedDiagram
+            diagram: currentDiagram
           });
         }
       } catch (error) {

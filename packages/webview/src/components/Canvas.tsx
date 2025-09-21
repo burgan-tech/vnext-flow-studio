@@ -80,6 +80,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
   const [selection, setSelection] = useState<PropertySelection>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const stateTemplates = useMemo<StateTemplate[]>(() => ([
     {
@@ -144,10 +145,21 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           break;
         case 'diagram:update':
           setDiagram(message.diagram);
+          setNodes((prevNodes) =>
+            prevNodes.map((node) => {
+              const position = message.diagram.nodePos[node.id];
+              return position ? { ...node, position } : node;
+            })
+          );
+          if (reactFlowInstance) {
+            requestAnimationFrame(() => {
+              reactFlowInstance.fitView({ padding: 0.2, duration: 200 });
+            });
+          }
           break;
       }
     });
-  }, [onMessage]);
+  }, [onMessage, reactFlowInstance]);
 
   // Handle node position changes
   const onNodesChange: OnNodesChange = useCallback((changes: NodeChange[]) => {
@@ -441,6 +453,48 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     }
   }, [handleAddState, reactFlowInstance, stateTemplates]);
 
+  const handlePaneContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const handlePaneClick = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleAutoLayoutRequest = useCallback(() => {
+    postMessage({ type: 'request:autoLayout' });
+    setContextMenu(null);
+  }, [postMessage]);
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return undefined;
+    }
+
+    const handleDismiss = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('.flow-context-menu')) {
+        return;
+      }
+      setContextMenu(null);
+    };
+
+    const handleResize = () => setContextMenu(null);
+
+    window.addEventListener('mousedown', handleDismiss, true);
+    window.addEventListener('wheel', handleDismiss, true);
+    window.addEventListener('contextmenu', handleDismiss, true);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('mousedown', handleDismiss, true);
+      window.removeEventListener('wheel', handleDismiss, true);
+      window.removeEventListener('contextmenu', handleDismiss, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [contextMenu]);
+
   const getToolbarStateClass = useCallback((type: StateType) => {
     switch (type) {
       case 1:
@@ -518,6 +572,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             onInit={setReactFlowInstance}
             onDrop={onDropCanvas}
             onDragOver={onDragOverCanvas}
+            onPaneContextMenu={handlePaneContextMenu}
+            onPaneClick={handlePaneClick}
           >
             <Background />
             <Controls />
@@ -525,6 +581,19 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
         </div>
       </div>
       <PropertyPanel workflow={workflow} selection={selection} />
+      {contextMenu && (
+        <div
+          className="flow-context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          role="menu"
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <button type="button" className="flow-context-menu__item" onClick={handleAutoLayoutRequest}>
+            Auto layout
+          </button>
+        </div>
+      )}
     </div>
   );
 }
