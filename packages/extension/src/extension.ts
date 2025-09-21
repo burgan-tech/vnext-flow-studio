@@ -25,15 +25,15 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
   try {
     if (!isFlowDefinitionUri(flowUri)) {
       vscode.window.showErrorMessage(
-        'BBT Flow Editor can only open *.flow.json files or JSON files within a workflows directory.'
+        'Amorphie Flow Studio can only open *.flow.json files or JSON files within a workflows directory.'
       );
       return;
     }
 
     // Create webview panel
     const panel = vscode.window.createWebviewPanel(
-      'bbtFlow',
-      'BBT Flow Editor',
+      'amorphieFlow',
+      'Amorphie Flow Studio',
       vscode.ViewColumn.Active,
       {
         enableScripts: true,
@@ -66,7 +66,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       panel.webview.html = `
         <!DOCTYPE html>
         <html>
-          <head><title>BBT Flow Editor</title></head>
+          <head><title>Amorphie Flow Studio</title></head>
           <body>
             <div style="padding: 20px; font-family: Arial, sans-serif;">
               <h2>Webview Not Built</h2>
@@ -360,7 +360,7 @@ class FlowEditorProvider implements vscode.CustomTextEditorProvider {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('NextCredit BBT Flow Editor activated');
+  console.log('Amorphie Flow Studio activated');
 
   // Initialize diagnostics
   const diagnosticsProvider = new FlowDiagnosticsProvider();
@@ -396,7 +396,7 @@ export function activate(context: vscode.ExtensionContext) {
     async (uri?: vscode.Uri) => {
       const flowUri = uri ?? (
         await vscode.window.showOpenDialog({
-          filters: { 'BBT Flow': ['json'] },
+          filters: { 'Amorphie Flow': ['json'] },
           canSelectMany: false
         })
       )?.[0];
@@ -422,5 +422,5 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-  console.log('NextCredit BBT Flow Editor deactivated');
+  console.log('Amorphie Flow Studio deactivated');
 }

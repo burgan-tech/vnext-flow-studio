@@ -22,7 +22,7 @@ function loadSchema() {
       return {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
-        "title": "BBT Workflow Definition",
+        "title": "Amorphie Workflow Definition",
         "required": ["key", "attributes"],
         "properties": {
           "key": { "type": "string" },

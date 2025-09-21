@@ -5,7 +5,7 @@ export class FlowDiagnosticsProvider {
   private diagnosticsCollection: vscode.DiagnosticCollection;
 
   constructor() {
-    this.diagnosticsCollection = vscode.languages.createDiagnosticCollection('bbt-flow');
+    this.diagnosticsCollection = vscode.languages.createDiagnosticCollection('amorphie-flow');
   }
 
   public updateDiagnostics(uri: vscode.Uri, workflow: Workflow): void {
@@ -22,7 +22,7 @@ export class FlowDiagnosticsProvider {
         );
 
         diagnostic.code = problem.id;
-        diagnostic.source = 'bbt-flow';
+        diagnostic.source = 'amorphie-flow';
         diagnostics.push(diagnostic);
       }
     }
@@ -49,7 +49,7 @@ export function createCodeActionProvider(): vscode.CodeActionProvider {
       const actions: vscode.CodeAction[] = [];
 
       for (const diagnostic of context.diagnostics) {
-        if (diagnostic.source === 'bbt-flow') {
+        if (diagnostic.source === 'amorphie-flow') {
           switch (diagnostic.code) {
             case 'E_BAD_TARGET': {
               const action = new vscode.CodeAction(

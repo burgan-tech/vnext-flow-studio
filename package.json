@@ -1,5 +1,5 @@
 {
-  "name": "nextcredit-bbt-flow-editor",
+  "name": "amorphie-flow-studio",
   "private": true,
   "workspaces": ["packages/*"],
   "scripts": {

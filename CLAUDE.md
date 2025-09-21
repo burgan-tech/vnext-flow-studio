@@ -23,7 +23,7 @@ npm run package
 
 ## Architecture
 
-This is a VS Code extension for editing BBT Workflow Definitions with a visual React Flow canvas. The project uses npm workspaces with three packages:
+This is a VS Code extension for editing Amorphie Workflow Definitions with a visual React Flow canvas. The project uses npm workspaces with three packages:
 
 ### Core Package (`packages/core`)
 - **Purpose**: Shared types, schema validation, adapters, and utilities
@@ -62,7 +62,7 @@ This is a VS Code extension for editing BBT Workflow Definitions with a visual R
 ## VS Code Extension Features
 
 - **Commands**:
-  - `flowEditor.open`: Open BBT Flow in Canvas
+  - `flowEditor.open`: Open Amorphie Flow in Canvas
   - `flowEditor.freezeVersions`: Freeze Versions (Lock)
 - **JSON Validation**: Automatic validation for `*.flow.json` files
 - **Custom Diagnostics**: Workflow-specific linting and error checking

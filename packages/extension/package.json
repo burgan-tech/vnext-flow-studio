@@ -1,12 +1,12 @@
 {
-  "name": "nextcredit-bbt-flow-editor",
-  "displayName": "NextCredit BBT Flow Editor",
+  "name": "amorphie-flow-studio",
+  "displayName": "Amorphie Flow Studio",
   "publisher": "your-org",
   "version": "0.1.0",
-  "description": "Visual editor for BBT Workflow Definitions using React Flow",
+  "description": "Visual editor for Amorphie Workflow Projects",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/nextcredit-bbt-flow-editor"
+    "url": "https://github.com/amorphie/amorphie-flow-studio.git"
   },
   "engines": {
     "vscode": "^1.92.0"
@@ -27,7 +27,7 @@
     "commands": [
       {
         "command": "flowEditor.open",
-        "title": "Open BBT Flow in Canvas"
+        "title": "Open in Amorphie Flow Studio"
       },
       {
         "command": "flowEditor.freezeVersions",
@@ -53,7 +53,7 @@
     "customEditors": [
       {
         "viewType": "flowEditor.canvas",
-        "displayName": "BBT Flow Canvas",
+        "displayName": "Amorphie Flow Studio",
         "selector": [
           {
             "filenamePattern": "*.flow.json"
