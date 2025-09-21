@@ -19,8 +19,7 @@ import {
   MarkerType,
   XYPosition,
   ReactFlowInstance,
-  OnSelectionChangeParams,
-  Position
+  OnSelectionChangeParams
 } from '@xyflow/react';
 import { StateNode } from './nodes/StateNode';
 import { EventNode } from './nodes/EventNode';
