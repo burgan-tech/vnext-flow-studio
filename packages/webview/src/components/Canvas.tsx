@@ -125,14 +125,14 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
       type: MarkerType.ArrowClosed,
       width: 22,
       height: 22,
-      color: '#334155'
+      color: '#94a3b8'
     },
     style: {
-      stroke: '#334155',
+      stroke: '#94a3b8',
       strokeWidth: 2.5
     },
     labelStyle: {
-      fill: '#1e293b',
+      fill: '#64748b',
       fontSize: 14,
       fontWeight: 600
     },
@@ -635,7 +635,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             elementsSelectable={true}
             selectNodesOnDrag={false}
             defaultEdgeOptions={defaultEdgeOptions}
-            defaultMarkerColor="#334155"
+            defaultMarkerColor="#94a3b8"
             fitView
             defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             onInit={setReactFlowInstance}
