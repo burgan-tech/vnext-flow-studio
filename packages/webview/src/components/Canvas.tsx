@@ -227,9 +227,55 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     }
   }, [postMessage]);
 
+  // Validate connections
+  const isValidConnection = useCallback((edge: Edge | Connection) => {
+    const connection = 'sourceHandle' in edge ? edge as Connection : edge as Connection;
+    if (!connection.source || !connection.target || !workflow) return true;
+
+    // Prevent self-connections
+    if (connection.source === connection.target) {
+      return false;
+    }
+
+    // Find source node
+    const sourceNode = nodes.find(n => n.id === connection.source);
+
+    // Prevent connections from final states (stateType === 3)
+    if (sourceNode?.data?.stateType === 3) {
+      return false;
+    }
+
+    // Check for duplicate connections
+    const isDuplicate = edges.some(existingEdge =>
+      existingEdge.source === connection.source &&
+      existingEdge.target === connection.target &&
+      existingEdge.id !== (edge as Edge).id // Allow reconnecting existing edges
+    );
+
+    if (isDuplicate) {
+      return false;
+    }
+
+    // Special handling for start node
+    if (connection.source === 'start') {
+      // Start node can only have one outgoing connection
+      const hasExistingStartConnection = edges.some(e => e.source === 'start');
+      if (hasExistingStartConnection && !(edge as Edge).id) {
+        return false;
+      }
+    }
+
+    return true;
+  }, [nodes, edges, workflow]);
+
   // Handle edge reconnection
   const onReconnect: OnReconnect = useCallback((oldEdge: Edge, newConnection: Connection) => {
     if (!newConnection.source || !newConnection.target) return;
+
+    // Validate the new connection
+    if (!isValidConnection(newConnection)) {
+      return false; // Prevent invalid reconnection
+    }
 
     if (oldEdge.id === 'e:start') {
       postMessage({
@@ -248,7 +294,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
         });
       }
     }
-  }, [postMessage]);
+  }, [postMessage, isValidConnection]);
 
   // Handle edge deletion
   const onEdgesDelete: OnEdgesDelete = useCallback((edgesToDelete: Edge[]) => {
@@ -328,47 +374,6 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     setSelection(next);
     selectionRef.current = next;
   }, [workflow]);
-
-  // Validate connections
-  const isValidConnection = useCallback((edge: Edge | Connection) => {
-    const connection = 'sourceHandle' in edge ? edge as Connection : edge as Connection;
-    if (!connection.source || !connection.target || !workflow) return true;
-
-    // Prevent self-connections
-    if (connection.source === connection.target) {
-      return false;
-    }
-
-    // Find source node
-    const sourceNode = nodes.find(n => n.id === connection.source);
-
-    // Prevent connections from final states (stateType === 3)
-    if (sourceNode?.data?.stateType === 3) {
-      return false;
-    }
-
-    // Check for duplicate connections
-    const isDuplicate = edges.some(existingEdge =>
-      existingEdge.source === connection.source &&
-      existingEdge.target === connection.target &&
-      existingEdge.id !== (edge as Edge).id // Allow reconnecting existing edges
-    );
-
-    if (isDuplicate) {
-      return false;
-    }
-
-    // Special handling for start node
-    if (connection.source === 'start') {
-      // Start node can only have one outgoing connection
-      const hasExistingStartConnection = edges.some(e => e.source === 'start');
-      if (hasExistingStartConnection && !(edge as Edge).id) {
-        return false;
-      }
-    }
-
-    return true;
-  }, [nodes, edges, workflow]);
 
   const handleAddState = useCallback((template: StateTemplate, positionOverride?: XYPosition) => {
     if (!workflow) {
