@@ -20,6 +20,7 @@ export type MsgFromWebview =
   | { type: 'domain:addTransition'; from: string; target: string; triggerType?: 1 | 3 }
   | { type: 'domain:moveTransition'; oldFrom: string; tKey: string; newFrom: string; newTarget: string }
   | { type: 'domain:removeTransition'; from: string; tKey: string }
+  | { type: 'domain:removeState'; stateKey: string }
   | { type: 'domain:updateState'; stateKey: string; state: State }
   | { type: 'domain:updateTransition'; from: string; transitionKey: string; transition: Transition }
   | { type: 'domain:addState'; state: State; position: { x: number; y: number } }

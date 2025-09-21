@@ -12,6 +12,7 @@ import {
   applyEdgeChanges,
   OnConnect,
   OnEdgesDelete,
+  OnNodesDelete,
   OnReconnect,
   OnNodesChange,
   OnEdgesChange,
@@ -307,6 +308,21 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           tKey: match[2]
         });
       }
+    });
+  }, [postMessage]);
+
+  // Handle node deletion
+  const onNodesDelete: OnNodesDelete = useCallback((nodesToDelete: Node[]) => {
+    nodesToDelete.forEach((node) => {
+      // Don't delete special nodes
+      if (node.id === '__start__' || node.id === '__timeout__') {
+        return;
+      }
+
+      postMessage({
+        type: 'domain:removeState',
+        stateKey: node.id
+      });
     });
   }, [postMessage]);
 
@@ -610,6 +626,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             onConnect={onConnect}
             onReconnect={onReconnect}
             onEdgesDelete={onEdgesDelete}
+            onNodesDelete={onNodesDelete}
             onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
             isValidConnection={isValidConnection}

@@ -327,6 +327,98 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             break;
           }
 
+          case 'domain:removeState': {
+            const { stateKey } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+
+            // Find the state to remove
+            const stateIndex = updatedWorkflow.attributes.states.findIndex(s => s.key === stateKey);
+            if (stateIndex === -1) {
+              vscode.window.showWarningMessage(`State ${stateKey} not found`);
+              break;
+            }
+
+            // Remove all transitions that target this state
+            for (const state of updatedWorkflow.attributes.states) {
+              if (state.transitions) {
+                state.transitions = state.transitions.filter(t => t.target !== stateKey);
+                if (state.transitions.length === 0) {
+                  delete state.transitions;
+                }
+              }
+            }
+
+            // Remove from shared transitions
+            if (updatedWorkflow.attributes.sharedTransitions) {
+              // Remove shared transitions that target this state
+              updatedWorkflow.attributes.sharedTransitions = updatedWorkflow.attributes.sharedTransitions.filter(
+                st => st.target !== stateKey
+              );
+
+              // Remove this state from availableIn arrays
+              for (const sharedTransition of updatedWorkflow.attributes.sharedTransitions) {
+                sharedTransition.availableIn = sharedTransition.availableIn.filter(s => s !== stateKey);
+              }
+
+              // Remove empty shared transitions
+              updatedWorkflow.attributes.sharedTransitions = updatedWorkflow.attributes.sharedTransitions.filter(
+                st => st.availableIn.length > 0
+              );
+
+              if (updatedWorkflow.attributes.sharedTransitions.length === 0) {
+                delete updatedWorkflow.attributes.sharedTransitions;
+              }
+            }
+
+            // Remove from start transition if it targets this state
+            if (updatedWorkflow.attributes.startTransition?.target === stateKey) {
+              delete updatedWorkflow.attributes.startTransition;
+            }
+
+            // Remove from timeout if it targets this state
+            if (updatedWorkflow.attributes.timeout?.target === stateKey) {
+              delete updatedWorkflow.attributes.timeout;
+            }
+
+            // Remove the state itself
+            updatedWorkflow.attributes.states.splice(stateIndex, 1);
+
+            // Remove from diagram
+            if (currentDiagram.nodePos[stateKey]) {
+              const updatedDiagram = {
+                ...currentDiagram,
+                nodePos: { ...currentDiagram.nodePos }
+              };
+              delete updatedDiagram.nodePos[stateKey];
+              currentDiagram = updatedDiagram;
+              await writeJson(diagramUri, currentDiagram);
+            }
+
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+
+            panel.webview.postMessage({
+              type: 'diagram:update',
+              diagram: currentDiagram
+            });
+
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
+
           case 'domain:updateState': {
             const { stateKey, state } = message;
             const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
