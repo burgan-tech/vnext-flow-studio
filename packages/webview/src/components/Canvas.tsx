@@ -365,17 +365,24 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
     const existingKeys = new Set(workflow.attributes.states.map((state) => state.key));
 
+    // Find the next available number for this prefix
+    let suffix = 1;
     let stateKey = template.keyPrefix;
+
+    // Always check for the base key first
     if (existingKeys.has(stateKey)) {
-      let suffix = 1;
+      // If base key exists, find next available number
       while (existingKeys.has(`${template.keyPrefix}-${suffix}`)) {
         suffix += 1;
       }
       stateKey = `${template.keyPrefix}-${suffix}`;
+    } else {
+      // Base key is available, no suffix needed
+      suffix = 0;
     }
 
-    const sameTypeCount = workflow.attributes.states.filter((state) => state.stateType === template.type).length;
-    const labelSuffix = sameTypeCount > 0 ? ` ${sameTypeCount + 1}` : '';
+    // Use the same suffix for the label to keep them consistent
+    const labelSuffix = suffix > 0 ? ` ${suffix}` : '';
     const defaultLanguage =
       workflow.attributes.states.find((state) => state.labels && state.labels.length > 0)?.labels?.[0]?.language ||
       workflow.attributes.labels?.[0]?.language ||
@@ -400,15 +407,6 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
       newState.stateSubType = template.stateSubType;
     }
 
-    const newWorkflow: Workflow = {
-      ...workflow,
-      attributes: {
-        ...workflow.attributes,
-        states: [...workflow.attributes.states, newState]
-      }
-    };
-    setWorkflow(newWorkflow);
-
     const stateIndex = workflow.attributes.states.length;
     const column = stateIndex % 4;
     const row = Math.floor(stateIndex / 4);
@@ -418,41 +416,13 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     };
     const position = positionOverride ?? fallbackPosition;
 
-    const newDiagram = {
-      ...diagram,
-      nodePos: {
-        ...diagram.nodePos,
-        [stateKey]: position
-      }
-    };
-    setDiagram(newDiagram);
-
-    const newNode: Node = {
-      id: stateKey,
-      position,
-      data: {
-        title: stateLabel,
-        state: newState,
-        stateType: newState.stateType,
-        stateSubType: newState.stateSubType
-      },
-      type: 'default',
-      sourcePosition: Position.Right,
-      targetPosition: Position.Left,
-      selected: true
-    };
-
-    setNodes((prevNodes) => [
-      ...prevNodes.map((node) => ({ ...node, selected: false })),
-      newNode
-    ]);
-
+    // Send to extension and let it update the state
     postMessage({
       type: 'domain:addState',
       state: newState,
       position
     });
-  }, [diagram, postMessage, workflow]);
+  }, [postMessage, workflow]);
 
   const handleDragStart = useCallback((event: React.DragEvent, template: StateTemplate) => {
     event.dataTransfer.setData(
@@ -500,7 +470,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     }
   }, [handleAddState, reactFlowInstance, stateTemplates]);
 
-  const handlePaneContextMenu = useCallback((event: React.MouseEvent) => {
+  const handlePaneContextMenu = useCallback((event: MouseEvent | React.MouseEvent) => {
     event.preventDefault();
     setContextMenu({ x: event.clientX, y: event.clientY });
   }, []);

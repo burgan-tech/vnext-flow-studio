@@ -84,8 +84,6 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     let currentWorkflow = await readJson<Workflow>(flowUri);
     const diagramUri = getDiagramUri(flowUri);
     let currentDiagram: Diagram;
-    let workflow = await readJson<Workflow>(flowUri);
-    let diagram: Diagram;
     let currentTasks: TaskDefinition[] = [];
 
     try {
@@ -94,7 +92,6 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       currentDiagram = await autoLayout(currentWorkflow);
       await writeJson(diagramUri, currentDiagram);
     }
-    diagram = currentDiagram;
 
     currentTasks = await loadTaskCatalog();
 
@@ -139,7 +136,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               key: 'start',
               target: message.target,
               versionStrategy: 'Major',
-              triggerType: 1 // Automatic
+              triggerType: 0 // Start trigger type
             };
 
             currentWorkflow = updatedWorkflow;
@@ -389,45 +386,45 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             {
               const { state, position } = message;
 
-              const existingIndex = workflow.attributes.states.findIndex((item) => item.key === state.key);
+              const existingIndex = currentWorkflow.attributes.states.findIndex((item) => item.key === state.key);
               const nextStates = existingIndex === -1
-                ? [...workflow.attributes.states, state]
-                : workflow.attributes.states.map((item, index) => (index === existingIndex ? state : item));
+                ? [...currentWorkflow.attributes.states, state]
+                : currentWorkflow.attributes.states.map((item, index) => (index === existingIndex ? state : item));
 
-              workflow = {
-                ...workflow,
+              currentWorkflow = {
+                ...currentWorkflow,
                 attributes: {
-                  ...workflow.attributes,
+                  ...currentWorkflow.attributes,
                   states: nextStates
                 }
               };
 
-              diagram = {
-                ...diagram,
+              currentDiagram = {
+                ...currentDiagram,
                 nodePos: {
-                  ...diagram.nodePos,
+                  ...currentDiagram.nodePos,
                   [state.key]: position
                 }
               };
 
-              await writeJson(flowUri, workflow);
-              await writeJson(diagramUri, diagram);
+              await writeJson(flowUri, currentWorkflow);
+              await writeJson(diagramUri, currentDiagram);
 
-              const derived = toReactFlow(workflow, diagram, 'en');
-              const problemsById = lint(workflow, { tasks: currentTasks });
+              const derived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+              const problemsById = lint(currentWorkflow, { tasks: currentTasks });
 
               // Update VS Code diagnostics
-              diagnosticsProvider.updateDiagnostics(flowUri, workflow, currentTasks);
+              diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
 
               panel.webview.postMessage({
                 type: 'workflow:update',
-                workflow,
+                workflow: currentWorkflow,
                 derived
               });
 
               panel.webview.postMessage({
                 type: 'diagram:update',
-                diagram
+                diagram: currentDiagram
               });
 
               panel.webview.postMessage({
@@ -571,7 +568,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
           case 'request:autoLayout': {
             const nextDiagram = await autoLayout(currentWorkflow, currentDiagram);
             currentDiagram = nextDiagram;
-            diagram = nextDiagram;
+            currentDiagram = nextDiagram;
             await writeJson(diagramUri, currentDiagram);
 
             const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
@@ -631,7 +628,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
         if (changedKey === flowUriKey) {
           const updatedWorkflow = await readJson<Workflow>(flowUri);
           currentWorkflow = updatedWorkflow;
-          workflow = updatedWorkflow;
+          currentWorkflow = updatedWorkflow;
           const updatedDerived = toReactFlow(updatedWorkflow, currentDiagram, 'en');
           panel.webview.postMessage({
             type: 'workflow:update',
@@ -647,7 +644,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
         } else if (changedUri.path === diagramUri.path) {
           const updatedDiagram = await readJson<Diagram>(diagramUri);
           currentDiagram = updatedDiagram;
-          diagram = updatedDiagram;
+          currentDiagram = updatedDiagram;
           const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
           panel.webview.postMessage({
             type: 'workflow:update',
