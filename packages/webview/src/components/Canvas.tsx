@@ -177,9 +177,34 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
         case 'catalog:update':
           setTaskCatalog(message.tasks);
           break;
+        case 'select:node':
+          // Find the node and select it
+          const nodeToSelect = nodes.find(n => n.id === message.nodeId);
+          if (nodeToSelect) {
+            // Clear existing selection
+            setNodes(nds => nds.map(n => ({ ...n, selected: n.id === message.nodeId })));
+            setEdges(eds => eds.map(e => ({ ...e, selected: false })));
+
+            // Set the selection for property panel
+            if (workflow) {
+              const state = workflow.attributes.states.find(s => s.key === message.nodeId);
+              if (state) {
+                setSelection({ kind: 'state', stateKey: message.nodeId });
+              }
+            }
+
+            // Focus on the selected node
+            if (reactFlowInstance) {
+              reactFlowInstance.setCenter(nodeToSelect.position.x, nodeToSelect.position.y, {
+                duration: 500,
+                zoom: 1.5
+              });
+            }
+          }
+          break;
       }
     });
-  }, [onMessage, reactFlowInstance]);
+  }, [onMessage, reactFlowInstance, nodes, workflow]);
 
   // Handle node position changes
   const onNodesChange: OnNodesChange = useCallback((changes: NodeChange[]) => {

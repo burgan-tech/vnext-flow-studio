@@ -135,16 +135,23 @@ export function lint(
   // Check states and transitions
   for (const state of workflow.attributes.states) {
     // Check local transitions
-    for (const transition of (state.transitions || [])) {
-      // E_FROM_MISMATCH: transition.from must equal parent state key
-      if (transition.from !== state.key) {
-        push(state.key, {
-          id: 'E_FROM_MISMATCH',
-          severity: 'error',
-          message: `transition.from '${transition.from}' must equal parent state '${state.key}'`
-        });
-      }
+    const transitions = state.transitions || [];
 
+    // Check if multiple transitions have rules when needed
+    const autoTransitions = transitions.filter(t => t.triggerType === 1); // Auto triggers
+    if (autoTransitions.length > 1) {
+      for (const transition of autoTransitions) {
+        if (!transition.rule?.location) {
+          push(state.key, {
+            id: 'E_MISSING_RULE',
+            severity: 'error',
+            message: `State has ${autoTransitions.length} auto transitions - transition '${transition.key}' must have a rule to determine which path to take`
+          });
+        }
+      }
+    }
+
+    for (const transition of transitions) {
       // E_BAD_TARGET: transition target must exist
       if (!stateKeys.has(transition.target)) {
         push(state.key, {
@@ -174,11 +181,11 @@ export function lint(
         });
       }
 
-      if (task.mapping?.location && !task.mapping.location.match(/^\.\/src\/.*\.csx$/)) {
+      if (task.mapping?.location && !task.mapping.location.match(/^\.\/.*\.csx$/)) {
         push(state.key, {
           id: 'E_BAD_PATH',
           severity: 'error',
-          message: `mapping.location '${task.mapping.location}' must match pattern './src/*.csx'`
+          message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
         });
       }
     }
@@ -192,11 +199,11 @@ export function lint(
         });
       }
 
-      if (task.mapping?.location && !task.mapping.location.match(/^\.\/src\/.*\.csx$/)) {
+      if (task.mapping?.location && !task.mapping.location.match(/^\.\/.*\.csx$/)) {
         push(state.key, {
           id: 'E_BAD_PATH',
           severity: 'error',
-          message: `mapping.location '${task.mapping.location}' must match pattern './src/*.csx'`
+          message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
         });
       }
     }
@@ -210,22 +217,22 @@ export function lint(
         });
       }
 
-      if (task.mapping?.location && !task.mapping.location.match(/^\.\/src\/.*\.csx$/)) {
+      if (task.mapping?.location && !task.mapping.location.match(/^\.\/.*\.csx$/)) {
         push(state.key, {
           id: 'E_BAD_PATH',
           severity: 'error',
-          message: `mapping.location '${task.mapping.location}' must match pattern './src/*.csx'`
+          message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
         });
       }
     }
 
     // Check transition rules
     for (const transition of (state.transitions || [])) {
-      if (transition.rule?.location && !transition.rule.location.match(/^\.\/src\/.*\.csx$/)) {
+      if (transition.rule?.location && !transition.rule.location.match(/^\.\/.*\.csx$/)) {
         push(state.key, {
           id: 'E_BAD_PATH',
           severity: 'error',
-          message: `rule.location '${transition.rule.location}' must match pattern './src/*.csx'`
+          message: `rule.location '${transition.rule.location}' must match pattern './*.csx'`
         });
       }
     }

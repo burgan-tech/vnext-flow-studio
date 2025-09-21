@@ -12,7 +12,8 @@ export type MsgToWebview =
   | { type: 'workflow:update'; workflow: Workflow; derived: { nodes: any[]; edges: any[] } }
   | { type: 'diagram:update'; diagram: Diagram }
   | { type: 'lint:update'; problemsById: Record<string, any> }
-  | { type: 'catalog:update'; tasks: TaskDefinition[] };
+  | { type: 'catalog:update'; tasks: TaskDefinition[] }
+  | { type: 'select:node'; nodeId: string };
 
 export type MsgFromWebview =
   | { type: 'persist:diagram'; diagram: Diagram }

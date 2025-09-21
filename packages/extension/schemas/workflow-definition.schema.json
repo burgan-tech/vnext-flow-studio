@@ -154,7 +154,6 @@
                   "type": "object",
                   "properties": {
                     "key": { "type": "string" },
-                    "from": { "type": "string" },
                     "target": { "type": "string" },
                     "triggerType": { "type": "integer", "enum": [0, 1, 2, 3] },
                     "versionStrategy": { "type": "string", "enum": ["Major", "Minor", "Patch"] },
@@ -170,7 +169,7 @@
                       }
                     }
                   },
-                  "required": ["key", "from", "target", "triggerType", "versionStrategy"]
+                  "required": ["key", "target", "triggerType", "versionStrategy"]
                 }
               }
             },
