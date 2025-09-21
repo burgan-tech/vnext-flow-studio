@@ -11,7 +11,7 @@ export interface AutoLayoutOptions {
 
 const DEFAULT_START_X = 220;
 const DEFAULT_START_Y = 140;
-const DEFAULT_COLUMN_SPACING = 260;
+const DEFAULT_COLUMN_SPACING = 260; // Increased for better horizontal spacing
 const DEFAULT_ROW_SPACING = 170;
 
 const ACTIVITY_NODE_SIZE = { width: 260, height: 160 };
@@ -27,7 +27,10 @@ const BASE_LAYOUT_OPTIONS: Record<string, string> = {
   'elk.direction': 'RIGHT',
   'elk.edgeRouting': 'ORTHOGONAL',
   'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-  'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX'
+  'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+  'elk.layered.spacing.baseValue': '100', // Base spacing value
+  'elk.layered.spacing.edgeNodeBetweenLayers': '50', // Space between edges and nodes
+  'elk.layered.compaction.connectedComponents': 'false' // Prevent compaction
 };
 
 interface ElkPort {
@@ -185,8 +188,14 @@ export async function autoLayout(
 
   const layoutOptions: Record<string, string> = {
     ...BASE_LAYOUT_OPTIONS,
-    'elk.spacing.nodeNodeBetweenLayers': String(options.columnSpacing ?? DEFAULT_COLUMN_SPACING),
-    'elk.spacing.nodeNode': String(options.rowSpacing ?? DEFAULT_ROW_SPACING)
+    // Correct ELK property names for layered algorithm spacing
+    'elk.layered.spacing.nodeNodeBetweenLayers': String(options.columnSpacing ?? DEFAULT_COLUMN_SPACING),
+    'elk.spacing.nodeNode': String(options.rowSpacing ?? DEFAULT_ROW_SPACING),
+    // Additional spacing controls for better horizontal layout
+    'elk.spacing.edgeNode': '50',
+    'elk.spacing.edgeEdge': '30',
+    'elk.spacing.portPort': '20',
+    'elk.layered.thoroughness': '100' // Maximum thoroughness for better layout
   };
 
   const graph: any = {
