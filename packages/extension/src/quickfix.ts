@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { Workflow } from '@nextcredit/core';
+import type { Workflow, StateType } from '@nextcredit/core';
 
 export async function createMissingState(
   uri: vscode.Uri,
@@ -22,7 +22,7 @@ export async function createMissingState(
     // Create new state
     const newState = {
       key: missingStateName,
-      stateType: 2, // Intermediate
+      stateType: 2 as StateType, // Intermediate
       versionStrategy: 'Minor' as const,
       labels: [
         {

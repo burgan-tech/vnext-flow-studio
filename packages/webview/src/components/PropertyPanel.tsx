@@ -10,13 +10,25 @@ import {
   type Label,
   type ExecutionTask,
   type TaskDefinition,
-  type SchemaRef
+  type SchemaRef,
+  type SharedTransition,
 } from '@nextcredit/core';
 import { useBridge } from '../hooks/useBridge';
+import {
+  LabelListEditor,
+  RuleEditor,
+  SchemaEditor,
+  ExecutionTaskListEditor,
+  ViewEditor,
+  isSchemaRef,
+  isTaskRef,
+  type SchemaMode
+} from './editors';
 
 export type PropertySelection =
   | { kind: 'state'; stateKey: string }
   | { kind: 'transition'; from: string; transitionKey: string }
+  | { kind: 'sharedTransition'; transitionKey: string }
   | null;
 
 interface PropertyPanelProps {
@@ -24,6 +36,7 @@ interface PropertyPanelProps {
   selection: PropertySelection;
   collapsed: boolean;
   availableTasks: TaskDefinition[];
+  catalogs?: Record<string, any[]>;
 }
 
 const versionStrategies: VersionStrategy[] = ['Major', 'Minor'];
@@ -47,18 +60,6 @@ const stateSubTypeOptions: { value: StateSubType; label: string }[] = [
   { value: 3, label: 'Cancelled' }
 ];
 
-type SchemaMode = 'none' | 'reference' | 'inline';
-
-function isSchemaRef(value: Transition['schema']): value is SchemaRef {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      'flow' in value &&
-      (value as SchemaRef).flow === 'sys-schemas'
-  );
-}
-
 function sanitizeLabels(labels?: Label[]): Label[] {
   if (!labels) return [];
 
@@ -77,50 +78,41 @@ function sanitizeExecutionTasks(tasks?: ExecutionTask[]): ExecutionTask[] | unde
     .map((task, index) => {
       const result: ExecutionTask & Record<string, unknown> = {
         ...task,
-        order: Number.isFinite(task.order) ? task.order : index + 1,
-        task: {
-          ...task.task,
+        order: Number.isFinite(task.order) ? task.order : index + 1
+      };
+
+      // Handle task reference
+      if (isTaskRef(task.task)) {
+        result.task = {
           key: task.task.key?.trim() ?? '',
           domain: task.task.domain?.trim() ?? '',
           version: task.task.version?.trim() ?? '',
           flow: 'sys-tasks'
-        }
-      };
+        };
+      } else {
+        // It's an inline ref
+        result.task = task.task;
+      }
 
       if (task.mapping) {
         const location = task.mapping.location?.trim() ?? '';
         const code = task.mapping.code?.trim() ?? '';
-        if (!location && !code) {
-          delete result.mapping;
-        } else {
-          result.mapping = { location, code };
-        }
+        result.mapping = { location, code };
+      } else {
+        // Mapping is required, provide empty one
+        result.mapping = { location: '', code: '' };
       }
 
       return result as ExecutionTask;
     })
-    .filter((task) => task.task.key || task.task.domain || task.task.version);
+    .filter((task) => {
+      if (isTaskRef(task.task)) {
+        return task.task.key || task.task.domain || task.task.version;
+      }
+      return task.task.ref; // For inline refs
+    });
 
   return sanitized.length > 0 ? sanitized : undefined;
-}
-
-function makeTaskIdentifier(task: {
-  domain?: string;
-  flow?: string;
-  key?: string;
-  version?: string;
-}): string {
-  const domain = task.domain?.trim() ?? '';
-  const flow = task.flow?.trim() ?? '';
-  const key = task.key?.trim() ?? '';
-  const version = task.version?.trim() ?? '';
-  return `${domain}::${flow}::${key}::${version}`;
-}
-
-function formatTaskOptionLabel(task: TaskDefinition): string {
-  const base = `${task.domain}/${task.key} @ ${task.version}`;
-  const withFlow = task.flow && task.flow !== 'sys-tasks' ? `${base} (${task.flow})` : base;
-  return task.title ? `${withFlow} – ${task.title}` : withFlow;
 }
 
 function sanitizeState(draft: State): State {
@@ -160,16 +152,15 @@ function sanitizeState(draft: State): State {
 }
 
 function sanitizeTransition(
-  draft: Transition,
-  mode: SchemaMode,
-  inlineSchemaError: string | null
+  draft: Transition
 ): Transition {
+  const labels = sanitizeLabels(draft.labels);
   const result: Transition & Record<string, unknown> = {
     ...draft,
-    labels: sanitizeLabels(draft.labels)
+    labels
   };
 
-  if (!result.labels.length) {
+  if (!labels.length) {
     delete result.labels;
   }
 
@@ -185,9 +176,16 @@ function sanitizeTransition(
     delete result.rule;
   }
 
-  if (mode === 'none') {
+  // Derive mode from the schema value
+  const schemaMode: SchemaMode = draft.schema === null || draft.schema === undefined
+    ? 'none'
+    : isSchemaRef(draft.schema)
+    ? 'full'
+    : 'ref';
+
+  if (schemaMode === 'none') {
     result.schema = null;
-  } else if (mode === 'reference') {
+  } else if (schemaMode === 'full') {
     if (isSchemaRef(draft.schema)) {
       const schema: SchemaRef = {
         key: draft.schema.key?.trim() ?? '',
@@ -203,460 +201,23 @@ function sanitizeTransition(
     } else {
       result.schema = null;
     }
-  } else if (mode === 'inline') {
-    if (!inlineSchemaError && draft.schema && !isSchemaRef(draft.schema)) {
-      result.schema = draft.schema;
-    } else if (inlineSchemaError) {
-      result.schema = draft.schema;
+  } else if (schemaMode === 'ref') {
+    if (draft.schema && 'ref' in draft.schema) {
+      const ref = (draft.schema as any).ref?.trim() ?? '';
+      if (ref) {
+        result.schema = { ref };
+      } else {
+        result.schema = null;
+      }
     } else {
-      result.schema = {};
+      result.schema = null;
     }
   }
 
   return result as Transition;
 }
 
-interface LabelListEditorProps {
-  title: string;
-  labels: Label[];
-  onChange: (labels: Label[]) => void;
-}
-
-function LabelListEditor({ title, labels, onChange }: LabelListEditorProps) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  const handleAdd = () => {
-    onChange([...labels, { language: '', label: '' }]);
-    setCollapsed(false);
-  };
-
-  const handleRemove = (index: number) => {
-    onChange(labels.filter((_, i) => i !== index));
-  };
-
-  const handleLabelChange = (index: number, field: keyof Label, value: string) => {
-    onChange(
-      labels.map((label, i) =>
-        i === index
-          ? {
-              ...label,
-              [field]: value
-            }
-          : label
-      )
-    );
-  };
-
-  return (
-    <div className={`property-panel__group ${collapsed ? 'property-panel__group--collapsed' : ''}`}>
-      <div className="property-panel__group-header" onClick={() => setCollapsed(!collapsed)}>
-        <span>{title}</span>
-        <button
-          type="button"
-          className="property-panel__pill-button"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleAdd();
-          }}
-        >
-          +
-        </button>
-      </div>
-      {labels.length === 0 ? (
-        <p className="property-panel__muted">No labels configured.</p>
-      ) : (
-        <div className="property-panel__list">
-          {labels.map((label, index) => (
-            <div key={index} className="property-panel__list-item">
-              <div className="property-panel__inline-fields">
-                <label className="property-panel__field">
-                  <span>Language</span>
-                  <input
-                    type="text"
-                    value={label.language}
-                    onChange={(event) => handleLabelChange(index, 'language', event.target.value)}
-                  />
-                </label>
-                <label className="property-panel__field">
-                  <span>Label</span>
-                  <input
-                    type="text"
-                    value={label.label}
-                    onChange={(event) => handleLabelChange(index, 'label', event.target.value)}
-                  />
-                </label>
-              </div>
-              <button
-                type="button"
-                className="property-panel__list-remove"
-                onClick={() => handleRemove(index)}
-              >
-                Remove label
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface ExecutionTaskListEditorProps {
-  title: string;
-  tasks?: ExecutionTask[];
-  onChange: (tasks?: ExecutionTask[]) => void;
-  availableTasks: TaskDefinition[];
-  onLoadFromFile?: (index: number) => void;
-}
-
-function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks, onLoadFromFile }: ExecutionTaskListEditorProps) {
-  const [collapsed, setCollapsed] = useState(false);
-  const list = tasks ?? [];
-
-  const setTasks = (next: ExecutionTask[]) => {
-    onChange(next.length > 0 ? next : undefined);
-  };
-
-  const taskLookup = useMemo(() => {
-    const map = new Map<string, TaskDefinition>();
-    for (const task of availableTasks) {
-      map.set(makeTaskIdentifier(task), task);
-    }
-    return map;
-  }, [availableTasks]);
-
-  const taskOptions = useMemo(
-    () =>
-      availableTasks.map((task) => ({
-        id: makeTaskIdentifier(task),
-        label: formatTaskOptionLabel(task),
-        detail: task.title ?? task.path ?? `${task.domain}/${task.key}`
-      })),
-    [availableTasks]
-  );
-
-  const canAdd = availableTasks.length > 0;
-
-  const handleAdd = () => {
-    if (!canAdd) return;
-    const first = availableTasks[0];
-    setTasks([
-      ...list,
-      {
-        order: list.length + 1,
-        task: {
-          key: first.key,
-          domain: first.domain,
-          flow: 'sys-tasks',
-          version: first.version
-        }
-      }
-    ]);
-  };
-
-  const handleTaskChange = (
-    index: number,
-    updater: (task: ExecutionTask) => ExecutionTask
-  ) => {
-    setTasks(list.map((task, i) => (i === index ? updater(task) : task)));
-  };
-
-  const handleRemove = (index: number) => {
-    setTasks(list.filter((_, i) => i !== index));
-  };
-
-  const handleAddMapping = (index: number) => {
-    handleTaskChange(index, (task) => ({
-      ...task,
-      mapping: { location: '', code: '' }
-    }));
-  };
-
-  const handleRemoveMapping = (index: number) => {
-    handleTaskChange(index, (task) => {
-      const next = { ...task } as ExecutionTask & Record<string, unknown>;
-      delete next.mapping;
-      return next as ExecutionTask;
-    });
-  };
-
-  const handleMappingChange = (
-    index: number,
-    field: 'location' | 'code',
-    value: string
-  ) => {
-    handleTaskChange(index, (task) => ({
-      ...task,
-      mapping: {
-        ...(task.mapping ?? { location: '', code: '' }),
-        [field]: value
-      }
-    }));
-  };
-
-  const handleCatalogSelect = (index: number, identifier: string) => {
-    if (!identifier) {
-      return;
-    }
-
-    const definition = taskLookup.get(identifier);
-    if (!definition) {
-      return;
-    }
-
-    handleTaskChange(index, (current) => ({
-      ...current,
-      task: {
-        ...current.task,
-        key: definition.key,
-        domain: definition.domain,
-        version: definition.version,
-        flow: 'sys-tasks'
-      }
-    }));
-  };
-
-  return (
-    <div className={`property-panel__group ${collapsed ? 'property-panel__group--collapsed' : ''}`}>
-      <div className="property-panel__group-header" onClick={() => setCollapsed(!collapsed)}>
-        <span>{title}</span>
-        <button
-          type="button"
-          className="property-panel__pill-button"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleAdd();
-            setCollapsed(false);
-          }}
-          disabled={!canAdd}
-          title={canAdd ? 'Add a reference to an existing task' : 'No catalog tasks available'}
-        >
-          +
-        </button>
-      </div>
-      {list.length === 0 ? (
-        <p className="property-panel__muted">No task references configured.</p>
-      ) : (
-        <div className="property-panel__list">
-          {list.map((task, index) => (
-            <div key={index} className="property-panel__list-item">
-              <label className="property-panel__field">
-                <span>Order</span>
-                <input
-                  type="number"
-                  value={task.order}
-                  onChange={(event) =>
-                    handleTaskChange(index, (current) => ({
-                      ...current,
-                      order: Number(event.target.value)
-                    }))
-                  }
-                />
-              </label>
-              <div className="property-panel__inline-fields">
-                <label className="property-panel__field">
-                  <span>Select task</span>
-                  <select
-                    value={(() => {
-                      const identifier = makeTaskIdentifier(task.task);
-                      return taskLookup.has(identifier) ? identifier : '';
-                    })()}
-                    onChange={(event) => handleCatalogSelect(index, event.target.value)}
-                    disabled={taskOptions.length === 0}
-                  >
-                    <option value="">
-                      {taskOptions.length === 0 ? 'No tasks available' : 'Select existing task…'}
-                    </option>
-                    {taskOptions.map((option) => (
-                      <option key={option.id} value={option.id} title={option.detail}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              {task.mapping ? (
-                <div className="property-panel__nested">
-                  <div className="property-panel__group-header">
-                    <span>Mapping reference</span>
-                    <div className="property-panel__group-actions">
-                      <button
-                        type="button"
-                        className="property-panel__pill-button property-panel__pill-button--ghost"
-                        onClick={() => onLoadFromFile?.(index)}
-                        title="Select a .csx file and embed its base64 content"
-                      >
-                        Load from file…
-                      </button>
-                      <button
-                        type="button"
-                        className="property-panel__pill-button property-panel__pill-button--ghost"
-                        onClick={() => handleRemoveMapping(index)}
-                      >
-                        Remove mapping reference
-                      </button>
-                    </div>
-                  </div>
-                  <div className="property-panel__inline-fields">
-                    <label className="property-panel__field">
-                      <span>Location (relative .csx)</span>
-                      <input
-                        type="text"
-                        value={task.mapping.location}
-                        onChange={(event) =>
-                          handleMappingChange(index, 'location', event.target.value)
-                        }
-                        placeholder="./src/MyMapping.csx"
-                        title={task.mapping.location || "Enter the relative path to the .csx file"}
-                      />
-                    </label>
-                    <label className="property-panel__field">
-                      <span>Code (base64)</span>
-                      <input
-                        type="text"
-                        value={task.mapping.code ? `(${task.mapping.code.length} bytes)` : ''}
-                        readOnly
-                        placeholder="Populated from the .csx file"
-                        title="Base64-encoded content of the referenced .csx file"
-                      />
-                    </label>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="property-panel__pill-button property-panel__pill-button--ghost"
-                  onClick={() => handleAddMapping(index)}
-                >
-                  Add mapping reference
-                </button>
-              )}
-              <button
-                type="button"
-                className="property-panel__list-remove"
-                onClick={() => handleRemove(index)}
-              >
-                Remove reference
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface SchemaEditorProps {
-  mode: SchemaMode;
-  schema: Transition['schema'];
-  inlineText: string;
-  inlineError: string | null;
-  onModeChange: (mode: SchemaMode) => void;
-  onReferenceChange: (field: 'key' | 'domain' | 'version', value: string) => void;
-  onInlineChange: (value: string) => void;
-}
-
-function SchemaEditor({
-  mode,
-  schema,
-  inlineText,
-  inlineError,
-  onModeChange,
-  onReferenceChange,
-  onInlineChange
-}: SchemaEditorProps) {
-  const schemaRef: SchemaRef = isSchemaRef(schema)
-    ? schema
-    : {
-        key: '',
-        domain: '',
-        version: '',
-        flow: 'sys-schemas'
-      };
-
-  const [collapsed, setCollapsed] = useState(false);
-
-  return (
-    <div className={`property-panel__group ${collapsed ? 'property-panel__group--collapsed' : ''}`}>
-      <div className="property-panel__group-header" onClick={() => setCollapsed(!collapsed)}>
-        <span>Schema</span>
-      </div>
-      <div className="property-panel__radio-group">
-        <label className="property-panel__radio">
-          <input
-            type="radio"
-            name="schema-mode"
-            value="none"
-            checked={mode === 'none'}
-            onChange={() => onModeChange('none')}
-          />
-          None
-        </label>
-        <label className="property-panel__radio">
-          <input
-            type="radio"
-            name="schema-mode"
-            value="reference"
-            checked={mode === 'reference'}
-            onChange={() => onModeChange('reference')}
-          />
-          Reference
-        </label>
-        <label className="property-panel__radio">
-          <input
-            type="radio"
-            name="schema-mode"
-            value="inline"
-            checked={mode === 'inline'}
-            onChange={() => onModeChange('inline')}
-          />
-          Inline JSON
-        </label>
-      </div>
-      {mode === 'reference' ? (
-        <div className="property-panel__inline-fields">
-          <label className="property-panel__field">
-            <span>Key</span>
-            <input
-              type="text"
-              value={schemaRef.key}
-              onChange={(event) => onReferenceChange('key', event.target.value)}
-            />
-          </label>
-          <label className="property-panel__field">
-            <span>Domain</span>
-            <input
-              type="text"
-              value={schemaRef.domain}
-              onChange={(event) => onReferenceChange('domain', event.target.value)}
-            />
-          </label>
-          <label className="property-panel__field">
-            <span>Version</span>
-            <input
-              type="text"
-              value={schemaRef.version}
-              onChange={(event) => onReferenceChange('version', event.target.value)}
-            />
-          </label>
-          <label className="property-panel__field">
-            <span>Flow</span>
-            <input type="text" value="sys-schemas" readOnly />
-          </label>
-        </div>
-      ) : null}
-      {mode === 'inline' ? (
-        <label className="property-panel__field">
-          <span>Inline schema (JSON)</span>
-          <textarea value={inlineText} onChange={(event) => onInlineChange(event.target.value)} />
-          {inlineError ? <span className="property-panel__error">{inlineError}</span> : null}
-        </label>
-      ) : null}
-    </div>
-  );
-}
-
-export function PropertyPanel({ workflow, selection, collapsed, availableTasks }: PropertyPanelProps) {
+export function PropertyPanel({ workflow, selection, collapsed, availableTasks, catalogs = {} }: PropertyPanelProps) {
   const { postMessage } = useBridge();
 
   const panelClassName = useMemo(() => {
@@ -679,11 +240,22 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
     return { fromState, transition } as const;
   }, [selection, workflow]);
 
+  const selectedSharedTransition = useMemo(() => {
+    if (selection?.kind !== 'sharedTransition') return null;
+    const sharedTransition = workflow.attributes.sharedTransitions?.find(
+      (item) => item.key === selection.transitionKey
+    );
+    return sharedTransition ?? null;
+  }, [selection, workflow]);
+
   const [stateDraft, setStateDraft] = useState<State | null>(null);
   const [transitionDraft, setTransitionDraft] = useState<Transition | null>(null);
-  const [schemaMode, setSchemaMode] = useState<SchemaMode>('none');
-  const [inlineSchemaText, setInlineSchemaText] = useState('');
-  const [inlineSchemaError, setInlineSchemaError] = useState<string | null>(null);
+  const [sharedTransitionDraft, setSharedTransitionDraft] = useState<SharedTransition | null>(null);
+  // Schema mode is derived from the schema value itself, no need to track in state
+  // Shared schema mode is derived from the schema value itself
+  // Schema ref states removed - no longer needed since we don't support inline schemas
+  const [ruleText, setRuleText] = useState('');
+  const [sharedRuleText, setSharedRuleText] = useState('');
 
   useEffect(() => {
     if (selectedState) {
@@ -700,31 +272,42 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
   useEffect(() => {
     if (selectedTransition) {
       const clone = JSON.parse(JSON.stringify(selectedTransition.transition)) as Transition;
-      if (!clone.from) {
-        clone.from = selectedTransition.fromState.key;
-      }
       setTransitionDraft(clone);
 
-      if (clone.schema === null || clone.schema === undefined) {
-        setSchemaMode('none');
-        setInlineSchemaText('');
-        setInlineSchemaError(null);
-      } else if (isSchemaRef(clone.schema)) {
-        setSchemaMode('reference');
-        setInlineSchemaText('');
-        setInlineSchemaError(null);
+      // Schema mode will be derived from the schema value in the editor
+
+      // Initialize rule text
+      if (clone.rule) {
+        setRuleText(clone.rule.code || '');
       } else {
-        setSchemaMode('inline');
-        setInlineSchemaText(JSON.stringify(clone.schema, null, 2));
-        setInlineSchemaError(null);
+        setRuleText('');
       }
     } else {
       setTransitionDraft(null);
-      setSchemaMode('none');
-      setInlineSchemaText('');
-      setInlineSchemaError(null);
+      setRuleText('');
     }
   }, [selectedTransition]);
+
+  useEffect(() => {
+    if (selectedSharedTransition) {
+      const clone = JSON.parse(JSON.stringify(selectedSharedTransition)) as SharedTransition;
+      // Clean up availableIn to ensure target is not included
+      clone.availableIn = clone.availableIn.filter(s => s !== clone.target);
+      setSharedTransitionDraft(clone);
+
+      // Schema mode will be derived from the schema value in the editor
+
+      // Initialize rule text
+      if (clone.rule) {
+        setSharedRuleText(clone.rule.code || '');
+      } else {
+        setSharedRuleText('');
+      }
+    } else {
+      setSharedTransitionDraft(null);
+      setSharedRuleText('');
+    }
+  }, [selectedSharedTransition]);
 
   const handleSchemaModeChange = (mode: SchemaMode) => {
     setTransitionDraft((prev) => {
@@ -732,48 +315,23 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
       const next = { ...prev } as Transition & Record<string, unknown>;
       if (mode === 'none') {
         next.schema = null;
-        setInlineSchemaText('');
-        setInlineSchemaError(null);
-      } else if (mode === 'reference') {
+      } else if (mode === 'full') {
         next.schema = isSchemaRef(prev.schema)
           ? { ...prev.schema }
           : { key: '', domain: '', version: '', flow: 'sys-schemas' };
-        setInlineSchemaText('');
-        setInlineSchemaError(null);
       } else {
-        const base = !prev.schema || isSchemaRef(prev.schema) ? {} : prev.schema;
-        next.schema = base;
-        setInlineSchemaText(JSON.stringify(base, null, 2));
-        setInlineSchemaError(null);
+        // ref mode
+        next.schema = { ref: '' };
       }
       return next as Transition;
     });
-    setSchemaMode(mode);
   };
 
-  const handleInlineSchemaChange = (value: string) => {
-    setInlineSchemaText(value);
-    const trimmed = value.trim();
-
-    if (!trimmed) {
-      setInlineSchemaError('Schema cannot be empty.');
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        setInlineSchemaError('Schema must be a JSON object.');
-        return;
-      }
-      setTransitionDraft((prev) => {
-        if (!prev) return prev;
-        return { ...prev, schema: parsed };
-      });
-      setInlineSchemaError(null);
-    } catch {
-      setInlineSchemaError('Invalid JSON');
-    }
+  const handleSchemaRefChange = (ref: string) => {
+    setTransitionDraft((prev) => {
+      if (!prev) return prev;
+      return { ...prev, schema: { ref } };
+    });
   };
 
   const handleSchemaReferenceChange = (
@@ -812,13 +370,8 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
   const handleTransitionSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selection || selection.kind !== 'transition' || !transitionDraft) return;
-    if (schemaMode === 'inline' && inlineSchemaError) return;
 
-    const sanitized = sanitizeTransition(
-      { ...transitionDraft, from: selection.from },
-      schemaMode,
-      inlineSchemaError
-    );
+    const sanitized = sanitizeTransition(transitionDraft);
 
     postMessage({
       type: 'domain:updateTransition',
@@ -828,9 +381,30 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
     });
   };
 
+  const handleSharedTransitionSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selection || selection.kind !== 'sharedTransition' || !sharedTransitionDraft) return;
+
+    // The sanitizeTransition function works for both regular and shared transitions
+    const { availableIn, ...transitionFields } = sharedTransitionDraft;
+    const sanitized = sanitizeTransition(transitionFields as Transition);
+
+    // Combine sanitized fields with availableIn
+    const updatedSharedTransition: SharedTransition = {
+      ...sanitized,
+      availableIn
+    };
+
+    postMessage({
+      type: 'domain:updateSharedTransition',
+      transitionKey: selection.transitionKey, // Use original key from selection
+      sharedTransition: updatedSharedTransition
+    });
+  };
+
   const stateLabels = stateDraft?.labels ?? [];
   const transitionLabels = transitionDraft?.labels ?? [];
-  const transitionHasErrors = schemaMode === 'inline' && inlineSchemaError !== null;
+  const transitionHasErrors = false; // No more inline schema errors
 
   return (
     <aside className={panelClassName} aria-hidden={collapsed}>
@@ -841,6 +415,9 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
         ) : null}
         {selection?.kind === 'transition' && transitionDraft ? (
           <span className="property-panel__tag">Transition</span>
+        ) : null}
+        {selection?.kind === 'sharedTransition' && sharedTransitionDraft ? (
+          <span className="property-panel__tag">Shared Transition</span>
         ) : null}
       </div>
       <div className="property-panel__content">
@@ -951,110 +528,43 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
               }
             />
 
-            {/* View Reference */}
-            <div className="property-panel__group">
-              <div className="property-panel__group-header">
-                <span>View Reference</span>
-                {stateDraft.view ? (
-                  <button
-                    type="button"
-                    className="property-panel__pill-button property-panel__pill-button--ghost"
-                    onClick={() =>
-                      setStateDraft((prev) => {
-                        if (!prev) return prev;
-                        const next = { ...prev } as State & Record<string, unknown>;
-                        delete next.view;
-                        return next as State;
-                      })
+            <ViewEditor
+              title="View Reference"
+              view={stateDraft.view}
+              availableViews={catalogs.view}
+              onModeChange={(mode) => {
+                if (mode === 'none') {
+                  setStateDraft(prev => {
+                    if (!prev) return prev;
+                    const next = { ...prev } as State & Record<string, unknown>;
+                    delete next.view;
+                    return next as State;
+                  });
+                } else if (mode === 'ref') {
+                  setStateDraft(prev => prev ? { ...prev, view: { ref: '' } } : prev);
+                } else {
+                  setStateDraft(prev => prev ? {
+                    ...prev,
+                    view: { key: '', domain: '', flow: 'sys-views', version: '1.0.0' }
+                  } : prev);
+                }
+              }}
+              onReferenceChange={(field, value) => {
+                setStateDraft(prev => {
+                  if (!prev || !prev.view || !('key' in prev.view)) return prev;
+                  return {
+                    ...prev,
+                    view: {
+                      ...prev.view,
+                      [field]: value
                     }
-                  >
-                    Remove view
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="property-panel__pill-button"
-                    onClick={() =>
-                      setStateDraft((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              view: { key: '', domain: '', flow: 'sys-views', version: '' }
-                            }
-                          : prev
-                      )
-                    }
-                  >
-                    Add view
-                  </button>
-                )}
-              </div>
-              {stateDraft.view && (
-                <div className="property-panel__inline-fields">
-                  {('ref' in stateDraft.view) ? (
-                    <label className="property-panel__field">
-                      <span>Reference</span>
-                      <input
-                        type="text"
-                        value={stateDraft.view.ref}
-                        onChange={(event) =>
-                          setStateDraft((prev) =>
-                            prev && prev.view
-                              ? { ...prev, view: { ref: event.target.value } }
-                              : prev
-                          )
-                        }
-                      />
-                    </label>
-                  ) : (
-                    <>
-                      <label className="property-panel__field">
-                        <span>Key</span>
-                        <input
-                          type="text"
-                          value={stateDraft.view.key}
-                          onChange={(event) =>
-                            setStateDraft((prev) =>
-                              prev && prev.view && 'key' in prev.view
-                                ? { ...prev, view: { ...prev.view, key: event.target.value } }
-                                : prev
-                            )
-                          }
-                        />
-                      </label>
-                      <label className="property-panel__field">
-                        <span>Domain</span>
-                        <input
-                          type="text"
-                          value={stateDraft.view.domain}
-                          onChange={(event) =>
-                            setStateDraft((prev) =>
-                              prev && prev.view && 'domain' in prev.view
-                                ? { ...prev, view: { ...prev.view, domain: event.target.value } }
-                                : prev
-                            )
-                          }
-                        />
-                      </label>
-                      <label className="property-panel__field">
-                        <span>Version</span>
-                        <input
-                          type="text"
-                          value={stateDraft.view.version}
-                          onChange={(event) =>
-                            setStateDraft((prev) =>
-                              prev && prev.view && 'version' in prev.view
-                                ? { ...prev, view: { ...prev.view, version: event.target.value } }
-                                : prev
-                            )
-                          }
-                        />
-                      </label>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+                  };
+                });
+              }}
+              onRefChange={(ref) => {
+                setStateDraft(prev => prev ? { ...prev, view: { ref } } : prev);
+              }}
+            />
 
             <ExecutionTaskListEditor
               title="On entry task references"
@@ -1188,6 +698,29 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
               </select>
             </label>
 
+            {/* Trigger type specific configurations */}
+            {transitionDraft.triggerType === 0 && (
+              <div className="property-panel__info">
+                <span className="property-panel__info-icon">ℹ️</span>
+                <span>Manual transitions are triggered by user actions or API calls.</span>
+              </div>
+            )}
+
+            {transitionDraft.triggerType === 1 && (
+              <div className="property-panel__group">
+                <div className="property-panel__group-header">
+                  <span>Automatic Trigger Configuration</span>
+                </div>
+                <div className="property-panel__info">
+                  <span className="property-panel__info-icon">⚡</span>
+                  <span>This transition will trigger immediately when the state is entered.</span>
+                </div>
+                <p className="property-panel__muted">
+                  Use the Rule field below to add conditions for this automatic transition.
+                </p>
+              </div>
+            )}
+
             {/* Timeout configuration - shown only when triggerType is 2 (Timeout) */}
             {transitionDraft.triggerType === 2 && (
               <div className="property-panel__group">
@@ -1230,6 +763,49 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
               </div>
             )}
 
+            {transitionDraft.triggerType === 3 && (
+              <div className="property-panel__group">
+                <div className="property-panel__group-header">
+                  <span>Event Trigger Configuration</span>
+                </div>
+                <label className="property-panel__field">
+                  <span>Event Type</span>
+                  <input
+                    type="text"
+                    placeholder="e.g., payment.completed, order.shipped"
+                    value={(transitionDraft as any).eventType || ''}
+                    onChange={(event) =>
+                      setTransitionDraft((prev) =>
+                        prev ? { ...prev, eventType: event.target.value } as any : prev
+                      )
+                    }
+                  />
+                  <small className="property-panel__help">
+                    The event type that will trigger this transition
+                  </small>
+                </label>
+                <label className="property-panel__field">
+                  <span>Event Source (Optional)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g., payment-service, order-system"
+                    value={(transitionDraft as any).eventSource || ''}
+                    onChange={(event) =>
+                      setTransitionDraft((prev) =>
+                        prev ? { ...prev, eventSource: event.target.value } as any : prev
+                      )
+                    }
+                  />
+                  <small className="property-panel__help">
+                    Filter events by source system or service
+                  </small>
+                </label>
+                <p className="property-panel__muted">
+                  Use the Schema field below to define the expected event payload structure.
+                </p>
+              </div>
+            )}
+
             <LabelListEditor
               title="Labels"
               labels={transitionLabels}
@@ -1238,88 +814,70 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
               }
             />
 
-            <div className="property-panel__group">
-              <div className="property-panel__group-header">
-                <span>Rule reference</span>
-                <div className="property-panel__group-actions">
-                  <button
-                    type="button"
-                    className="property-panel__pill-button property-panel__pill-button--ghost"
-                    onClick={() =>
-                      selection?.kind === 'transition' &&
-                      postMessage({
-                        type: 'rule:loadFromFile',
-                        from: selection.from,
-                        transitionKey: selection.transitionKey
-                      })
-                    }
-                    title="Select a .csx file and embed its base64 content"
-                  >
-                    Load from file…
-                  </button>
-                  <button
-                    type="button"
-                    className="property-panel__pill-button property-panel__pill-button--ghost"
-                    onClick={() =>
-                      setTransitionDraft((prev) => {
-                        if (!prev) return prev;
-                        const next = { ...prev } as Transition & Record<string, unknown>;
-                        delete next.rule;
-                        return next as Transition;
-                      })
-                    }
-                  >
-                    Remove rule reference
-                  </button>
-                </div>
-              </div>
-              <div className="property-panel__inline-fields">
-                <label className="property-panel__field">
-                  <span>Location (relative .csx)</span>
-                  <input
-                    type="text"
-                    value={transitionDraft.rule?.location ?? ''}
-                    placeholder="./src/MyCondition.csx"
-                    title={transitionDraft.rule?.location || "Enter the relative path to the .csx file"}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) => {
-                        if (!prev) return prev;
-                        const location = event.target.value;
-                        const code = prev.rule?.code ?? '';
-                        if (!location && !code) {
-                          const next = { ...prev } as Transition & Record<string, unknown>;
-                          delete next.rule;
-                          return next as Transition;
-                        }
-                        return { ...prev, rule: { location, code } };
-                      })
-                    }
-                  />
-                </label>
-                <label className="property-panel__field">
-                  <span>Code (base64)</span>
-                  <input
-                    type="text"
-                    value={(() => {
-                      const code = transitionDraft.rule?.code ?? '';
-                      return code ? `(${code.length} bytes)` : '';
-                    })()}
-                    readOnly
-                    placeholder="Populated from the .csx file"
-                    title="Base64-encoded content of the referenced .csx file"
-                  />
-                </label>
-              </div>
-            </div>
+            <RuleEditor
+              title="Rule"
+              rule={transitionDraft.rule}
+              inlineText={ruleText}
+              onLoadFromFile={() => {
+                if (selection?.kind === 'transition') {
+                  postMessage({
+                    type: 'rule:loadFromFile',
+                    from: selection.from,
+                    transitionKey: selection.transitionKey
+                  });
+                }
+              }}
+              onChange={(rule) => {
+                setTransitionDraft((prev) => {
+                  if (!prev) return prev;
+                  const next = { ...prev } as Transition & Record<string, unknown>;
+                  if (rule) {
+                    next.rule = rule;
+                  } else {
+                    delete next.rule;
+                  }
+                  return next as Transition;
+                });
+              }}
+              onInlineChange={setRuleText}
+            />
 
             <SchemaEditor
-              mode={schemaMode}
+              title="Schema"
               schema={transitionDraft.schema}
-              inlineText={inlineSchemaText}
-              inlineError={inlineSchemaError}
+              availableSchemas={catalogs.schema}
               onModeChange={handleSchemaModeChange}
-              onReferenceChange={handleSchemaReferenceChange}
-              onInlineChange={handleInlineSchemaChange}
+              onReferenceChange={(field, value) => handleSchemaReferenceChange(field as 'key' | 'domain' | 'version', value)}
+              onRefChange={handleSchemaRefChange}
+            />
+
+            <ExecutionTaskListEditor
+              title="On execution task references"
+              tasks={transitionDraft.onExecutionTasks}
+              availableTasks={availableTasks}
+              onLoadFromFile={(taskIndex) => {
+                if (selection?.kind === 'transition') {
+                  postMessage({
+                    type: 'mapping:loadFromFile',
+                    from: selection.from,
+                    transitionKey: selection.transitionKey,
+                    transition: transitionDraft,
+                    index: taskIndex
+                  });
+                }
+              }}
+              onChange={(tasks) =>
+                setTransitionDraft((prev) => {
+                  if (!prev) return prev;
+                  const next = { ...prev } as Transition & Record<string, unknown>;
+                  if (!tasks) {
+                    delete next.onExecutionTasks;
+                  } else {
+                    next.onExecutionTasks = tasks;
+                  }
+                  return next as Transition;
+                })
+              }
             />
 
             <button
@@ -1332,7 +890,348 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
           </form>
         ) : null}
 
-        {selection && !stateDraft && !transitionDraft ? (
+        {selection?.kind === 'sharedTransition' && sharedTransitionDraft ? (
+          <form className="property-panel__section" onSubmit={handleSharedTransitionSubmit}>
+            <h3 className="property-panel__section-title">{sharedTransitionDraft.key} (Shared)</h3>
+
+            <label className="property-panel__field">
+              <span>Key</span>
+              <input
+                type="text"
+                value={sharedTransitionDraft.key}
+                onChange={(event) =>
+                  setSharedTransitionDraft((prev) =>
+                    prev ? { ...prev, key: event.target.value } : prev
+                  )
+                }
+              />
+            </label>
+
+            <label className="property-panel__field">
+              <span>Target</span>
+              <input
+                type="text"
+                value={sharedTransitionDraft.target}
+                onChange={(event) => {
+                  const newTarget = event.target.value;
+                  setSharedTransitionDraft((prev) => {
+                    if (!prev) return prev;
+                    // Remove new target from availableIn if it exists there
+                    const filteredAvailableIn = prev.availableIn.filter(s => s !== newTarget);
+                    return {
+                      ...prev,
+                      target: newTarget,
+                      availableIn: filteredAvailableIn
+                    };
+                  });
+                }}
+              />
+            </label>
+
+            <label className="property-panel__field">
+              <span>Trigger type</span>
+              <select
+                value={sharedTransitionDraft.triggerType}
+                onChange={(event) =>
+                  setSharedTransitionDraft((prev) =>
+                    prev
+                      ? { ...prev, triggerType: Number(event.target.value) as TriggerType }
+                      : prev
+                  )
+                }
+              >
+                {triggerOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="property-panel__field">
+              <span>Version strategy</span>
+              <select
+                value={sharedTransitionDraft.versionStrategy}
+                onChange={(event) =>
+                  setSharedTransitionDraft((prev) =>
+                    prev
+                      ? { ...prev, versionStrategy: event.target.value as VersionStrategy }
+                      : prev
+                  )
+                }
+              >
+                {versionStrategies.map((strategy) => (
+                  <option key={strategy} value={strategy}>
+                    {strategy}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* Trigger type specific configurations */}
+            {sharedTransitionDraft.triggerType === 0 && (
+              <div className="property-panel__info">
+                <span className="property-panel__info-icon">ℹ️</span>
+                <span>Manual transitions are triggered by user actions or API calls.</span>
+              </div>
+            )}
+
+            {sharedTransitionDraft.triggerType === 1 && (
+              <div className="property-panel__group">
+                <div className="property-panel__group-header">
+                  <span>Automatic Trigger Configuration</span>
+                </div>
+                <div className="property-panel__info">
+                  <span className="property-panel__info-icon">⚡</span>
+                  <span>This transition will trigger immediately when any of the selected states is entered.</span>
+                </div>
+                <p className="property-panel__muted">
+                  Use the Rule field below to add conditions for this automatic transition.
+                </p>
+              </div>
+            )}
+
+            {/* Timeout configuration - shown only when triggerType is 2 (Timeout) */}
+            {sharedTransitionDraft.triggerType === 2 && (
+              <div className="property-panel__group">
+                <div className="property-panel__group-header">
+                  <span>Timeout Configuration</span>
+                </div>
+                <label className="property-panel__field">
+                  <span>Duration (ISO 8601)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g., PT30M, PT1H, PT45S"
+                    value={(sharedTransitionDraft as any).timeoutDuration || ''}
+                    onChange={(event) =>
+                      setSharedTransitionDraft((prev) =>
+                        prev ? { ...prev, timeoutDuration: event.target.value } as any : prev
+                      )
+                    }
+                  />
+                  <small className="property-panel__help">
+                    Format: PT[hours]H[minutes]M[seconds]S
+                  </small>
+                </label>
+                <label className="property-panel__field">
+                  <span>Reset Strategy</span>
+                  <select
+                    value={(sharedTransitionDraft as any).timeoutReset || 'N'}
+                    onChange={(event) =>
+                      setSharedTransitionDraft((prev) =>
+                        prev ? { ...prev, timeoutReset: event.target.value } as any : prev
+                      )
+                    }
+                  >
+                    <option value="N">Never (N)</option>
+                    <option value="R">Reset (R)</option>
+                  </select>
+                  <small className="property-panel__help">
+                    Never: Timer runs once. Reset: Timer restarts on state re-entry.
+                  </small>
+                </label>
+              </div>
+            )}
+
+            {sharedTransitionDraft.triggerType === 3 && (
+              <div className="property-panel__group">
+                <div className="property-panel__group-header">
+                  <span>Event Trigger Configuration</span>
+                </div>
+                <label className="property-panel__field">
+                  <span>Event Type</span>
+                  <input
+                    type="text"
+                    placeholder="e.g., payment.completed, order.shipped"
+                    value={(sharedTransitionDraft as any).eventType || ''}
+                    onChange={(event) =>
+                      setSharedTransitionDraft((prev) =>
+                        prev ? { ...prev, eventType: event.target.value } as any : prev
+                      )
+                    }
+                  />
+                  <small className="property-panel__help">
+                    The event type that will trigger this transition from any available state
+                  </small>
+                </label>
+                <label className="property-panel__field">
+                  <span>Event Source (Optional)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g., payment-service, order-system"
+                    value={(sharedTransitionDraft as any).eventSource || ''}
+                    onChange={(event) =>
+                      setSharedTransitionDraft((prev) =>
+                        prev ? { ...prev, eventSource: event.target.value } as any : prev
+                      )
+                    }
+                  />
+                  <small className="property-panel__help">
+                    Filter events by source system or service
+                  </small>
+                </label>
+                <p className="property-panel__muted">
+                  Use the Schema field below to define the expected event payload structure.
+                </p>
+              </div>
+            )}
+
+            <LabelListEditor
+              title="Labels"
+              labels={sharedTransitionDraft.labels || []}
+              onChange={(labels) =>
+                setSharedTransitionDraft((prev) => (prev ? { ...prev, labels } : prev))
+              }
+            />
+
+            <RuleEditor
+              title="Rule"
+              rule={sharedTransitionDraft.rule}
+              inlineText={sharedRuleText}
+              onLoadFromFile={() => {
+                // TODO: Implement shared transition rule file loading
+                console.log('Load rule from file for shared transition');
+              }}
+              onChange={(rule) => {
+                setSharedTransitionDraft((prev) => {
+                  if (!prev) return prev;
+                  const next = { ...prev } as SharedTransition & Record<string, unknown>;
+                  if (rule) {
+                    next.rule = rule;
+                  } else {
+                    delete next.rule;
+                  }
+                  return next as SharedTransition;
+                });
+              }}
+              onInlineChange={setSharedRuleText}
+            />
+
+            <SchemaEditor
+              title="Schema"
+              schema={sharedTransitionDraft.schema}
+              availableSchemas={catalogs.schema}
+              onModeChange={(mode) => {
+                if (mode === 'none') {
+                  setSharedTransitionDraft(prev => prev ? { ...prev, schema: null } : prev);
+                } else if (mode === 'full') {
+                  setSharedTransitionDraft(prev => prev ? {
+                    ...prev,
+                    schema: { key: '', domain: '', version: '', flow: 'sys-schemas' }
+                  } : prev);
+                } else {
+                  // ref mode
+                  setSharedTransitionDraft(prev => prev ? {
+                    ...prev,
+                    schema: { ref: '' }
+                  } : prev);
+                }
+              }}
+              onReferenceChange={(field, value) => {
+                setSharedTransitionDraft(prev => {
+                  if (!prev || !isSchemaRef(prev.schema)) return prev;
+                  return {
+                    ...prev,
+                    schema: {
+                      ...prev.schema,
+                      [field]: value
+                    }
+                  };
+                });
+              }}
+              onRefChange={(ref) => {
+                setSharedTransitionDraft(prev => prev ? { ...prev, schema: { ref } } : prev);
+              }}
+            />
+
+            <ExecutionTaskListEditor
+              title="On execution task references"
+              tasks={sharedTransitionDraft.onExecutionTasks}
+              availableTasks={availableTasks}
+              onLoadFromFile={(taskIndex) => {
+                if (selection?.kind === 'sharedTransition') {
+                  postMessage({
+                    type: 'mapping:loadFromFile',
+                    sharedTransitionKey: selection.transitionKey,
+                    transition: sharedTransitionDraft,
+                    index: taskIndex
+                  });
+                }
+              }}
+              onChange={(tasks) =>
+                setSharedTransitionDraft((prev) => {
+                  if (!prev) return prev;
+                  const next = { ...prev } as SharedTransition & Record<string, unknown>;
+                  if (!tasks) {
+                    delete next.onExecutionTasks;
+                  } else {
+                    next.onExecutionTasks = tasks;
+                  }
+                  return next as SharedTransition;
+                })
+              }
+            />
+
+            <div className="property-panel__group">
+              <div className="property-panel__group-header">
+                <span>Available In States</span>
+              </div>
+              <div className="property-panel__checkbox-list">
+                {workflow.attributes.states.length === 0 ? (
+                  <p className="property-panel__muted">No states available in the workflow.</p>
+                ) : (
+                  workflow.attributes.states
+                    .filter((state) =>
+                      state.stateType !== 3 && // Exclude final states (they can't have outgoing transitions)
+                      state.key !== sharedTransitionDraft.target // Exclude target state (can't transition to itself via shared transition)
+                    )
+                    .map((state) => (
+                    <label key={state.key} className="property-panel__checkbox">
+                      <input
+                        type="checkbox"
+                        checked={sharedTransitionDraft.availableIn.includes(state.key)}
+                        onChange={(event) => {
+                          if (event.target.checked) {
+                            // Add state if not already in the list
+                            if (!sharedTransitionDraft.availableIn.includes(state.key)) {
+                              setSharedTransitionDraft(prev =>
+                                prev ? { ...prev, availableIn: [...prev.availableIn, state.key] } : prev
+                              );
+                            }
+                          } else {
+                            // Remove state from the list
+                            setSharedTransitionDraft(prev =>
+                              prev ? { ...prev, availableIn: prev.availableIn.filter(s => s !== state.key) } : prev
+                            );
+                          }
+                        }}
+                      />
+                      <span>{state.key}</span>
+                      {state.labels?.[0]?.label && (
+                        <span className="property-panel__muted"> - {state.labels[0].label}</span>
+                      )}
+                    </label>
+                  ))
+                )}
+              </div>
+              {sharedTransitionDraft.availableIn.length === 0 && (
+                <p className="property-panel__warning">
+                  ⚠️ Select at least one state where this transition should be available.
+                </p>
+              )}
+            </div>
+
+            <p className="property-panel__muted">
+              Shared transitions can be triggered from multiple states.
+            </p>
+
+            <button type="submit" className="property-panel__submit">
+              Save shared transition
+            </button>
+          </form>
+        ) : null}
+
+        {selection && !stateDraft && !transitionDraft && !sharedTransitionDraft ? (
           <div className="property-panel__empty">
             <p>No editable properties for the current selection.</p>
           </div>

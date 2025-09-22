@@ -6,7 +6,8 @@
       "Bash(mkdir:*)",
       "Bash(npm run:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { toReactFlow, lint, autoLayout } from '@nextcredit/core';
-import type { Workflow, Diagram, MsgFromWebview, TaskDefinition } from '@nextcredit/core';
+import type { Workflow, Diagram, MsgFromWebview, TaskDefinition, SharedTransition, Transition } from '@nextcredit/core';
 import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics';
 import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';
@@ -11,7 +11,7 @@ import {
   getDiagramUri,
   isFlowDefinitionUri
 } from './flowFileUtils';
-import { loadTaskCatalog, TASK_FILE_GLOBS } from './taskCatalog';
+import { loadAllCatalogs, REFERENCE_PATTERNS } from './referenceCatalog';
 
 async function readJson<T>(uri: vscode.Uri): Promise<T> {
   const buffer = await vscode.workspace.fs.readFile(uri);
@@ -107,7 +107,18 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       await writeJson(diagramUri, currentDiagram);
     }
 
-    currentTasks = await loadTaskCatalog();
+    // Load all catalogs
+    const catalogs = await loadAllCatalogs();
+    currentTasks = catalogs.task.map(ref => ({
+      key: ref.key,
+      domain: ref.domain,
+      version: ref.version,
+      flow: ref.flow,
+      title: ref.title,
+      tags: ref.tags,
+      path: ref.path,
+      flowVersion: undefined
+    }));
 
     // Convert to React Flow format
     const derived = toReactFlow(currentWorkflow, currentDiagram, 'en');
@@ -123,7 +134,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       diagram: currentDiagram,
       derived,
       problemsById,
-      tasks: currentTasks
+      tasks: currentTasks,
+      catalogs
     });
 
     // Utility function to generate unique transition keys
@@ -267,8 +279,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               newSourceState.transitions = [];
             }
 
-            // Update transition properties
-            transition.from = newFrom;
+            // Update transition target
             transition.target = newTarget;
 
             // Add to new source
@@ -469,12 +480,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
                 }
               }
 
-              // 2. Update transitions from this state (update the 'from' field)
-              if (state.transitions) {
-                for (const transition of state.transitions) {
-                  transition.from = newKey;
-                }
-              }
+              // 2. Transitions don't have a 'from' field - they're already in the correct state
 
               // 3. Update shared transitions
               if (updatedWorkflow.attributes.sharedTransitions) {
@@ -553,8 +559,239 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               break;
             }
 
-            transitions[transitionIndex] = { ...transition, from };
+            // Check if key is being renamed
+            const oldKey = transitionKey;
+            const newKey = transition.key;
+
+            if (oldKey !== newKey) {
+              // Check if new key already exists in this state
+              const existingTransition = transitions.find((t, i) => i !== transitionIndex && t.key === newKey);
+              if (existingTransition) {
+                vscode.window.showWarningMessage(`A transition with key "${newKey}" already exists in state "${from}".`);
+                break;
+              }
+            }
+
+            transitions[transitionIndex] = { ...transition };
             state.transitions = transitions;
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            await diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
+
+          case 'domain:makeTransitionShared': {
+            const { from, transitionKey } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+            const state = updatedWorkflow.attributes.states.find((item) => item.key === from);
+
+            if (!state) {
+              vscode.window.showWarningMessage(`State ${from} could not be found in the workflow.`);
+              break;
+            }
+
+            const transitions = [...(state.transitions ?? [])];
+            const transitionIndex = transitions.findIndex((item) => item.key === transitionKey);
+
+            if (transitionIndex === -1) {
+              vscode.window.showWarningMessage(`Transition ${transitionKey} was not found for state ${from}.`);
+              break;
+            }
+
+            // Get the transition to make shared
+            const transition = transitions[transitionIndex];
+
+            // Remove from state transitions
+            transitions.splice(transitionIndex, 1);
+            state.transitions = transitions.length > 0 ? transitions : undefined;
+
+            // Add to shared transitions
+            const sharedTransitions = [...(updatedWorkflow.attributes.sharedTransitions ?? [])];
+            const sharedTransition: SharedTransition = {
+              ...transition,
+              availableIn: [from] // Initially available only in the original state
+            };
+            sharedTransitions.push(sharedTransition);
+            updatedWorkflow.attributes.sharedTransitions = sharedTransitions;
+
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            await diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
+
+          case 'domain:updateSharedTransition': {
+            const { transitionKey, sharedTransition } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+
+            const sharedTransitions = [...(updatedWorkflow.attributes.sharedTransitions ?? [])];
+            const transitionIndex = sharedTransitions.findIndex((item) => item.key === transitionKey);
+
+            if (transitionIndex === -1) {
+              vscode.window.showWarningMessage(`Shared transition ${transitionKey} was not found.`);
+              break;
+            }
+
+            // Check if key is being renamed
+            const oldKey = transitionKey;
+            const newKey = sharedTransition.key;
+
+            if (oldKey !== newKey) {
+              // Check if new key already exists in shared transitions
+              const existingTransition = sharedTransitions.find((t, i) => i !== transitionIndex && t.key === newKey);
+              if (existingTransition) {
+                vscode.window.showWarningMessage(`A shared transition with key "${newKey}" already exists.`);
+                break;
+              }
+            }
+
+            // Replace the entire shared transition with the updated one
+            sharedTransitions[transitionIndex] = sharedTransition;
+            updatedWorkflow.attributes.sharedTransitions = sharedTransitions;
+
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            await diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
+
+          case 'domain:removeFromSharedTransition': {
+            const { transitionKey, stateKey } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+
+            const sharedTransitions = [...(updatedWorkflow.attributes.sharedTransitions ?? [])];
+            const transitionIndex = sharedTransitions.findIndex((item) => item.key === transitionKey);
+
+            if (transitionIndex === -1) {
+              vscode.window.showWarningMessage(`Shared transition ${transitionKey} was not found.`);
+              break;
+            }
+
+            const transition = sharedTransitions[transitionIndex];
+
+            // Check if this is the last state
+            if (transition.availableIn.length === 1 && transition.availableIn[0] === stateKey) {
+              // Ask for confirmation before deleting the entire shared transition
+              const answer = await vscode.window.showWarningMessage(
+                `This is the last state for shared transition "${transitionKey}". Delete the entire shared transition?`,
+                'Yes, Delete',
+                'Cancel'
+              );
+
+              if (answer !== 'Yes, Delete') {
+                // User cancelled - refresh the UI to restore the edge
+                const currentDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+                panel.webview.postMessage({
+                  type: 'workflow:update',
+                  workflow: currentWorkflow,
+                  derived: currentDerived
+                });
+                break;
+              }
+
+              // Remove the entire shared transition
+              sharedTransitions.splice(transitionIndex, 1);
+              updatedWorkflow.attributes.sharedTransitions = sharedTransitions.length > 0 ? sharedTransitions : undefined;
+            } else {
+              // Update the availableIn list by removing this state
+              const updatedAvailableIn = transition.availableIn.filter(s => s !== stateKey);
+              sharedTransitions[transitionIndex] = {
+                ...transition,
+                availableIn: updatedAvailableIn
+              };
+              updatedWorkflow.attributes.sharedTransitions = sharedTransitions;
+            }
+
+            currentWorkflow = updatedWorkflow;
+            await writeJson(flowUri, currentWorkflow);
+
+            const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
+            const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
+            await diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
+
+            panel.webview.postMessage({
+              type: 'workflow:update',
+              workflow: currentWorkflow,
+              derived: updatedDerived
+            });
+            panel.webview.postMessage({
+              type: 'lint:update',
+              problemsById: updatedProblems
+            });
+            break;
+          }
+
+          case 'domain:convertSharedToRegular': {
+            const { transitionKey, targetState } = message;
+            const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
+
+            // Find and remove the shared transition
+            const sharedTransitions = [...(updatedWorkflow.attributes.sharedTransitions ?? [])];
+            const transitionIndex = sharedTransitions.findIndex((item) => item.key === transitionKey);
+
+            if (transitionIndex === -1) {
+              vscode.window.showWarningMessage(`Shared transition ${transitionKey} was not found.`);
+              break;
+            }
+
+            const sharedTransition = sharedTransitions[transitionIndex];
+            sharedTransitions.splice(transitionIndex, 1);
+            updatedWorkflow.attributes.sharedTransitions = sharedTransitions.length > 0 ? sharedTransitions : undefined;
+
+            // Add it back as a regular transition to the target state
+            const state = updatedWorkflow.attributes.states.find((item) => item.key === targetState);
+            if (!state) {
+              vscode.window.showWarningMessage(`State ${targetState} was not found.`);
+              break;
+            }
+
+            // Convert SharedTransition to Transition (remove availableIn)
+            const { availableIn, ...transitionWithoutAvailableIn } = sharedTransition;
+            const regularTransition: Transition = transitionWithoutAvailableIn;
+
+            const transitions = [...(state.transitions ?? [])];
+            transitions.push(regularTransition);
+            state.transitions = transitions;
+
             currentWorkflow = updatedWorkflow;
             await writeJson(flowUri, currentWorkflow);
 
@@ -627,7 +864,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             break;
 
           case 'mapping:loadFromFile': {
-            const { stateKey, list, index } = message;
+            const { stateKey, list, from, transitionKey, sharedTransitionKey, index, transition: latestTransition } = message;
 
             const picks = await vscode.window.showOpenDialog({
               canSelectFiles: true,
@@ -650,24 +887,101 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             }
 
             const updatedWorkflow = JSON.parse(JSON.stringify(currentWorkflow)) as Workflow;
-            const s = updatedWorkflow.attributes.states.find((st) => st.key === stateKey);
-            if (!s) {
-              vscode.window.showWarningMessage(`State ${stateKey} could not be found in the workflow.`);
-              break;
-            }
 
-            const arrName = list as 'onEntries' | 'onExit' | 'onExecutionTasks';
-            const arr = ((s as any)[arrName] as any[]) ?? [];
-            if (!arr[index]) {
-              vscode.window.showWarningMessage(`Task reference at index ${index} not found in '${arrName}'.`);
-              break;
-            }
+            // Handle state tasks
+            if (stateKey && list) {
+              const s = updatedWorkflow.attributes.states.find((st) => st.key === stateKey);
+              if (!s) {
+                vscode.window.showWarningMessage(`State ${stateKey} could not be found in the workflow.`);
+                break;
+              }
 
-            const task = { ...arr[index] } as any;
-            task.mapping = { location: rel, code: base64 };
-            const nextArr = [...arr];
-            nextArr[index] = task;
-            (s as any)[arrName] = nextArr;
+              const arrName = list as 'onEntries' | 'onExit' | 'onExecutionTasks';
+              const arr = ((s as any)[arrName] as any[]) ?? [];
+              if (!arr[index]) {
+                vscode.window.showWarningMessage(`Task reference at index ${index} not found in '${arrName}'.`);
+                break;
+              }
+
+              const task = { ...arr[index] } as any;
+              task.mapping = { location: rel, code: base64 };
+              const nextArr = [...arr];
+              nextArr[index] = task;
+              (s as any)[arrName] = nextArr;
+            }
+            // Handle regular transition tasks
+            else if (from && transitionKey) {
+              const fromState = updatedWorkflow.attributes.states.find(st => st.key === from);
+              if (!fromState) {
+                vscode.window.showWarningMessage(`State ${from} could not be found in the workflow.`);
+                break;
+              }
+              let transition = fromState.transitions?.find(t => t.key === transitionKey);
+
+              // If transition not found in saved workflow and we have latest data, use it
+              if (!transition && latestTransition) {
+                // Add or update the transition with latest data
+                if (!fromState.transitions) {
+                  fromState.transitions = [];
+                }
+                transition = latestTransition as Transition;
+                const existingIndex = fromState.transitions.findIndex(t => t.key === transitionKey);
+                if (existingIndex >= 0) {
+                  fromState.transitions[existingIndex] = transition;
+                } else {
+                  fromState.transitions.push(transition);
+                }
+              }
+
+              if (!transition) {
+                vscode.window.showWarningMessage(`Transition ${transitionKey} could not be found in state ${from}.`);
+                break;
+              }
+              const arr = transition.onExecutionTasks ?? [];
+              if (!arr[index]) {
+                vscode.window.showWarningMessage(`Task reference at index ${index} not found in transition.`);
+                break;
+              }
+              const task = { ...arr[index] } as any;
+              task.mapping = { location: rel, code: base64 };
+              const nextArr = [...arr];
+              nextArr[index] = task;
+              transition.onExecutionTasks = nextArr;
+            }
+            // Handle shared transition tasks
+            else if (sharedTransitionKey) {
+              let sharedTransition = updatedWorkflow.attributes.sharedTransitions?.find(t => t.key === sharedTransitionKey);
+
+              // If shared transition not found in saved workflow and we have latest data, use it
+              if (!sharedTransition && latestTransition) {
+                // Add or update the shared transition with latest data
+                if (!updatedWorkflow.attributes.sharedTransitions) {
+                  updatedWorkflow.attributes.sharedTransitions = [];
+                }
+                sharedTransition = latestTransition as SharedTransition;
+                const existingIndex = updatedWorkflow.attributes.sharedTransitions.findIndex(t => t.key === sharedTransitionKey);
+                if (existingIndex >= 0) {
+                  updatedWorkflow.attributes.sharedTransitions[existingIndex] = sharedTransition;
+                } else {
+                  updatedWorkflow.attributes.sharedTransitions.push(sharedTransition);
+                }
+              }
+
+              if (!sharedTransition) {
+                vscode.window.showWarningMessage(`Shared transition ${sharedTransitionKey} could not be found in the workflow.`);
+                break;
+              }
+              const arr = sharedTransition.onExecutionTasks ?? [];
+              if (!arr[index]) {
+                vscode.window.showWarningMessage(`Task reference at index ${index} not found in shared transition.`);
+                break;
+              }
+              const task = { ...arr[index] } as any;
+              task.mapping = { location: rel, code: base64 };
+              const nextArr = [...arr];
+              nextArr[index] = task;
+              sharedTransition.onExecutionTasks = nextArr;
+            }
 
             currentWorkflow = updatedWorkflow;
             await writeJson(flowUri, currentWorkflow);
@@ -783,9 +1097,18 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
 
     const refreshTasks = async () => {
       try {
-        const nextTasks = await loadTaskCatalog();
-        currentTasks = nextTasks;
-        panel.webview.postMessage({ type: 'catalog:update', tasks: currentTasks });
+        const catalogs = await loadAllCatalogs();
+        currentTasks = catalogs.task.map(ref => ({
+          key: ref.key,
+          domain: ref.domain,
+          version: ref.version,
+          flow: ref.flow,
+          title: ref.title,
+          tags: ref.tags,
+          path: ref.path,
+          flowVersion: undefined
+        }));
+        panel.webview.postMessage({ type: 'catalog:update', tasks: currentTasks, catalogs });
 
         const updatedProblems = lint(currentWorkflow, { tasks: currentTasks });
         await diagnosticsProvider.updateDiagnostics(flowUri, currentWorkflow, currentTasks);
@@ -804,10 +1127,10 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       : FLOW_AND_DIAGRAM_GLOBS.map((pattern) => vscode.workspace.createFileSystemWatcher(pattern))
     );
     const taskWatchers = (workspaceFolder
-      ? TASK_FILE_GLOBS.map((pattern) =>
+      ? REFERENCE_PATTERNS.task.map((pattern) =>
           vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(workspaceFolder, pattern))
         )
-      : TASK_FILE_GLOBS.map((pattern) => vscode.workspace.createFileSystemWatcher(pattern))
+      : REFERENCE_PATTERNS.task.map((pattern) => vscode.workspace.createFileSystemWatcher(pattern))
     );
     const watchers = [...flowWatchers, ...taskWatchers];
 

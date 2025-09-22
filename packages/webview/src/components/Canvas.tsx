@@ -24,6 +24,7 @@ import {
 import { StateNode } from './nodes/StateNode';
 import { EventNode } from './nodes/EventNode';
 import { PropertyPanel, type PropertySelection } from './PropertyPanel';
+import { TriggerTypeLegend } from './TriggerTypeLegend';
 import { useBridge } from '../hooks/useBridge';
 import type {
   Workflow,
@@ -83,8 +84,9 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [selection, setSelection] = useState<PropertySelection>(null);
   const selectionRef = useRef<PropertySelection>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string; edgeId?: string } | null>(null);
   const [taskCatalog, setTaskCatalog] = useState<TaskDefinition[]>([]);
+  const [catalogs, setCatalogs] = useState<Record<string, any[]>>({});
 
   const stateTemplates = useMemo<StateTemplate[]>(() => ([
     {
@@ -154,6 +156,9 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           setNodes(message.derived.nodes);
           setEdges(decorateEdges(message.derived.edges));
           setTaskCatalog(message.tasks);
+          if (message.catalogs) {
+            setCatalogs(message.catalogs);
+          }
           break;
         case 'workflow:update':
           setWorkflow(message.workflow);
@@ -176,6 +181,9 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           break;
         case 'catalog:update':
           setTaskCatalog(message.tasks);
+          if (message.catalogs) {
+            setCatalogs(message.catalogs);
+          }
           break;
         case 'select:node': {
           // Find the node and select it
@@ -325,12 +333,26 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   // Handle edge deletion
   const onEdgesDelete: OnEdgesDelete = useCallback((edgesToDelete: Edge[]) => {
     edgesToDelete.forEach((edge) => {
-      const match = /^t:local:([^:]+):(.+)$/.exec(edge.id);
-      if (match) {
+      // Handle local transition deletion
+      const localMatch = /^t:local:([^:]+):(.+)$/.exec(edge.id);
+      if (localMatch) {
         postMessage({
           type: 'domain:removeTransition',
-          from: match[1],
-          tKey: match[2]
+          from: localMatch[1],
+          tKey: localMatch[2]
+        });
+        return;
+      }
+
+      // Handle shared transition edge deletion
+      const sharedMatch = /^t:shared:([^:]+):(.+)$/.exec(edge.id);
+      if (sharedMatch) {
+        const [, transitionKey, stateKey] = sharedMatch;
+        // Always send the message - let the backend handle the logic
+        postMessage({
+          type: 'domain:removeFromSharedTransition',
+          transitionKey,
+          stateKey
         });
       }
     });
@@ -374,9 +396,19 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
       const firstEdge = selectedEdges[0];
       if (firstEdge) {
-        const match = /^t:local:([^:]+):(.+)$/.exec(firstEdge.id);
-        if (match) {
-          const nextSel: PropertySelection = { kind: 'transition', from: match[1], transitionKey: match[2] };
+        // Check for local transition
+        const localMatch = /^t:local:([^:]+):(.+)$/.exec(firstEdge.id);
+        if (localMatch) {
+          const nextSel: PropertySelection = { kind: 'transition', from: localMatch[1], transitionKey: localMatch[2] };
+          setSelection(nextSel);
+          selectionRef.current = nextSel;
+          return;
+        }
+
+        // Check for shared transition
+        const sharedMatch = /^t:shared:([^:]+):/.exec(firstEdge.id);
+        if (sharedMatch) {
+          const nextSel: PropertySelection = { kind: 'sharedTransition', transitionKey: sharedMatch[1] };
           setSelection(nextSel);
           selectionRef.current = nextSel;
           return;
@@ -547,6 +579,44 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     selectionRef.current = null;
   }, []);
 
+  const handleEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    // Show context menu for local and shared transitions (not start/timeout)
+    if (edge.id.startsWith('t:local:') || edge.id.startsWith('t:shared:')) {
+      setContextMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id });
+    }
+  }, []);
+
+  const handleMakeTransitionShared = useCallback((edgeId: string) => {
+    // Parse the edge ID to get state and transition keys
+    // Format: t:local:{stateKey}:{transitionKey}
+    const match = edgeId.match(/^t:local:([^:]+):(.+)$/);
+    if (match) {
+      const [, from, transitionKey] = match;
+      postMessage({
+        type: 'domain:makeTransitionShared',
+        from,
+        transitionKey
+      });
+    }
+    setContextMenu(null);
+  }, [postMessage]);
+
+  const handleConvertToRegular = useCallback((edgeId: string) => {
+    // Parse the shared edge ID to get transition key and state
+    // Format: t:shared:{transitionKey}:{stateKey}
+    const match = edgeId.match(/^t:shared:([^:]+):(.+)$/);
+    if (match) {
+      const [, transitionKey, targetState] = match;
+      postMessage({
+        type: 'domain:convertSharedToRegular',
+        transitionKey,
+        targetState
+      });
+    }
+    setContextMenu(null);
+  }, [postMessage]);
+
   const handleAutoLayoutRequest = useCallback(() => {
     postMessage({ type: 'request:autoLayout' });
     setContextMenu(null);
@@ -668,10 +738,12 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             onDragOver={onDragOverCanvas}
             onPaneContextMenu={handlePaneContextMenu}
             onNodeContextMenu={handleNodeContextMenu}
+            onEdgeContextMenu={handleEdgeContextMenu}
             onPaneClick={handlePaneClick}
           >
             <Background />
             <Controls />
+            <TriggerTypeLegend />
           </ReactFlow>
         </div>
       </div>
@@ -681,6 +753,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           selection={selection}
           collapsed={!selection}
           availableTasks={taskCatalog}
+          catalogs={catalogs}
         />
       ) : null}
       {contextMenu && (
@@ -700,6 +773,26 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
               >
                 Start from here
               </button>
+            </>
+          ) : contextMenu.edgeId ? (
+            <>
+              {contextMenu.edgeId.startsWith('t:local:') ? (
+                <button
+                  type="button"
+                  className="flow-context-menu__item"
+                  onClick={() => handleMakeTransitionShared(contextMenu.edgeId!)}
+                >
+                  Make Shared Transition
+                </button>
+              ) : contextMenu.edgeId.startsWith('t:shared:') ? (
+                <button
+                  type="button"
+                  className="flow-context-menu__item"
+                  onClick={() => handleConvertToRegular(contextMenu.edgeId!)}
+                >
+                  Convert to Regular Transition
+                </button>
+              ) : null}
             </>
           ) : (
             <button type="button" className="flow-context-menu__item" onClick={handleAutoLayoutRequest}>

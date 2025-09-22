@@ -3,6 +3,22 @@ import type { Workflow, Diagram } from './types.js';
 export const START_NODE_ID = '__start__';
 export const TIMEOUT_NODE_ID = '__timeout__';
 
+// Color scheme for different trigger types
+const TRIGGER_TYPE_COLORS = {
+  0: '#3b82f6', // Manual - Blue
+  1: '#10b981', // Auto - Green
+  2: '#f59e0b', // Timeout - Orange
+  3: '#8b5cf6', // Event - Purple
+} as const;
+
+function getEdgeStyle(triggerType: number): Record<string, any> {
+  const color = TRIGGER_TYPE_COLORS[triggerType as keyof typeof TRIGGER_TYPE_COLORS] || '#6b7280';
+  return {
+    stroke: color,
+    strokeWidth: 2,
+  };
+}
+
 export interface ReactFlowNode {
   id: string;
   type?: string;
@@ -90,6 +106,7 @@ export function toReactFlow(
         source: state.key,
         target: transition.target,
         label: transitionLabel,
+        style: getEdgeStyle(transition.triggerType),
         data: {
           from: state.key,
           tKey: transition.key,
@@ -111,6 +128,7 @@ export function toReactFlow(
       source: START_NODE_ID,
       target: st.target,
       label: startLabel,
+      style: getEdgeStyle(st.triggerType),
       data: { triggerType: st.triggerType }
     });
   }
@@ -124,7 +142,7 @@ export function toReactFlow(
       target: tt.target,
       label: `⏱ ${tt.timer.duration}`,
       data: { triggerType: 2 },
-      style: { strokeDasharray: '6 4' }
+      style: { ...getEdgeStyle(2), strokeDasharray: '6 4' }
     });
   }
 
@@ -140,7 +158,7 @@ export function toReactFlow(
         source: from,
         target: sharedTransition.target,
         label: sharedLabel,
-        style: { strokeDasharray: '4 4' },
+        style: { ...getEdgeStyle(sharedTransition.triggerType), strokeDasharray: '4 4' },
         data: {
           sharedKey: sharedTransition.key,
           triggerType: sharedTransition.triggerType

@@ -1047,6 +1047,41 @@
   flex-direction: column;
 }
 
+.property-panel__checkbox-list {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.property-panel__checkbox {
+  display: flex;
+  align-items: center;
+  padding: 4px 16px;
+  font-size: 13px;
+  color: #cccccc;
+  cursor: pointer;
+}
+
+.property-panel__checkbox:hover {
+  background: #2d2d30;
+}
+
+.property-panel__checkbox input[type="checkbox"] {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.property-panel__warning {
+  color: #ffcc00;
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px 16px;
+  background: rgba(255, 204, 0, 0.1);
+  border-top: 1px solid rgba(255, 204, 0, 0.2);
+}
+
 .property-panel__list-item {
   display: flex;
   flex-direction: column;
@@ -1148,4 +1183,98 @@
   outline: none;
   background: #eff6ff;
   color: #1d4ed8;
+}
+
+/* Info sections for trigger types */
+.property-panel__info {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  background: #f0f9ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.property-panel__info-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  margin-top: 2px;
+}
+
+.property-panel__info span:not(.property-panel__info-icon) {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #1e40af;
+}
+
+/* Task list styles */
+.property-panel__task-item {
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.property-panel__task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.property-panel__task-header > span {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.property-panel__task-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Trigger Type Legend */
+.trigger-legend {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(37, 37, 38, 0.95);
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  padding: 12px;
+  font-size: 12px;
+  color: #cccccc;
+  z-index: 10;
+}
+
+.trigger-legend__title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #e1e1e1;
+}
+
+.trigger-legend__items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trigger-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: help;
+}
+
+.trigger-legend__color {
+  width: 20px;
+  height: 3px;
+  border-radius: 1px;
+}
+
+.trigger-legend__label {
+  font-size: 11px;
 }

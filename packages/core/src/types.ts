@@ -67,10 +67,9 @@ export interface TransitionBase {
   onExecutionTasks?: ExecutionTask[];
 }
 
-export interface Transition extends TransitionBase {
-  from: string;
-  availableIn?: string[];
-}
+// Regular transitions inherit all fields from TransitionBase
+// The 'from' is implicit - it's the parent state containing the transition
+export type Transition = TransitionBase;
 
 export interface SharedTransition extends TransitionBase {
   availableIn: string[];

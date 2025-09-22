@@ -700,30 +700,7 @@
       }
     },
     "transition": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/transitionBase"
-        },
-        {
-          "type": "object",
-          "required": [
-            "from"
-          ],
-          "properties": {
-            "from": {
-              "type": "string",
-              "description": "Source state key"
-            },
-            "availableIn": {
-              "type": "array",
-              "description": "States where this transition is available",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      ]
+      "$ref": "#/definitions/transitionBase"
     },
     "state": {
       "type": "object",
