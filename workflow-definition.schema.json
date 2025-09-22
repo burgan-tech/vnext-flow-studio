@@ -6,6 +6,10 @@
   "type": "object",
   "required": [
     "key",
+    "flow",
+    "domain",
+    "version",
+    "tags",
     "attributes"
   ],
   "properties": {
@@ -13,6 +17,21 @@
       "type": "string",
       "description": "Unique identifier for the workflow",
       "pattern": "^[a-z0-9-]+$"
+    },
+    "flow": {
+      "type": "string",
+      "description": "Flow identifier for the workflow",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Domain the workflow belongs to",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of the workflow in Major.Minor.Patch format",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
     },
     "tags": {
       "type": "array",
@@ -191,13 +210,11 @@
       "type": "string",
       "enum": [
         "Major",
-        "Minor",
-        "Patch"
+        "Minor"
       ],
       "enumDescriptions": [
         "Major version update",
-        "Minor version update",
-        "Patch version update"
+        "Minor version update"
       ],
       "description": "Version strategy for updates"
     },
@@ -326,149 +343,214 @@
       }
     },
     "functionReference": {
-      "type": "object",
-      "required": [
-        "key",
-        "domain",
-        "flow",
-        "version"
-      ],
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "Function key"
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["ref"],
+          "properties": {
+            "ref": {
+              "type": "string",
+              "description": "Reference identifier for the function"
+            }
+          }
         },
-        "domain": {
-          "type": "string",
-          "description": "Domain name"
-        },
-        "flow": {
-          "type": "string",
-          "description": "Flow name for functions",
-          "const": "sys-functions"
-        },
-        "version": {
-          "type": "string",
-          "description": "Version in Major.Minor.Patch format",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        {
+          "type": "object",
+          "required": [
+            "key",
+            "domain",
+            "flow",
+            "version"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "Function key"
+            },
+            "domain": {
+              "type": "string",
+              "description": "Domain name"
+            },
+            "flow": {
+              "type": "string",
+              "description": "Flow name for functions"
+            },
+            "version": {
+              "type": "string",
+              "description": "Version in Major.Minor.Patch format",
+              "pattern": "^\\d+\\.\\d+\\.\\d+$"
+            }
+          }
         }
-      }
+      ]
     },
     "extensionReference": {
-      "type": "object",
-      "required": [
-        "key",
-        "domain",
-        "flow",
-        "version"
-      ],
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "Extension key"
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["ref"],
+          "properties": {
+            "ref": {
+              "type": "string",
+              "description": "Reference identifier for the extension"
+            }
+          }
         },
-        "domain": {
-          "type": "string",
-          "description": "Domain name"
-        },
-        "flow": {
-          "type": "string",
-          "description": "Flow name for extensions",
-          "const": "sys-extensions"
-        },
-        "version": {
-          "type": "string",
-          "description": "Version in Major.Minor.Patch format",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        {
+          "type": "object",
+          "required": [
+            "key",
+            "domain",
+            "flow",
+            "version"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "Extension key"
+            },
+            "domain": {
+              "type": "string",
+              "description": "Domain name"
+            },
+            "flow": {
+              "type": "string",
+              "description": "Flow name for extensions"
+            },
+            "version": {
+              "type": "string",
+              "description": "Version in Major.Minor.Patch format",
+              "pattern": "^\\d+\\.\\d+\\.\\d+$"
+            }
+          }
         }
-      }
+      ]
     },
     "taskReference": {
-      "type": "object",
-      "required": [
-        "key",
-        "domain",
-        "flow",
-        "version"
-      ],
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "Task key"
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["ref"],
+          "properties": {
+            "ref": {
+              "type": "string",
+              "description": "Reference identifier for the task"
+            }
+          }
         },
-        "domain": {
-          "type": "string",
-          "description": "Domain name"
-        },
-        "flow": {
-          "type": "string",
-          "description": "Flow name for tasks",
-          "const": "sys-tasks"
-        },
-        "version": {
-          "type": "string",
-          "description": "Version in Major.Minor.Patch format",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        {
+          "type": "object",
+          "required": [
+            "key",
+            "domain",
+            "flow",
+            "version"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "Task key"
+            },
+            "domain": {
+              "type": "string",
+              "description": "Domain name"
+            },
+            "flow": {
+              "type": "string",
+              "description": "Flow name for tasks"
+            },
+            "version": {
+              "type": "string",
+              "description": "Version in Major.Minor.Patch format",
+              "pattern": "^\\d+\\.\\d+\\.\\d+$"
+            }
+          }
         }
-      }
+      ]
     },
     "viewReference": {
-      "type": "object",
-      "required": [
-        "key",
-        "domain",
-        "flow",
-        "version"
-      ],
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "View key"
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["ref"],
+          "properties": {
+            "ref": {
+              "type": "string",
+              "description": "Reference identifier for the view"
+            }
+          }
         },
-        "domain": {
-          "type": "string",
-          "description": "Domain name"
-        },
-        "flow": {
-          "type": "string",
-          "description": "Flow name for views",
-          "const": "sys-views"
-        },
-        "version": {
-          "type": "string",
-          "description": "Version in Major.Minor.Patch format",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        {
+          "type": "object",
+          "required": [
+            "key",
+            "domain",
+            "flow",
+            "version"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "View key"
+            },
+            "domain": {
+              "type": "string",
+              "description": "Domain name"
+            },
+            "flow": {
+              "type": "string",
+              "description": "Flow name for views"
+            },
+            "version": {
+              "type": "string",
+              "description": "Version in Major.Minor.Patch format",
+              "pattern": "^\\d+\\.\\d+\\.\\d+$"
+            }
+          }
         }
-      }
+      ]
     },
     "schemaReference": {
-      "type": "object",
-      "required": [
-        "key",
-        "domain",
-        "flow",
-        "version"
-      ],
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "Schema key"
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["ref"],
+          "properties": {
+            "ref": {
+              "type": "string",
+              "description": "Reference identifier for the schema"
+            }
+          }
         },
-        "domain": {
-          "type": "string",
-          "description": "Domain name"
-        },
-        "flow": {
-          "type": "string",
-          "description": "Flow name for schemas",
-          "const": "sys-schemas"
-        },
-        "version": {
-          "type": "string",
-          "description": "Version in Major.Minor.Patch format",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        {
+          "type": "object",
+          "required": [
+            "key",
+            "domain",
+            "flow",
+            "version"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "Schema key"
+            },
+            "domain": {
+              "type": "string",
+              "description": "Domain name"
+            },
+            "flow": {
+              "type": "string",
+              "description": "Flow name for schemas"
+            },
+            "version": {
+              "type": "string",
+              "description": "Version in Major.Minor.Patch format",
+              "pattern": "^\\d+\\.\\d+\\.\\d+$"
+            }
+          }
         }
-      }
+      ]
     },
     "mapping": {
       "type": "object",
@@ -507,39 +589,53 @@
       }
     },
     "task": {
-      "type": "object",
-      "required": [
-        "key",
-        "domain",
-        "flow",
-        "version"
-      ],
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "Task key"
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["ref"],
+          "properties": {
+            "ref": {
+              "type": "string",
+              "description": "Reference identifier for the task"
+            }
+          }
         },
-        "domain": {
-          "type": "string",
-          "description": "Domain name"
-        },
-        "flow": {
-          "type": "string",
-          "description": "Flow name for tasks",
-          "const": "sys-tasks"
-        },
-        "version": {
-          "type": "string",
-          "description": "Version in Major.Minor.Patch format",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        {
+          "type": "object",
+          "required": [
+            "key",
+            "domain",
+            "flow",
+            "version"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "Task key"
+            },
+            "domain": {
+              "type": "string",
+              "description": "Domain name"
+            },
+            "flow": {
+              "type": "string",
+              "description": "Flow name for tasks"
+            },
+            "version": {
+              "type": "string",
+              "description": "Version in Major.Minor.Patch format",
+              "pattern": "^\\d+\\.\\d+\\.\\d+$"
+            }
+          }
         }
-      }
+      ]
     },
     "executionTask": {
       "type": "object",
       "required": [
         "order",
-        "task"
+        "task",
+        "mapping"
       ],
       "properties": {
         "order": {
@@ -590,13 +686,16 @@
               "$ref": "#/definitions/schemaReference"
             },
             {
-              "type": "object",
-              "description": "Inline JSON schema for transition validation"
-            },
-            {
               "type": "null"
             }
           ]
+        },
+        "onExecutionTasks": {
+          "type": "array",
+          "description": "Tasks to execute during the transition",
+          "items": {
+            "$ref": "#/definitions/executionTask"
+          }
         }
       }
     },
@@ -658,16 +757,9 @@
             "$ref": "#/definitions/executionTask"
           }
         },
-        "onExit": {
+        "onExits": {
           "type": "array",
           "description": "Tasks to execute when exiting the state",
-          "items": {
-            "$ref": "#/definitions/executionTask"
-          }
-        },
-        "onExecutionTasks": {
-          "type": "array",
-          "description": "Tasks to execute during state execution",
           "items": {
             "$ref": "#/definitions/executionTask"
           }
@@ -679,31 +771,8 @@
             "$ref": "#/definitions/transition"
           }
         },
-        "views": {
-          "type": "array",
-          "description": "Views for this state",
-          "items": {
-            "type": "object",
-            "required": [
-              "viewType",
-              "viewTarget"
-            ],
-            "properties": {
-              "viewType": {
-                "$ref": "#/definitions/viewType"
-              },
-              "viewTarget": {
-                "$ref": "#/definitions/viewTarget"
-              },
-              "content": {
-                "type": "string",
-                "description": "View content"
-              },
-              "reference": {
-                "$ref": "#/definitions/viewReference"
-              }
-            }
-          }
+        "view": {
+          "$ref": "#/definitions/viewReference"
         }
       }
     }

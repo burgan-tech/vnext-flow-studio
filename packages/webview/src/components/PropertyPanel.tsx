@@ -10,9 +10,7 @@ import {
   type Label,
   type ExecutionTask,
   type TaskDefinition,
-  type ViewItem,
-  type SchemaRef,
-  type ViewRef
+  type SchemaRef
 } from '@nextcredit/core';
 import { useBridge } from '../hooks/useBridge';
 
@@ -28,7 +26,7 @@ interface PropertyPanelProps {
   availableTasks: TaskDefinition[];
 }
 
-const versionStrategies: VersionStrategy[] = ['Major', 'Minor', 'Patch'];
+const versionStrategies: VersionStrategy[] = ['Major', 'Minor'];
 const triggerOptions: { value: TriggerType; label: string }[] = [
   { value: 0, label: 'Manual' },
   { value: 1, label: 'Automatic' },
@@ -47,18 +45,6 @@ const stateSubTypeOptions: { value: StateSubType; label: string }[] = [
   { value: 1, label: 'Success' },
   { value: 2, label: 'Failed' },
   { value: 3, label: 'Cancelled' }
-];
-
-const viewTypeOptions: { value: ViewItem['viewType']; label: string }[] = [
-  { value: 1, label: 'Type 1' },
-  { value: 2, label: 'Type 2' },
-  { value: 3, label: 'Type 3' }
-];
-
-const viewTargetOptions: { value: ViewItem['viewTarget']; label: string }[] = [
-  { value: 1, label: 'Target 1' },
-  { value: 2, label: 'Target 2' },
-  { value: 3, label: 'Target 3' }
 ];
 
 type SchemaMode = 'none' | 'reference' | 'inline';
@@ -137,45 +123,6 @@ function formatTaskOptionLabel(task: TaskDefinition): string {
   return task.title ? `${withFlow} – ${task.title}` : withFlow;
 }
 
-function sanitizeViews(views?: ViewItem[]): ViewItem[] | undefined {
-  if (!views) return undefined;
-
-  const sanitized = views.map((view) => {
-    const result: ViewItem & Record<string, unknown> = {
-      ...view,
-      viewType: view.viewType,
-      viewTarget: view.viewTarget
-    };
-
-    if (view.content?.trim()) {
-      result.content = view.content;
-    } else {
-      delete result.content;
-    }
-
-    if (view.reference) {
-      const reference: ViewRef = {
-        key: view.reference.key?.trim() ?? '',
-        domain: view.reference.domain?.trim() ?? '',
-        version: view.reference.version?.trim() ?? '',
-        flow: 'sys-views'
-      };
-
-      if (reference.key || reference.domain || reference.version) {
-        result.reference = reference;
-      } else {
-        delete result.reference;
-      }
-    } else {
-      delete result.reference;
-    }
-
-    return result as ViewItem;
-  });
-
-  return sanitized.length > 0 ? sanitized : undefined;
-}
-
 function sanitizeState(draft: State): State {
   const result: State & Record<string, unknown> = {
     ...draft,
@@ -189,25 +136,20 @@ function sanitizeState(draft: State): State {
     delete result.onEntries;
   }
 
-  const onExit = sanitizeExecutionTasks(draft.onExit);
-  if (onExit) {
-    result.onExit = onExit;
+  const onExits = sanitizeExecutionTasks(draft.onExits);
+  if (onExits) {
+    result.onExits = onExits;
   } else {
-    delete result.onExit;
+    delete result.onExits;
   }
 
-  const onExecutionTasks = sanitizeExecutionTasks(draft.onExecutionTasks);
-  if (onExecutionTasks) {
-    result.onExecutionTasks = onExecutionTasks;
-  } else {
-    delete result.onExecutionTasks;
-  }
+  // onExecutionTasks moved to transition level in new schema
 
-  const views = sanitizeViews(draft.views);
-  if (views) {
-    result.views = views;
+  // views replaced with single view reference in new schema
+  if (draft.view) {
+    result.view = draft.view;
   } else {
-    delete result.views;
+    delete result.view;
   }
 
   if (!Array.isArray(result.labels)) {
@@ -604,224 +546,6 @@ function ExecutionTaskListEditor({ title, tasks, onChange, availableTasks, onLoa
   );
 }
 
-interface ViewListEditorProps {
-  views?: ViewItem[];
-  onChange: (views?: ViewItem[]) => void;
-}
-
-function ViewListEditor({ views, onChange }: ViewListEditorProps) {
-  const [collapsed, setCollapsed] = useState(false);
-  const list = views ?? [];
-
-  const setViews = (next: ViewItem[]) => {
-    onChange(next.length > 0 ? next : undefined);
-  };
-
-  const handleAdd = () => {
-    setViews([
-      ...list,
-      {
-        viewType: 1,
-        viewTarget: 1
-      }
-    ]);
-  };
-
-  const handleViewChange = (
-    index: number,
-    updater: (view: ViewItem) => ViewItem
-  ) => {
-    setViews(list.map((view, i) => (i === index ? updater(view) : view)));
-  };
-
-  const handleRemove = (index: number) => {
-    setViews(list.filter((_, i) => i !== index));
-  };
-
-  const handleAddReference = (index: number) => {
-    handleViewChange(index, (view) => ({
-      ...view,
-      reference: {
-        key: '',
-        domain: '',
-        version: '',
-        flow: 'sys-views'
-      }
-    }));
-  };
-
-  const handleRemoveReference = (index: number) => {
-    handleViewChange(index, (view) => {
-      const next = { ...view } as ViewItem & Record<string, unknown>;
-      delete next.reference;
-      return next as ViewItem;
-    });
-  };
-
-  const handleReferenceChange = (
-    index: number,
-    field: 'key' | 'domain' | 'version',
-    value: string
-  ) => {
-    handleViewChange(index, (view) => {
-      const current: ViewRef =
-        view.reference ?? { key: '', domain: '', version: '', flow: 'sys-views' };
-      return {
-        ...view,
-        reference: {
-          ...current,
-          [field]: value
-        }
-      };
-    });
-  };
-
-  return (
-    <div className={`property-panel__group ${collapsed ? 'property-panel__group--collapsed' : ''}`}>
-      <div className="property-panel__group-header" onClick={() => setCollapsed(!collapsed)}>
-        <span>Views</span>
-        <button
-          type="button"
-          className="property-panel__pill-button"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleAdd();
-            setCollapsed(false);
-          }}
-        >
-          +
-        </button>
-      </div>
-      {list.length === 0 ? (
-        <p className="property-panel__muted">No views configured.</p>
-      ) : (
-        <div className="property-panel__list">
-          {list.map((view, index) => (
-            <div key={index} className="property-panel__list-item">
-              <div className="property-panel__inline-fields">
-                <label className="property-panel__field">
-                  <span>View type</span>
-                  <select
-                    value={view.viewType}
-                    onChange={(event) =>
-                      handleViewChange(index, (current) => ({
-                        ...current,
-                        viewType: Number(event.target.value) as ViewItem['viewType']
-                      }))
-                    }
-                  >
-                    {viewTypeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="property-panel__field">
-                  <span>View target</span>
-                  <select
-                    value={view.viewTarget}
-                    onChange={(event) =>
-                      handleViewChange(index, (current) => ({
-                        ...current,
-                        viewTarget: Number(event.target.value) as ViewItem['viewTarget']
-                      }))
-                    }
-                  >
-                    {viewTargetOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label className="property-panel__field">
-                <span>Content</span>
-                <textarea
-                  value={view.content ?? ''}
-                  placeholder="Optional"
-                  onChange={(event) =>
-                    handleViewChange(index, (current) => ({
-                      ...current,
-                      content: event.target.value
-                    }))
-                  }
-                />
-              </label>
-              {view.reference ? (
-                <div className="property-panel__nested">
-                  <div className="property-panel__group-header">
-                    <span>Reference</span>
-                    <button
-                      type="button"
-                      className="property-panel__pill-button property-panel__pill-button--ghost"
-                      onClick={() => handleRemoveReference(index)}
-                    >
-                      Remove reference
-                    </button>
-                  </div>
-                  <div className="property-panel__inline-fields">
-                    <label className="property-panel__field">
-                      <span>Key</span>
-                      <input
-                        type="text"
-                        value={view.reference.key}
-                        onChange={(event) =>
-                          handleReferenceChange(index, 'key', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="property-panel__field">
-                      <span>Domain</span>
-                      <input
-                        type="text"
-                        value={view.reference.domain}
-                        onChange={(event) =>
-                          handleReferenceChange(index, 'domain', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="property-panel__field">
-                      <span>Version</span>
-                      <input
-                        type="text"
-                        value={view.reference.version}
-                        onChange={(event) =>
-                          handleReferenceChange(index, 'version', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="property-panel__field">
-                      <span>Flow</span>
-                      <input type="text" value="sys-views" readOnly />
-                    </label>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="property-panel__pill-button property-panel__pill-button--ghost"
-                  onClick={() => handleAddReference(index)}
-                >
-                  Add reference
-                </button>
-              )}
-              <button
-                type="button"
-                className="property-panel__list-remove"
-                onClick={() => handleRemove(index)}
-              >
-                Remove view
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface SchemaEditorProps {
   mode: SchemaMode;
   schema: Transition['schema'];
@@ -1123,6 +847,19 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
         {!selection ? (
           <div className="property-panel__empty">
             <p>Select a state or transition to edit its properties.</p>
+            <div style={{ marginTop: '16px' }}>
+              <button
+                type="button"
+                className="property-panel__pill-button"
+                onClick={() => {
+                  // Note: Workflow properties editing would need to be implemented
+                  // with proper message passing to the extension
+                  alert('Workflow properties editing is not yet implemented.\n\nMissing features:\n- Workflow type (C/F/S/P)\n- SubFlow type\n- Workflow timeout\n- Functions/Extensions\n- Shared transitions');
+                }}
+              >
+                Edit Workflow Properties
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -1214,6 +951,111 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
               }
             />
 
+            {/* View Reference */}
+            <div className="property-panel__group">
+              <div className="property-panel__group-header">
+                <span>View Reference</span>
+                {stateDraft.view ? (
+                  <button
+                    type="button"
+                    className="property-panel__pill-button property-panel__pill-button--ghost"
+                    onClick={() =>
+                      setStateDraft((prev) => {
+                        if (!prev) return prev;
+                        const next = { ...prev } as State & Record<string, unknown>;
+                        delete next.view;
+                        return next as State;
+                      })
+                    }
+                  >
+                    Remove view
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="property-panel__pill-button"
+                    onClick={() =>
+                      setStateDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              view: { key: '', domain: '', flow: 'sys-views', version: '' }
+                            }
+                          : prev
+                      )
+                    }
+                  >
+                    Add view
+                  </button>
+                )}
+              </div>
+              {stateDraft.view && (
+                <div className="property-panel__inline-fields">
+                  {('ref' in stateDraft.view) ? (
+                    <label className="property-panel__field">
+                      <span>Reference</span>
+                      <input
+                        type="text"
+                        value={stateDraft.view.ref}
+                        onChange={(event) =>
+                          setStateDraft((prev) =>
+                            prev && prev.view
+                              ? { ...prev, view: { ref: event.target.value } }
+                              : prev
+                          )
+                        }
+                      />
+                    </label>
+                  ) : (
+                    <>
+                      <label className="property-panel__field">
+                        <span>Key</span>
+                        <input
+                          type="text"
+                          value={stateDraft.view.key}
+                          onChange={(event) =>
+                            setStateDraft((prev) =>
+                              prev && prev.view && 'key' in prev.view
+                                ? { ...prev, view: { ...prev.view, key: event.target.value } }
+                                : prev
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="property-panel__field">
+                        <span>Domain</span>
+                        <input
+                          type="text"
+                          value={stateDraft.view.domain}
+                          onChange={(event) =>
+                            setStateDraft((prev) =>
+                              prev && prev.view && 'domain' in prev.view
+                                ? { ...prev, view: { ...prev.view, domain: event.target.value } }
+                                : prev
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="property-panel__field">
+                        <span>Version</span>
+                        <input
+                          type="text"
+                          value={stateDraft.view.version}
+                          onChange={(event) =>
+                            setStateDraft((prev) =>
+                              prev && prev.view && 'version' in prev.view
+                                ? { ...prev, view: { ...prev.view, version: event.target.value } }
+                                : prev
+                            )
+                          }
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             <ExecutionTaskListEditor
               title="On entry task references"
               tasks={stateDraft.onEntries}
@@ -1242,13 +1084,13 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
 
             <ExecutionTaskListEditor
               title="On exit task references"
-              tasks={stateDraft.onExit}
+              tasks={stateDraft.onExits}
               availableTasks={availableTasks}
               onLoadFromFile={(taskIndex) => {
                 postMessage({
                   type: 'mapping:loadFromFile',
                   stateKey: stateDraft.key,
-                  list: 'onExit',
+                  list: 'onExits',
                   index: taskIndex
                 });
               }}
@@ -1257,56 +1099,18 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
                   if (!prev) return prev;
                   const next = { ...prev } as State & Record<string, unknown>;
                   if (!tasks) {
-                    delete next.onExit;
+                    delete next.onExits;
                   } else {
-                    next.onExit = tasks;
+                    next.onExits = tasks;
                   }
                   return next as State;
                 })
               }
             />
 
-            <ExecutionTaskListEditor
-              title="Execution task references"
-              tasks={stateDraft.onExecutionTasks}
-              availableTasks={availableTasks}
-              onLoadFromFile={(taskIndex) => {
-                postMessage({
-                  type: 'mapping:loadFromFile',
-                  stateKey: stateDraft.key,
-                  list: 'onExecutionTasks',
-                  index: taskIndex
-                });
-              }}
-              onChange={(tasks) =>
-                setStateDraft((prev) => {
-                  if (!prev) return prev;
-                  const next = { ...prev } as State & Record<string, unknown>;
-                  if (!tasks) {
-                    delete next.onExecutionTasks;
-                  } else {
-                    next.onExecutionTasks = tasks;
-                  }
-                  return next as State;
-                })
-              }
-            />
+            {/* onExecutionTasks moved to transition level in new schema */}
 
-            <ViewListEditor
-              views={stateDraft.views}
-              onChange={(views) =>
-                setStateDraft((prev) => {
-                  if (!prev) return prev;
-                  const next = { ...prev } as State & Record<string, unknown>;
-                  if (!views) {
-                    delete next.views;
-                  } else {
-                    next.views = views;
-                  }
-                  return next as State;
-                })
-              }
-            />
+            {/* views replaced with single view reference in new schema */}
 
             <button type="submit" className="property-panel__save">
               Save state
@@ -1383,6 +1187,48 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks }
                 ))}
               </select>
             </label>
+
+            {/* Timeout configuration - shown only when triggerType is 2 (Timeout) */}
+            {transitionDraft.triggerType === 2 && (
+              <div className="property-panel__group">
+                <div className="property-panel__group-header">
+                  <span>Timeout Configuration</span>
+                </div>
+                <label className="property-panel__field">
+                  <span>Duration (ISO 8601)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g., PT30M, PT1H, PT45S"
+                    value={(transitionDraft as any).timeoutDuration || ''}
+                    onChange={(event) =>
+                      setTransitionDraft((prev) =>
+                        prev ? { ...prev, timeoutDuration: event.target.value } as any : prev
+                      )
+                    }
+                  />
+                  <small className="property-panel__help">
+                    Format: PT[hours]H[minutes]M[seconds]S
+                  </small>
+                </label>
+                <label className="property-panel__field">
+                  <span>Reset Strategy</span>
+                  <select
+                    value={(transitionDraft as any).timeoutReset || 'N'}
+                    onChange={(event) =>
+                      setTransitionDraft((prev) =>
+                        prev ? { ...prev, timeoutReset: event.target.value } as any : prev
+                      )
+                    }
+                  >
+                    <option value="N">Never (N)</option>
+                    <option value="R">Reset (R)</option>
+                  </select>
+                  <small className="property-panel__help">
+                    Never: Timer runs once. Reset: Timer restarts on state re-entry.
+                  </small>
+                </label>
+              </div>
+            )}
 
             <LabelListEditor
               title="Labels"

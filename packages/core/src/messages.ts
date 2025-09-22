@@ -30,7 +30,7 @@ export type MsgFromWebview =
   | {
       type: 'mapping:loadFromFile';
       stateKey: string;
-      list: 'onEntries' | 'onExit' | 'onExecutionTasks';
+      list: 'onEntries' | 'onExits';
       index: number;
     }
   | {

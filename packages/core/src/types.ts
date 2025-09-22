@@ -1,5 +1,5 @@
 export type Lang = 'en' | 'tr' | 'en-US' | 'tr-TR';
-export type VersionStrategy = 'Major' | 'Minor' | 'Patch';
+export type VersionStrategy = 'Major' | 'Minor';
 export type TriggerType = 0 | 1 | 2 | 3; // Manual, Auto, Timeout, Event
 export type StateType = 1 | 2 | 3 | 4; // Initial, Intermediate, Final, SubFlow
 export type StateSubType = 1 | 2 | 3; // Success, Failed, Cancelled
@@ -9,48 +9,36 @@ export interface Label {
   language: string;
 }
 
-export interface TaskRef {
+export type TaskRef =
+  | { ref: string }
+  | { key: string; domain: string; flow: string; version: string };
+
+export interface TaskDefinition {
   key: string;
   domain: string;
-  flow: 'sys-tasks';
-  version: string;
-}
-
-export interface TaskDefinition extends Omit<TaskRef, 'flow'> {
   flow: string;
+  version: string;
   flowVersion?: string;
   title?: string;
   tags?: string[];
   path?: string;
 }
 
-export interface FunctionRef {
-  key: string;
-  domain: string;
-  flow: 'sys-functions';
-  version: string;
-}
+export type FunctionRef =
+  | { ref: string }
+  | { key: string; domain: string; flow: string; version: string };
 
-export interface ExtensionRef {
-  key: string;
-  domain: string;
-  flow: 'sys-extensions';
-  version: string;
-}
+export type ExtensionRef =
+  | { ref: string }
+  | { key: string; domain: string; flow: string; version: string };
 
-export interface ViewRef {
-  key: string;
-  domain: string;
-  flow: 'sys-views';
-  version: string;
-}
+export type ViewRef =
+  | { ref: string }
+  | { key: string; domain: string; flow: string; version: string };
 
-export interface SchemaRef {
-  key: string;
-  domain: string;
-  flow: 'sys-schemas';
-  version: string;
-}
+export type SchemaRef =
+  | { ref: string }
+  | { key: string; domain: string; flow: string; version: string };
 
 export interface Mapping {
   location: string;
@@ -65,7 +53,7 @@ export interface Rule {
 export interface ExecutionTask {
   order: number;
   task: TaskRef;
-  mapping?: Mapping;
+  mapping: Mapping;
 }
 
 export interface TransitionBase {
@@ -75,7 +63,8 @@ export interface TransitionBase {
   versionStrategy: VersionStrategy;
   labels?: Label[];
   rule?: Rule;
-  schema?: SchemaRef | Record<string, unknown> | null;
+  schema?: SchemaRef | null;
+  onExecutionTasks?: ExecutionTask[];
 }
 
 export interface Transition extends TransitionBase {
@@ -87,12 +76,7 @@ export interface SharedTransition extends TransitionBase {
   availableIn: string[];
 }
 
-export interface ViewItem {
-  viewType: 1 | 2 | 3;
-  viewTarget: 1 | 2 | 3;
-  content?: string;
-  reference?: ViewRef;
-}
+// ViewItem is deprecated - states now have single view reference
 
 export interface State {
   key: string;
@@ -101,25 +85,49 @@ export interface State {
   versionStrategy: VersionStrategy;
   labels: Label[];
   onEntries?: ExecutionTask[];
-  onExit?: ExecutionTask[];
-  onExecutionTasks?: ExecutionTask[];
+  onExits?: ExecutionTask[];
   transitions?: Transition[];
-  views?: ViewItem[];
+  view?: ViewRef;
+}
+
+export interface TimerConfig {
+  reset: 'N' | 'R';
+  duration: string;
 }
 
 export interface TimeoutCfg {
   key: string;
   target: string;
   versionStrategy: VersionStrategy;
-  timer: {
-    reset: 'N' | 'R';
-    duration: string;
-  };
+  timer: TimerConfig;
+}
+
+export interface ScriptCode {
+  location: string;
+  code: string;
+}
+
+export interface Reference {
+  key: string;
+  domain: string;
+  flow: string;
+  version: string;
+}
+
+export interface SubFlow {
+  key: string;
+  domain: string;
+  flow: string;
+  version: string;
+  type?: 'S' | 'P';
 }
 
 export interface Workflow {
   key: string;
-  tags?: string[];
+  flow: string;
+  domain: string;
+  version: string;
+  tags: string[];
   attributes: {
     type: 'C' | 'F' | 'S' | 'P';
     subFlowType?: 'S' | 'P';

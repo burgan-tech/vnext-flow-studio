@@ -44,6 +44,12 @@ export function lint(
       return true;
     }
 
+    // Handle ref-style reference
+    if ('ref' in ref) {
+      return true; // We don't validate ref-style references against the catalog
+    }
+
+    // Handle explicit reference
     const key = ref.key?.trim();
     const domain = ref.domain?.trim();
     const version = ref.version?.trim();
@@ -61,6 +67,12 @@ export function lint(
       return '<missing task>';
     }
 
+    // Handle ref-style reference
+    if ('ref' in ref) {
+      return ref.ref;
+    }
+
+    // Handle explicit reference
     const domain = ref.domain?.trim() || '<missing-domain>';
     const key = ref.key?.trim() || '<missing-key>';
     const version = ref.version?.trim() || '<missing-version>';
@@ -190,7 +202,7 @@ export function lint(
       }
     }
 
-    for (const task of (state.onExit || [])) {
+    for (const task of (state.onExits || [])) {
       if (!hasTaskReference(task.task)) {
         push(state.key, {
           id: 'E_TASK_MISSING',
@@ -208,25 +220,9 @@ export function lint(
       }
     }
 
-    for (const task of (state.onExecutionTasks || [])) {
-      if (!hasTaskReference(task.task)) {
-        push(state.key, {
-          id: 'E_TASK_MISSING',
-          severity: 'error',
-          message: `task '${describeTaskRef(task.task)}' not found in catalog`
-        });
-      }
+    // onExecutionTasks moved to transition level in new schema
 
-      if (task.mapping?.location && !task.mapping.location.match(/^\.\/.*\.csx$/)) {
-        push(state.key, {
-          id: 'E_BAD_PATH',
-          severity: 'error',
-          message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
-        });
-      }
-    }
-
-    // Check transition rules
+    // Check transition rules and tasks
     for (const transition of (state.transitions || [])) {
       if (transition.rule?.location && !transition.rule.location.match(/^\.\/.*\.csx$/)) {
         push(state.key, {
@@ -234,6 +230,25 @@ export function lint(
           severity: 'error',
           message: `rule.location '${transition.rule.location}' must match pattern './*.csx'`
         });
+      }
+
+      // Check transition-level onExecutionTasks
+      for (const task of (transition.onExecutionTasks || [])) {
+        if (!hasTaskReference(task.task)) {
+          push(state.key, {
+            id: 'E_TASK_MISSING',
+            severity: 'error',
+            message: `transition task '${describeTaskRef(task.task)}' not found in catalog`
+          });
+        }
+
+        if (task.mapping?.location && !task.mapping.location.match(/^\.\/.*\.csx$/)) {
+          push(state.key, {
+            id: 'E_BAD_PATH',
+            severity: 'error',
+            message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
+          });
+        }
       }
     }
   }

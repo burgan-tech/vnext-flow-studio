@@ -384,9 +384,11 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               }
             }
 
-            // Remove from start transition if it targets this state
+            // Update start transition if it targets this state (preserve it but mark it as needing attention)
             if (updatedWorkflow.attributes.startTransition?.target === stateKey) {
-              delete updatedWorkflow.attributes.startTransition;
+              // Keep the startTransition but set target to empty string or a placeholder
+              // This preserves the mandatory field while indicating it needs to be fixed
+              updatedWorkflow.attributes.startTransition.target = '';
             }
 
             // Remove from timeout if it targets this state
