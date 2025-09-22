@@ -2,7 +2,7 @@
   "name": "amorphie-flow-studio",
   "displayName": "Amorphie Flow Studio",
   "publisher": "your-org",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Visual editor for Amorphie Workflow Projects",
   "repository": {
     "type": "git",
