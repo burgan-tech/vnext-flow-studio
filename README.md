@@ -1,6 +1,6 @@
-# Amorphie Flow Studio
+# VNext Flow Studio
 
-A VS Code extension for editing Amorphie Workflow Definitions.
+A VS Code extension for editing VNext Workflow Definitions.
 
 ## Features
 
