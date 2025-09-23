@@ -914,32 +914,61 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             }
 
             // Use default template if no code provided
-            if (!csharpCode) {
-              csharpCode = `using System;
+           if (!csharpCode) {
+             csharpCode = `using System;
 using System.Threading.Tasks;
 using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions;
 
-public class MappingHandler : IMapping
+public class MappingHandler : ScriptBase, IMapping
 {
-    public async Task<ScriptResponse> InputHandler(ScriptContext context)
+    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
     {
-        // TODO: Implement input mapping logic
-        return new ScriptResponse
+        var response = new ScriptResponse();
+
+        // Access instance data
+        var instanceId = context.Instance.Id;
+        var instanceKey = context.Instance.Key;
+        var currentState = context.Instance.CurrentState;
+        var instanceData = context.Instance.Data;
+
+        // Prepare request data
+        response.Data = new
         {
-            Data = context.Body.Data
+            instanceId = instanceId,
+            instanceKey = instanceKey,
+            currentState = currentState,
+            data = instanceData,
+            requestTime = DateTime.UtcNow
         };
+
+        // Set headers
+        response.Headers = new Dictionary<string, string>
+        {
+            ["X-Instance-Id"] = instanceId.ToString(),
+            ["X-Flow"] = context.Instance.Flow
+        };
+
+        return Task.FromResult(response);
     }
 
-    public async Task<ScriptResponse> OutputHandler(ScriptContext context)
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
     {
-        // TODO: Implement output mapping logic
-        return new ScriptResponse
+        var response = new ScriptResponse();
+
+        // Transform response data
+        response.Data = new
         {
-            Data = context.Body.Data
+            success = context.Body?.IsSuccess ?? true,
+            message = context.Body?.ErrorMessage ?? "Success",
+            result = context.Body?.Data,
+            timestamp = DateTime.UtcNow
         };
+
+        return Task.FromResult(response);
     }
 }`;
-            }
+           }
 
             try {
               await vscode.workspace.fs.writeFile(fileUri, Buffer.from(csharpCode, 'utf8'));

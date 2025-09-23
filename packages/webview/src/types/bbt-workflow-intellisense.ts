@@ -74,17 +74,9 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
     label: 'context.Instance',
     kind: 'Property',
     insertText: 'context.Instance',
-    documentation: 'Workflow instance information including UserId, Id, CorrelationId',
+    documentation: 'Workflow instance information including Id, Key, Flow, CurrentState, Status, Data',
     detail: 'BBT.Workflow.Instances.Instance',
     sortText: '010'
-  },
-  {
-    label: 'context.Instance.UserId',
-    kind: 'Property',
-    insertText: 'context.Instance.UserId',
-    documentation: 'ID of the user who initiated the workflow instance',
-    detail: 'string',
-    sortText: '011'
   },
   {
     label: 'context.Instance.Id',
@@ -92,15 +84,63 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
     insertText: 'context.Instance.Id',
     documentation: 'Unique identifier for this workflow instance',
     detail: 'Guid',
+    sortText: '011'
+  },
+  {
+    label: 'context.Instance.Key',
+    kind: 'Property',
+    insertText: 'context.Instance.Key',
+    documentation: 'Human-readable key for the workflow instance',
+    detail: 'string',
     sortText: '012'
   },
   {
-    label: 'context.Instance.CorrelationId',
+    label: 'context.Instance.Flow',
     kind: 'Property',
-    insertText: 'context.Instance.CorrelationId',
-    documentation: 'Correlation ID for tracking requests across services',
+    insertText: 'context.Instance.Flow',
+    documentation: 'Flow name that this instance belongs to',
     detail: 'string',
     sortText: '013'
+  },
+  {
+    label: 'context.Instance.CurrentState',
+    kind: 'Property',
+    insertText: 'context.Instance.CurrentState',
+    documentation: 'Current state of the workflow instance',
+    detail: 'string',
+    sortText: '014'
+  },
+  {
+    label: 'context.Instance.Status',
+    kind: 'Property',
+    insertText: 'context.Instance.Status',
+    documentation: 'Status of the workflow instance (Active, Completed, etc.)',
+    detail: 'InstanceStatus',
+    sortText: '015'
+  },
+  {
+    label: 'context.Instance.Data',
+    kind: 'Property',
+    insertText: 'context.Instance.Data',
+    documentation: 'Latest instance data containing workflow variables and state',
+    detail: 'dynamic',
+    sortText: '016'
+  },
+  {
+    label: 'context.Instance.CreatedAt',
+    kind: 'Property',
+    insertText: 'context.Instance.CreatedAt',
+    documentation: 'When the workflow instance was created',
+    detail: 'DateTime',
+    sortText: '017'
+  },
+  {
+    label: 'context.Instance.ModifiedAt',
+    kind: 'Property',
+    insertText: 'context.Instance.ModifiedAt',
+    documentation: 'When the workflow instance was last modified',
+    detail: 'DateTime?',
+    sortText: '018'
   },
   {
     label: 'context.Body',
@@ -174,6 +214,70 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
     detail: 'Dictionary<string, object>',
     sortText: '028'
   },
+  {
+    label: 'context.Headers',
+    kind: 'Property',
+    insertText: 'context.Headers',
+    documentation: 'HTTP headers from request/response',
+    detail: 'dynamic',
+    sortText: '029'
+  },
+  {
+    label: 'context.RouteValues',
+    kind: 'Property',
+    insertText: 'context.RouteValues',
+    documentation: 'Route parameter values',
+    detail: 'Dictionary<string, dynamic>',
+    sortText: '030'
+  },
+  {
+    label: 'context.Workflow',
+    kind: 'Property',
+    insertText: 'context.Workflow',
+    documentation: 'Workflow definition and metadata',
+    detail: 'BBT.Workflow.Definitions.Workflow',
+    sortText: '031'
+  },
+  {
+    label: 'context.Transition',
+    kind: 'Property',
+    insertText: 'context.Transition',
+    documentation: 'Current transition being executed',
+    detail: 'BBT.Workflow.Definitions.Transition',
+    sortText: '032'
+  },
+  {
+    label: 'context.TaskResponse',
+    kind: 'Property',
+    insertText: 'context.TaskResponse',
+    documentation: 'Results from previous task executions',
+    detail: 'Dictionary<string, dynamic?>',
+    sortText: '033'
+  },
+  {
+    label: 'context.MetaData',
+    kind: 'Property',
+    insertText: 'context.MetaData',
+    documentation: 'Custom metadata for the execution context',
+    detail: 'Dictionary<string, dynamic>',
+    sortText: '034'
+  },
+  {
+    label: 'context.Runtime',
+    kind: 'Property',
+    insertText: 'context.Runtime',
+    documentation: 'Runtime information provider',
+    detail: 'BBT.Workflow.Runtime.IRuntimeInfoProvider',
+    sortText: '035'
+  },
+  {
+    label: 'context.Definitions',
+    kind: 'Property',
+    insertText: 'context.Definitions',
+    documentation: 'Workflow definitions and references',
+    detail: 'Dictionary<string, dynamic>',
+    sortText: '036'
+  },
 
   // ==== ScriptResponse Class ====
   {
@@ -233,6 +337,177 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
     documentation: 'Domain the task belongs to',
     detail: 'string',
     sortText: '042'
+  },
+  {
+    label: 'task.Type',
+    kind: 'Property',
+    insertText: 'task.Type',
+    documentation: 'Type of the workflow task (1=DaprHttpEndpoint, 2=DaprBinding, 3=DaprService, 4=DaprPubSub, 5=Human, 6=Http, 7=Script)',
+    detail: 'string',
+    sortText: '043'
+  },
+  {
+    label: 'task.Config',
+    kind: 'Property',
+    insertText: 'task.Config',
+    documentation: 'Task configuration as JsonElement',
+    detail: 'JsonElement',
+    sortText: '044'
+  },
+
+  // ==== Task Type Specific Properties ====
+  // HttpTask (type: "6")
+  {
+    label: 'httpTask.Url',
+    kind: 'Property',
+    insertText: 'httpTask.Url',
+    documentation: 'HTTP endpoint URL for the task',
+    detail: 'string',
+    sortText: '050'
+  },
+  {
+    label: 'httpTask.HttpMethod',
+    kind: 'Property',
+    insertText: 'httpTask.HttpMethod',
+    documentation: 'HTTP method (GET, POST, PUT, DELETE, etc.)',
+    detail: 'string',
+    sortText: '051'
+  },
+  {
+    label: 'httpTask.Headers',
+    kind: 'Property',
+    insertText: 'httpTask.Headers',
+    documentation: 'HTTP headers for the request',
+    detail: 'Dictionary<string, string>',
+    sortText: '052'
+  },
+  {
+    label: 'httpTask.Timeout',
+    kind: 'Property',
+    insertText: 'httpTask.Timeout',
+    documentation: 'Request timeout duration',
+    detail: 'TimeSpan',
+    sortText: '053'
+  },
+
+  // DaprServiceTask (type: "3")
+  {
+    label: 'daprTask.AppId',
+    kind: 'Property',
+    insertText: 'daprTask.AppId',
+    documentation: 'DAPR application ID for service invocation',
+    detail: 'string',
+    sortText: '060'
+  },
+  {
+    label: 'daprTask.MethodName',
+    kind: 'Property',
+    insertText: 'daprTask.MethodName',
+    documentation: 'Method name to invoke on the DAPR service',
+    detail: 'string',
+    sortText: '061'
+  },
+  {
+    label: 'daprTask.HttpVerb',
+    kind: 'Property',
+    insertText: 'daprTask.HttpVerb',
+    documentation: 'HTTP verb for the DAPR service call',
+    detail: 'string',
+    sortText: '062'
+  },
+
+  // DaprBindingTask (type: "2")
+  {
+    label: 'bindingTask.BindingName',
+    kind: 'Property',
+    insertText: 'bindingTask.BindingName',
+    documentation: 'Name of the DAPR binding component',
+    detail: 'string',
+    sortText: '070'
+  },
+  {
+    label: 'bindingTask.Operation',
+    kind: 'Property',
+    insertText: 'bindingTask.Operation',
+    documentation: 'Operation to perform on the binding',
+    detail: 'string',
+    sortText: '071'
+  },
+  {
+    label: 'bindingTask.Metadata',
+    kind: 'Property',
+    insertText: 'bindingTask.Metadata',
+    documentation: 'Metadata for the binding operation',
+    detail: 'Dictionary<string, string>',
+    sortText: '072'
+  },
+
+  // HumanTask (type: "5")
+  {
+    label: 'humanTask.Title',
+    kind: 'Property',
+    insertText: 'humanTask.Title',
+    documentation: 'Title of the human task',
+    detail: 'string',
+    sortText: '080'
+  },
+  {
+    label: 'humanTask.Instructions',
+    kind: 'Property',
+    insertText: 'humanTask.Instructions',
+    documentation: 'Instructions for the human task',
+    detail: 'string',
+    sortText: '081'
+  },
+  {
+    label: 'humanTask.AssignedTo',
+    kind: 'Property',
+    insertText: 'humanTask.AssignedTo',
+    documentation: 'User or group assigned to the human task',
+    detail: 'string',
+    sortText: '082'
+  },
+  {
+    label: 'humanTask.DueDate',
+    kind: 'Property',
+    insertText: 'humanTask.DueDate',
+    documentation: 'Due date for the human task',
+    detail: 'DateTime?',
+    sortText: '083'
+  },
+  {
+    label: 'humanTask.Form',
+    kind: 'Property',
+    insertText: 'humanTask.Form',
+    documentation: 'Form definition for the human task',
+    detail: 'object',
+    sortText: '084'
+  },
+
+  // ScriptTask (type: "7")
+  {
+    label: 'scriptTask.Script',
+    kind: 'Property',
+    insertText: 'scriptTask.Script',
+    documentation: 'Script code and language for the script task',
+    detail: 'ScriptCode',
+    sortText: '090'
+  },
+  {
+    label: 'scriptTask.Script.Code',
+    kind: 'Property',
+    insertText: 'scriptTask.Script.Code',
+    documentation: 'C# script code to execute',
+    detail: 'string',
+    sortText: '091'
+  },
+  {
+    label: 'scriptTask.Script.Language',
+    kind: 'Property',
+    insertText: 'scriptTask.Script.Language',
+    documentation: 'Script language (csharp)',
+    detail: 'string',
+    sortText: '092'
   },
 
   // ==== Secret Management Functions ====
@@ -385,15 +660,16 @@ public class \${1:YourMappingName}Mapping : ScriptBase, IMapping
 
         response.Data = new
         {
-            userId = context.Instance.UserId,
-            workflowId = context.Instance.Id,
+            instanceId = context.Instance.Id,
+            instanceKey = context.Instance.Key,
+            currentState = context.Instance.CurrentState,
             requestTime = DateTime.UtcNow
         };
 
         response.Headers = new Dictionary<string, string>
         {
-            ["X-Correlation-Id"] = context.Instance.CorrelationId,
-            ["X-User-Id"] = context.Instance.UserId
+            ["X-Instance-Id"] = context.Instance.Id.ToString(),
+            ["X-Flow"] = context.Instance.Flow
         };
 
         return response;
@@ -436,6 +712,245 @@ public class \${1:YourMappingName}MappingRule : IConditionMapping
     documentation: 'Complete IConditionMapping class template for rules',
     detail: 'IConditionMapping Class Template',
     sortText: '002'
+  },
+  {
+    label: 'HttpTask Mapping Template',
+    kind: 'Keyword',
+    insertText: `/// <summary>
+/// HttpTask mapping for API calls
+/// </summary>
+public class \${1:ApiName}HttpMapping : ScriptBase, IMapping
+{
+    public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var httpTask = (task as HttpTask)!;
+        var response = new ScriptResponse();
+
+        // Access instance data
+        var customerId = context.Instance.Data?.customerId;
+        var userId = context.Instance.Data?.userId;
+
+        // Prepare request data
+        response.Data = new
+        {
+            customerId = customerId,
+            userId = userId,
+            timestamp = DateTime.UtcNow
+        };
+
+        // Set authorization header
+        response.Headers = new Dictionary<string, string>
+        {
+            ["Authorization"] = "Bearer " + GetSecret("dapr_store", "api_store", "auth_token"),
+            ["Content-Type"] = "application/json"
+        };
+
+        return response;
+    }
+
+    public async Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Transform response data
+        response.Data = new
+        {
+            success = context.Body?.success ?? false,
+            message = context.Body?.message ?? "No message",
+            timestamp = DateTime.UtcNow
+        };
+
+        return response;
+    }
+}`,
+    documentation: 'HttpTask mapping template for API calls',
+    detail: 'HttpTask Mapping Template',
+    sortText: '003'
+  },
+  {
+    label: 'DaprServiceTask Mapping Template',
+    kind: 'Keyword',
+    insertText: `/// <summary>
+/// DaprServiceTask mapping for service invocations
+/// </summary>
+public class \${1:ServiceName}DaprMapping : ScriptBase, IMapping
+{
+    public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var daprTask = (task as DaprServiceTask)!;
+        var response = new ScriptResponse();
+
+        // Access instance data
+        var instanceData = context.Instance.Data;
+        var workflowId = context.Instance.Id;
+
+        // Prepare service call data
+        response.Data = new
+        {
+            workflowInstanceId = workflowId,
+            flow = context.Instance.Flow,
+            currentState = context.Instance.CurrentState,
+            data = instanceData
+        };
+
+        return response;
+    }
+
+    public async Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Process service response
+        response.Data = new
+        {
+            processed = true,
+            result = context.Body?.result,
+            timestamp = DateTime.UtcNow
+        };
+
+        return response;
+    }
+}`,
+    documentation: 'DaprServiceTask mapping template for service invocations',
+    detail: 'DaprServiceTask Mapping Template',
+    sortText: '004'
+  },
+  {
+    label: 'HumanTask Mapping Template',
+    kind: 'Keyword',
+    insertText: `/// <summary>
+/// HumanTask mapping for human approval tasks
+/// </summary>
+public class \${1:TaskName}HumanMapping : ScriptBase, IMapping
+{
+    public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var humanTask = (task as HumanTask)!;
+        var response = new ScriptResponse();
+
+        // Prepare human task data
+        response.Data = new
+        {
+            taskId = Guid.NewGuid(),
+            instanceId = context.Instance.Id,
+            title = humanTask.Title,
+            instructions = humanTask.Instructions,
+            assignedTo = humanTask.AssignedTo,
+            dueDate = humanTask.DueDate,
+            form = humanTask.Form,
+            instanceData = context.Instance.Data
+        };
+
+        return response;
+    }
+
+    public async Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Process human task result
+        response.Data = new
+        {
+            approved = context.Body?.approved ?? false,
+            comments = context.Body?.comments ?? "",
+            completedBy = context.Body?.completedBy ?? "",
+            completedAt = DateTime.UtcNow
+        };
+
+        return response;
+    }
+}`,
+    documentation: 'HumanTask mapping template for human approval tasks',
+    detail: 'HumanTask Mapping Template',
+    sortText: '005'
+  },
+  {
+    label: 'ScriptTask Mapping Template',
+    kind: 'Keyword',
+    insertText: `/// <summary>
+/// ScriptTask mapping for C# script execution
+/// </summary>
+public class \${1:ScriptName}ScriptMapping : ScriptBase, IMapping
+{
+    public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var scriptTask = (task as ScriptTask)!;
+        var response = new ScriptResponse();
+
+        // Prepare script execution data
+        response.Data = new
+        {
+            instanceId = context.Instance.Id,
+            scriptCode = scriptTask.Script.Code,
+            language = scriptTask.Script.Language,
+            inputData = context.Instance.Data
+        };
+
+        return response;
+    }
+
+    public async Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Process script execution result
+        response.Data = new
+        {
+            executed = true,
+            result = context.Body,
+            executionTime = DateTime.UtcNow
+        };
+
+        return response;
+    }
+}`,
+    documentation: 'ScriptTask mapping template for C# script execution',
+    detail: 'ScriptTask Mapping Template',
+    sortText: '006'
+  },
+  {
+    label: 'DaprBindingTask Mapping Template',
+    kind: 'Keyword',
+    insertText: `/// <summary>
+/// DaprBindingTask mapping for external integrations
+/// </summary>
+public class \${1:BindingName}BindingMapping : ScriptBase, IMapping
+{
+    public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var bindingTask = (task as DaprBindingTask)!;
+        var response = new ScriptResponse();
+
+        // Prepare binding data
+        response.Data = new
+        {
+            bindingName = bindingTask.BindingName,
+            operation = bindingTask.Operation,
+            metadata = bindingTask.Metadata,
+            instanceData = context.Instance.Data
+        };
+
+        return response;
+    }
+
+    public async Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Process binding result
+        response.Data = new
+        {
+            success = true,
+            result = context.Body,
+            processedAt = DateTime.UtcNow
+        };
+
+        return response;
+    }
+}`,
+    documentation: 'DaprBindingTask mapping template for external integrations',
+    detail: 'DaprBindingTask Mapping Template',
+    sortText: '007'
   }
 ];
 
@@ -505,11 +1020,19 @@ export function getAllBBTWorkflowIntelliSense(): IntelliSenseItem[] {
   const domainSuggestions = convertXmlToIntelliSense(domainAssembly.members);
   const scriptingSuggestions = convertXmlToIntelliSense(scriptingAssembly.members);
 
-  return [
+  // Combine all suggestions
+  const allSuggestions = [
     ...BBT_WORKFLOW_INTELLISENSE,
     ...BBT_WORKFLOW_USINGS,
     ...BBT_WORKFLOW_TEMPLATES,
     ...domainSuggestions,
     ...scriptingSuggestions
   ];
+
+  // Remove duplicates based on label
+  const uniqueSuggestions = allSuggestions.filter((item, index, self) =>
+    index === self.findIndex(s => s.label === item.label)
+  );
+
+  return uniqueSuggestions;
 }

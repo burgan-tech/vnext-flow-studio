@@ -16,7 +16,7 @@ function getObjectProperties(objectName: string): IntelliSenseItem[] {
           kind: 'Property',
           insertText: 'Instance',
           documentation: 'Gets the workflow instance associated with this script execution',
-          detail: 'WorkflowInstance: The current workflow instance',
+          detail: 'BBT.Workflow.Instances.Instance: The current workflow instance',
           sortText: '001'
         },
         {
@@ -32,8 +32,64 @@ function getObjectProperties(objectName: string): IntelliSenseItem[] {
           kind: 'Property',
           insertText: 'Headers',
           documentation: 'Gets the HTTP headers associated with the request',
-          detail: 'Dictionary<string, string>: HTTP headers',
+          detail: 'dynamic: HTTP headers',
           sortText: '003'
+        },
+        {
+          label: 'RouteValues',
+          kind: 'Property',
+          insertText: 'RouteValues',
+          documentation: 'Gets the route parameter values',
+          detail: 'Dictionary<string, dynamic>: Route values',
+          sortText: '004'
+        },
+        {
+          label: 'Workflow',
+          kind: 'Property',
+          insertText: 'Workflow',
+          documentation: 'Gets the workflow definition and metadata',
+          detail: 'BBT.Workflow.Definitions.Workflow: Workflow definition',
+          sortText: '005'
+        },
+        {
+          label: 'Transition',
+          kind: 'Property',
+          insertText: 'Transition',
+          documentation: 'Gets the current transition being executed',
+          detail: 'BBT.Workflow.Definitions.Transition: Current transition',
+          sortText: '006'
+        },
+        {
+          label: 'TaskResponse',
+          kind: 'Property',
+          insertText: 'TaskResponse',
+          documentation: 'Gets the results from previous task executions',
+          detail: 'Dictionary<string, dynamic?>: Previous task results',
+          sortText: '007'
+        },
+        {
+          label: 'MetaData',
+          kind: 'Property',
+          insertText: 'MetaData',
+          documentation: 'Gets the custom metadata for the execution context',
+          detail: 'Dictionary<string, dynamic>: Custom metadata',
+          sortText: '008'
+        },
+        {
+          label: 'Runtime',
+          kind: 'Property',
+          insertText: 'Runtime',
+          documentation: 'Gets the runtime information provider',
+          detail: 'BBT.Workflow.Runtime.IRuntimeInfoProvider: Runtime info',
+          sortText: '009'
+        },
+        {
+          label: 'Definitions',
+          kind: 'Property',
+          insertText: 'Definitions',
+          documentation: 'Gets the workflow definitions and references',
+          detail: 'Dictionary<string, dynamic>: Workflow definitions',
+          sortText: '010'
         }
       ];
 
@@ -43,41 +99,65 @@ function getObjectProperties(objectName: string): IntelliSenseItem[] {
           label: 'Id',
           kind: 'Property',
           insertText: 'Id',
-          documentation: 'Gets the unique identifier for this workflow instance',
-          detail: 'string: Workflow instance ID',
+          documentation: 'Unique identifier for this workflow instance',
+          detail: 'Guid: Workflow instance ID',
           sortText: '001'
         },
         {
-          label: 'UserId',
+          label: 'Key',
           kind: 'Property',
-          insertText: 'UserId',
-          documentation: 'Gets the user ID associated with this workflow instance',
-          detail: 'string: User ID',
+          insertText: 'Key',
+          documentation: 'Human-readable key for the workflow instance',
+          detail: 'string: Instance key',
           sortText: '002'
         },
         {
-          label: 'CorrelationId',
+          label: 'Flow',
           kind: 'Property',
-          insertText: 'CorrelationId',
-          documentation: 'Gets the correlation ID for tracking this workflow instance',
-          detail: 'string: Correlation ID',
+          insertText: 'Flow',
+          documentation: 'Flow name that this instance belongs to',
+          detail: 'string: Flow name',
           sortText: '003'
         },
         {
-          label: 'State',
+          label: 'CurrentState',
           kind: 'Property',
-          insertText: 'State',
-          documentation: 'Gets the current state of the workflow instance',
+          insertText: 'CurrentState',
+          documentation: 'Current state of the workflow instance',
           detail: 'string: Current state',
           sortText: '004'
+        },
+        {
+          label: 'Status',
+          kind: 'Property',
+          insertText: 'Status',
+          documentation: 'Status of the workflow instance (Active, Completed, etc.)',
+          detail: 'InstanceStatus: Instance status',
+          sortText: '005'
         },
         {
           label: 'Data',
           kind: 'Property',
           insertText: 'Data',
-          documentation: 'Gets the workflow instance data as dynamic object',
+          documentation: 'Latest instance data containing workflow variables and state',
           detail: 'dynamic: Instance data',
-          sortText: '005'
+          sortText: '006'
+        },
+        {
+          label: 'CreatedAt',
+          kind: 'Property',
+          insertText: 'CreatedAt',
+          documentation: 'When the workflow instance was created',
+          detail: 'DateTime: Creation time',
+          sortText: '007'
+        },
+        {
+          label: 'ModifiedAt',
+          kind: 'Property',
+          insertText: 'ModifiedAt',
+          documentation: 'When the workflow instance was last modified',
+          detail: 'DateTime?: Last modified time',
+          sortText: '008'
         }
       ];
 
@@ -87,7 +167,7 @@ function getObjectProperties(objectName: string): IntelliSenseItem[] {
           label: 'StatusCode',
           kind: 'Property',
           insertText: 'StatusCode',
-          documentation: 'Gets the HTTP status code of the response',
+          documentation: 'HTTP status code from task execution',
           detail: 'int?: HTTP status code (200, 400, 500, etc.)',
           sortText: '001'
         },
@@ -95,7 +175,7 @@ function getObjectProperties(objectName: string): IntelliSenseItem[] {
           label: 'Data',
           kind: 'Property',
           insertText: 'Data',
-          documentation: 'Gets the response data as dynamic object',
+          documentation: 'Response data from the executed task',
           detail: 'dynamic: Response data',
           sortText: '002'
         },
@@ -103,37 +183,93 @@ function getObjectProperties(objectName: string): IntelliSenseItem[] {
           label: 'ErrorMessage',
           kind: 'Property',
           insertText: 'ErrorMessage',
-          documentation: 'Gets the error message if the request failed',
+          documentation: 'Error message if the task execution failed',
           detail: 'string: Error message',
           sortText: '003'
+        },
+        {
+          label: 'IsSuccess',
+          kind: 'Property',
+          insertText: 'IsSuccess',
+          documentation: 'Boolean indicating if the task execution was successful',
+          detail: 'bool?: Success status',
+          sortText: '004'
+        },
+        {
+          label: 'TaskType',
+          kind: 'Property',
+          insertText: 'TaskType',
+          documentation: 'Type of the executed task (HTTP, Dapr, etc.)',
+          detail: 'string: Task type',
+          sortText: '005'
+        },
+        {
+          label: 'ExecutionDurationMs',
+          kind: 'Property',
+          insertText: 'ExecutionDurationMs',
+          documentation: 'Execution duration in milliseconds',
+          detail: 'long?: Duration in ms',
+          sortText: '006'
+        },
+        {
+          label: 'Headers',
+          kind: 'Property',
+          insertText: 'Headers',
+          documentation: 'HTTP headers from the task response',
+          detail: 'Dictionary<string, string>: Response headers',
+          sortText: '007'
+        },
+        {
+          label: 'Metadata',
+          kind: 'Property',
+          insertText: 'Metadata',
+          documentation: 'Additional metadata from task execution',
+          detail: 'Dictionary<string, object>: Task metadata',
+          sortText: '008'
         }
       ];
 
     case 'task':
       return [
         {
-          label: 'Id',
+          label: 'Key',
           kind: 'Property',
-          insertText: 'Id',
-          documentation: 'Gets the unique identifier for the workflow task',
-          detail: 'string: Task ID',
+          insertText: 'Key',
+          documentation: 'Unique key identifier for the workflow task',
+          detail: 'string: Task key',
           sortText: '001'
         },
         {
-          label: 'Name',
+          label: 'Version',
           kind: 'Property',
-          insertText: 'Name',
-          documentation: 'Gets the name of the workflow task',
-          detail: 'string: Task name',
+          insertText: 'Version',
+          documentation: 'Version of the workflow task',
+          detail: 'string: Task version',
           sortText: '002'
         },
         {
-          label: 'Configuration',
+          label: 'Domain',
           kind: 'Property',
-          insertText: 'Configuration',
-          documentation: 'Gets the task configuration as dynamic object',
-          detail: 'dynamic: Task configuration',
+          insertText: 'Domain',
+          documentation: 'Domain the task belongs to',
+          detail: 'string: Task domain',
           sortText: '003'
+        },
+        {
+          label: 'Type',
+          kind: 'Property',
+          insertText: 'Type',
+          documentation: 'Type of the workflow task (1=DaprHttpEndpoint, 2=DaprBinding, 3=DaprService, 4=DaprPubSub, 5=Human, 6=Http, 7=Script)',
+          detail: 'string: Task type',
+          sortText: '004'
+        },
+        {
+          label: 'Config',
+          kind: 'Property',
+          insertText: 'Config',
+          documentation: 'Task configuration as JsonElement',
+          detail: 'JsonElement: Task configuration',
+          sortText: '005'
         }
       ];
 
@@ -262,10 +398,10 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
 
     if (inlineText) {
       setDisplayText(inlineText);
-    } else {
-      console.log('🆕 No content, setting default template');
-      setDisplayText('// Enter your C# rule code here\nusing System;\nusing BBT.Workflow.Domain;\n\npublic class YourRule : IConditionMapping\n{\n    public async Task<bool> Handler(ScriptContext context)\n    {\n        // TODO: Implement your rule logic\n        return true;\n    }\n}');
-    }
+           } else {
+             console.log('🆕 No content, setting default template');
+             setDisplayText('// Enter your C# mapping code here\nusing System;\nusing System.Threading.Tasks;\nusing BBT.Workflow.Scripting;\nusing BBT.Workflow.Definitions;\n\npublic class MappingHandler : ScriptBase, IMapping\n{\n    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)\n    {\n        var response = new ScriptResponse();\n\n        // Access instance data\n        var instanceId = context.Instance.Id;\n        var instanceKey = context.Instance.Key;\n        var currentState = context.Instance.CurrentState;\n        var instanceData = context.Instance.Data;\n\n        // Prepare request data\n        response.Data = new\n        {\n            instanceId = instanceId,\n            instanceKey = instanceKey,\n            currentState = currentState,\n            data = instanceData,\n            requestTime = DateTime.UtcNow\n        };\n\n        // Set headers\n        response.Headers = new Dictionary<string, string>\n        {\n            ["X-Instance-Id"] = instanceId.ToString(),\n            ["X-Flow"] = context.Instance.Flow\n        };\n\n        return Task.FromResult(response);\n    }\n\n    public Task<ScriptResponse> OutputHandler(ScriptContext context)\n    {\n        var response = new ScriptResponse();\n\n        // Transform response data\n        response.Data = new\n        {\n            success = context.Body?.IsSuccess ?? true,\n            message = context.Body?.ErrorMessage ?? "Success",\n            result = context.Body?.Data,\n            timestamp = DateTime.UtcNow\n        };\n\n        return Task.FromResult(response);\n    }\n}');
+           }
   }, [inlineText]);
 
   const handleCodeChange = (value: string) => {
@@ -427,7 +563,21 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
             }
 
             console.log('🔍 Resolved object type:', objectType);
-            suggestions = getObjectProperties(objectType);
+
+            // When we're after a dot, ONLY show object properties for the specific object type
+            // This prevents showing suggestions for other objects
+            if (objectType) {
+              const objectProperties = getObjectProperties(objectType);
+              console.log('🔍 Object properties from getObjectProperties:', objectProperties.length, 'items:', objectProperties.map(p => p.label));
+
+              // Only show properties for this specific object type
+              suggestions = objectProperties;
+            } else {
+              // No valid object type, show no suggestions
+              suggestions = [];
+            }
+
+            console.log('🔍 Final suggestions for', objectType, ':', suggestions.length, 'items:', suggestions.map(s => s.label));
           }
 
           // Filter suggestions based on current word
@@ -437,7 +587,12 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
             );
           }
 
-          const monacoSuggestions = suggestions.map(item => ({
+          // Remove duplicates from final suggestions
+          const uniqueSuggestions = suggestions.filter((item, index, self) =>
+            index === self.findIndex(s => s.label === item.label)
+          );
+
+          const monacoSuggestions = uniqueSuggestions.map(item => ({
             label: item.label,
             kind: monaco.languages.CompletionItemKind[item.kind as keyof typeof monaco.languages.CompletionItemKind] || monaco.languages.CompletionItemKind.Text,
             insertText: item.insertText,
@@ -453,6 +608,7 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
           }));
 
           console.log('🧠 Returning', monacoSuggestions.length, 'suggestions');
+          console.log('🔍 Suggestions:', monacoSuggestions.map(s => s.label));
           return { suggestions: monacoSuggestions };
         }
       });
