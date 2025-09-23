@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { TriggerType } from '../../types/workflow-types';
 import { TriggerTypeInfo } from '../../types/workflow-types';
 
-interface EnhancedSchedulingEditorProps {
+interface EnhancedTriggerEditorProps {
   triggerType: TriggerType;
   onTriggerTypeChange: (triggerType: TriggerType) => void;
   // For timeout transitions
@@ -68,7 +68,7 @@ const TRIGGER_TYPES = Object.entries(TriggerTypeInfo).map(([type, info]) => ({
   category: type === '2' ? 'scheduled' as const : 'immediate' as const
 }));
 
-export const EnhancedSchedulingEditor: React.FC<EnhancedSchedulingEditorProps> = ({
+export const EnhancedTriggerEditor: React.FC<EnhancedTriggerEditorProps> = ({
   triggerType,
   onTriggerTypeChange,
   duration = 'PT1H',

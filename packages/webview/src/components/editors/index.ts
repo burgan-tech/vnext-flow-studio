@@ -10,7 +10,7 @@ export { ExtensionListEditor } from './ExtensionListEditor';
 export { EnhancedMappingEditor } from './EnhancedMappingEditor';
 export { EnhancedRuleEditor } from './EnhancedRuleEditor';
 export { EnhancedExecutionTaskEditor } from './EnhancedExecutionTaskEditor';
-export { EnhancedSchedulingEditor } from './EnhancedSchedulingEditor';
+export { EnhancedTriggerEditor } from './EnhancedTriggerEditor';
 
 export {
   isSchemaRef,

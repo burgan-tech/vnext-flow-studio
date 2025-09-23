@@ -19,7 +19,7 @@ import {
   SchemaEditor,
   ExecutionTaskListEditor,
   ViewEditor,
-  EnhancedSchedulingEditor,
+  EnhancedTriggerEditor,
   isSchemaRef,
   isTaskRef,
   type SchemaMode
@@ -856,8 +856,8 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               />
             </label>
 
-            {/* Enhanced Scheduling Editor for Trigger Type */}
-            <EnhancedSchedulingEditor
+            {/* Enhanced Trigger Editor for Trigger Type */}
+            <EnhancedTriggerEditor
               title="Transition Trigger"
               triggerType={transitionDraft.triggerType}
               onTriggerTypeChange={(triggerType) =>
@@ -1023,8 +1023,8 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               />
             </label>
 
-            {/* Enhanced Scheduling Editor for Shared Transition Trigger Type */}
-            <EnhancedSchedulingEditor
+            {/* Enhanced Trigger Editor for Shared Transition Trigger Type */}
+            <EnhancedTriggerEditor
               title="Shared Transition Trigger"
               triggerType={sharedTransitionDraft.triggerType}
               onTriggerTypeChange={(triggerType) =>
