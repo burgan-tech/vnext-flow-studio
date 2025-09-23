@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import type { TriggerType, TriggerTypeInfo } from '../../types/workflow-types';
+import type { TriggerType } from '../../types/workflow-types';
+import { TriggerTypeInfo } from '../../types/workflow-types';
 
 interface EnhancedSchedulingEditorProps {
   triggerType: TriggerType;

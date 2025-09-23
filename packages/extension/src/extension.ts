@@ -25,10 +25,13 @@ async function writeJson(uri: vscode.Uri, data: any): Promise<void> {
 
 async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionContext, diagnosticsProvider: FlowDiagnosticsProvider, activePanels: Map<string, vscode.WebviewPanel>) {
   try {
+    console.log('Opening flow editor for:', flowUri.toString());
+    console.log('Is flow definition URI:', isFlowDefinitionUri(flowUri));
+
     if (!isFlowDefinitionUri(flowUri)) {
-      vscode.window.showErrorMessage(
-        'Amorphie Flow Studio can only open *.flow.json files or JSON files within a workflows directory.'
-      );
+      const errorMsg = `Amorphie Flow Studio can only open *.flow.json files or JSON files within a workflows directory. File: ${flowUri.path}`;
+      console.error(errorMsg);
+      vscode.window.showErrorMessage(errorMsg);
       return;
     }
 
@@ -1220,7 +1223,8 @@ class FlowEditorProvider implements vscode.CustomTextEditorProvider {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Amorphie Flow Studio activated');
+  console.log('🚀 Amorphie Flow Studio ACTIVATING...');
+  vscode.window.showInformationMessage('Amorphie Flow Studio extension activated!');
 
   // Initialize diagnostics
   const diagnosticsProvider = new FlowDiagnosticsProvider();
@@ -1321,6 +1325,9 @@ export function activate(context: vscode.ExtensionContext) {
   const openCommand = vscode.commands.registerCommand(
     'flowEditor.open',
     async (uri?: vscode.Uri) => {
+      console.log('🎯 flowEditor.open command triggered with URI:', uri?.toString());
+      vscode.window.showInformationMessage(`Opening workflow file: ${uri?.path || 'file picker'}`);
+
       const flowUri = uri ?? (
         await vscode.window.showOpenDialog({
           filters: { 'Amorphie Flow': ['json'] },
@@ -1328,15 +1335,22 @@ export function activate(context: vscode.ExtensionContext) {
         })
       )?.[0];
 
-      if (!flowUri) return;
+      if (!flowUri) {
+        console.log('❌ No file URI provided');
+        return;
+      }
 
+      console.log('🔍 Checking if file is recognized:', flowUri.toString());
       if (!isFlowDefinitionUri(flowUri)) {
+        const errorMsg = `File not recognized as workflow: ${flowUri.path}`;
+        console.error('❌', errorMsg);
         vscode.window.showErrorMessage(
           'Select a *.flow.json file or a JSON workflow stored under a workflows directory.'
         );
         return;
       }
 
+      console.log('✅ File recognized, opening editor...');
       await openFlowEditor(flowUri, context, diagnosticsProvider, activePanels);
     }
   );

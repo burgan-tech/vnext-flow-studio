@@ -31,7 +31,7 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
   {
     label: 'InputHandler',
     kind: 'Method',
-    insertText: 'public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)\n{\n\tvar response = new ScriptResponse();\n\t$1\n\treturn response;\n}',
+    insertText: 'public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)\n{\n\tvar response = new ScriptResponse();\n\t\\$1\n\treturn response;\n}',
     documentation: 'Handles input processing for the workflow task',
     detail: 'Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)',
     sortText: '003'
@@ -39,7 +39,7 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
   {
     label: 'OutputHandler',
     kind: 'Method',
-    insertText: 'public async Task<ScriptResponse> OutputHandler(ScriptContext context)\n{\n\tvar response = new ScriptResponse();\n\t$1\n\treturn response;\n}',
+    insertText: 'public async Task<ScriptResponse> OutputHandler(ScriptContext context)\n{\n\tvar response = new ScriptResponse();\n\t\\$1\n\treturn response;\n}',
     documentation: 'Handles output processing for the workflow task',
     detail: 'Task<ScriptResponse> OutputHandler(ScriptContext context)',
     sortText: '004'
@@ -57,7 +57,7 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
   {
     label: 'Handler (condition)',
     kind: 'Method',
-    insertText: 'public async Task<bool> Handler(ScriptContext context)\n{\n\t$1\n\treturn true;\n}',
+    insertText: 'public async Task<bool> Handler(ScriptContext context)\n{\n\t\\$1\n\treturn true;\n}',
     documentation: 'Handles condition evaluation for the workflow task',
     detail: 'Task<bool> Handler(ScriptContext context)',
     sortText: '006'
@@ -267,7 +267,7 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
   {
     label: 'Standard Success Response',
     kind: 'Keyword',
-    insertText: 'response.Data = new {\n\tsuccess = true,\n\tresult = $1,\n\tprocessedAt = DateTime.UtcNow\n};',
+    insertText: 'response.Data = new {\n\tsuccess = true,\n\tresult = \\$1,\n\tprocessedAt = DateTime.UtcNow\n};',
     documentation: 'Standard success response pattern',
     detail: 'Success Response Pattern',
     sortText: '060'
@@ -283,7 +283,7 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
   {
     label: 'HTTP Status Code Handler',
     kind: 'Keyword',
-    insertText: 'if (context.Body.StatusCode != null)\n{\n\tvar statusCode = (int)context.Body.StatusCode;\n\tif (statusCode == 200)\n\t{\n\t\t// Success handling\n\t\t$1\n\t}\n\telse if (statusCode >= 400)\n\t{\n\t\t// Error handling\n\t\t$2\n\t}\n}',
+    insertText: 'if (context.Body.StatusCode != null)\n{\n\tvar statusCode = (int)context.Body.StatusCode;\n\tif (statusCode == 200)\n\t{\n\t\t// Success handling\n\t\t\\$1\n\t}\n\telse if (statusCode >= 400)\n\t{\n\t\t// Error handling\n\t\t\\$2\n\t}\n}',
     documentation: 'HTTP status code handling pattern',
     detail: 'HTTP Status Handler',
     sortText: '062'
@@ -291,7 +291,7 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
   {
     label: 'Task Success/Failure Handler',
     kind: 'Keyword',
-    insertText: 'if (context.Body.IsSuccess != null)\n{\n\tif ((bool)context.Body.IsSuccess)\n\t{\n\t\t// Task succeeded\n\t\t$1\n\t}\n\telse\n\t{\n\t\t// Task failed\n\t\t$2\n\t}\n}',
+    insertText: 'if (context.Body.IsSuccess != null)\n{\n\tif ((bool)context.Body.IsSuccess)\n\t{\n\t\t// Task succeeded\n\t\t\\$1\n\t}\n\telse\n\t{\n\t\t// Task failed\n\t\t\\$2\n\t}\n}',
     documentation: 'Task success/failure handling pattern',
     detail: 'Task Success Handler',
     sortText: '063'
@@ -309,7 +309,7 @@ export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
   {
     label: 'Null Check Pattern',
     kind: 'Keyword',
-    insertText: 'if ($1 == null)\n{\n\treturn new {\n\t\tsuccess = false,\n\t\terror = "Input data cannot be null"\n\t};\n}',
+    insertText: 'if (\\$1 == null)\n{\n\treturn new {\n\t\tsuccess = false,\n\t\terror = "Input data cannot be null"\n\t};\n}',
     documentation: 'Null validation pattern',
     detail: 'Null Check Validation',
     sortText: '070'
@@ -366,9 +366,9 @@ export const BBT_WORKFLOW_TEMPLATES: IntelliSenseItem[] = [
     label: 'IMapping Class Template',
     kind: 'Keyword',
     insertText: `/// <summary>
-/// ${1:YourMappingName} - Implements IMapping for workflow processing
+/// \${1:YourMappingName} - Implements IMapping for workflow processing
 /// </summary>
-public class ${1:YourMappingName}Mapping : ScriptBase, IMapping
+public class \${1:YourMappingName}Mapping : ScriptBase, IMapping
 {
     /// <summary>
     /// Handles input processing for the workflow task
@@ -400,7 +400,7 @@ public class ${1:YourMappingName}Mapping : ScriptBase, IMapping
     {
         var response = new ScriptResponse();
 
-        \$2
+        \\\\$2
 
         return response;
     }
@@ -413,16 +413,16 @@ public class ${1:YourMappingName}Mapping : ScriptBase, IMapping
     label: 'IConditionMapping Class Template',
     kind: 'Keyword',
     insertText: `/// <summary>
-/// ${1:YourMappingName} - Implements IConditionMapping for workflow conditions
+/// \${1:YourMappingName} - Implements IConditionMapping for workflow conditions
 /// </summary>
-public class ${1:YourMappingName}MappingRule : IConditionMapping
+public class \${1:YourMappingName}MappingRule : IConditionMapping
 {
     /// <summary>
     /// Handles condition evaluation for the workflow task
     /// </summary>
     public async Task<bool> Handler(ScriptContext context)
     {
-        \$2
+        \\\\$2
 
         return true;
     }

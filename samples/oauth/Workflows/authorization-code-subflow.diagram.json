@@ -1,0 +1,20 @@
+{
+  "nodePos": {
+    "validate-authorization-code": {
+      "x": 100,
+      "y": 100
+    },
+    "authorization-code-success": {
+      "x": 412,
+      "y": 100
+    },
+    "authorization-code-failed": {
+      "x": 412,
+      "y": 316
+    },
+    "__start__": {
+      "x": -212,
+      "y": 100
+    }
+  }
+}

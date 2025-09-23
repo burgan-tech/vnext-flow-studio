@@ -12,9 +12,10 @@
     "vscode": "^1.92.0"
   },
   "categories": ["Other"],
-  "activationEvents": [
-    "onLanguage:json"
-  ],
+    "activationEvents": [
+      "onLanguage:json",
+      "onCommand:flowEditor.open"
+    ],
   "main": "./dist/extension.js",
   "files": [
     "dist/extension.js",
@@ -37,14 +38,14 @@
     "menus": {
       "explorer/context": [
         {
-          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceDirname =~ /(^|\\\\|\/)workflows(\\\\|\/|$)/)",
+          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourcePath =~ /workflows/)",
           "command": "flowEditor.open",
           "group": "navigation"
         }
       ],
       "editor/title": [
         {
-          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceDirname =~ /(^|\\\\|\/)workflows(\\\\|\/|$)/)",
+          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourcePath =~ /workflows/)",
           "command": "flowEditor.open",
           "group": "navigation"
         }

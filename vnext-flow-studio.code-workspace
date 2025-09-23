@@ -1,0 +1,152 @@
+{
+  "folders": [
+    {
+      "name": "VNext Flow Studio",
+      "path": "."
+    }
+  ],
+  "settings": {
+    // Spell checker configuration
+    "cSpell.enabled": true,
+    "cSpell.checkLimit": 500,
+    "cSpell.maxNumberOfProblems": 10,
+
+    // Exclude workflow files with large Base64 content from spell checking
+    "cSpell.ignorePaths": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/dist-web/**",
+      "**/*.flow.json",
+      "**/workflows/**/*.json",
+      "**/Workflows/**/*.json"
+    ],
+
+    // File associations
+    "files.associations": {
+      "*.flow.json": "json",
+      "**/workflows/**/*.json": "json",
+      "**/Workflows/**/*.json": "json",
+      "*.diagram.json": "json"
+    },
+
+    // JSON schema validation
+    "json.schemas": [
+      {
+        "fileMatch": [
+          "**/*.flow.json",
+          "**/workflows/**/*.json",
+          "**/Workflows/**/*.json"
+        ],
+        "url": "./schemas/workflow-definition.schema.json"
+      }
+    ],
+
+    // Editor settings
+    "[json]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true,
+      "editor.wordWrap": "on",
+      "editor.tabSize": 2,
+      "editor.insertSpaces": true
+    },
+
+    "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
+      }
+    },
+
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
+      }
+    },
+
+    // Performance optimizations
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/dist-web": true,
+      "**/.git": true,
+      "**/*.log": true
+    },
+
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/dist-web": true,
+      "**/*.log": true
+    },
+
+    // TypeScript settings
+    "typescript.preferences.includePackageJsonAutoImports": "on",
+    "typescript.suggest.autoImports": true,
+    "typescript.updateImportsOnFileMove.enabled": "always",
+
+    // ESLint settings
+    "eslint.workingDirectories": [
+      "packages/core",
+      "packages/webview",
+      "packages/extension"
+    ],
+
+    // Git settings
+    "git.ignoreLimitWarning": true,
+    "git.autofetch": true,
+
+    // Extension development settings
+    "debug.allowBreakpointsEverywhere": true,
+    "extensions.autoCheckUpdates": true
+  },
+
+  "extensions": {
+    "recommendations": [
+      "streetsidesoftware.code-spell-checker",
+      "ms-vscode.vscode-typescript-next",
+      "esbenp.prettier-vscode",
+      "dbaeumer.vscode-eslint",
+      "ms-vscode.vscode-json",
+      "mhutchie.git-graph",
+      "eamodio.gitlens"
+    ]
+  },
+
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Extension Development Host",
+        "type": "extensionHost",
+        "request": "launch",
+        "args": [
+          "--extensionDevelopmentPath=${workspaceFolder}/packages/extension"
+        ],
+        "outFiles": [
+          "${workspaceFolder}/packages/extension/dist/**/*.js"
+        ],
+        "preLaunchTask": "Build Extension"
+      }
+    ]
+  },
+
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Build Extension",
+        "type": "shell",
+        "command": "npm",
+        "args": ["run", "build"],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "problemMatcher": ["$tsc", "$eslint-stylish"]
+      }
+    ]
+  }
+}

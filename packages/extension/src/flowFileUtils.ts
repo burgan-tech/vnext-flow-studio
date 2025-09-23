@@ -21,15 +21,31 @@ export function isDiagramFile(uri: vscode.Uri): boolean {
 }
 
 export function isWorkflowJsonUri(uri: vscode.Uri): boolean {
-  if (!toNormalizedPath(uri).endsWith(JSON_SUFFIX)) {
+  const normalizedPath = toNormalizedPath(uri);
+  const segments = pathSegments(uri);
+  const hasJsonSuffix = normalizedPath.endsWith(JSON_SUFFIX);
+  const isDiagram = isDiagramFile(uri);
+  const hasWorkflowsSegment = segments.includes(WORKFLOWS_SEGMENT);
+
+  console.log('isWorkflowJsonUri check:', {
+    path: uri.path,
+    normalizedPath,
+    segments,
+    hasJsonSuffix,
+    isDiagram,
+    hasWorkflowsSegment,
+    result: hasJsonSuffix && !isDiagram && hasWorkflowsSegment
+  });
+
+  if (!hasJsonSuffix) {
     return false;
   }
 
-  if (isDiagramFile(uri)) {
+  if (isDiagram) {
     return false;
   }
 
-  return pathSegments(uri).includes(WORKFLOWS_SEGMENT);
+  return hasWorkflowsSegment;
 }
 
 export function isFlowDefinitionUri(uri: vscode.Uri): boolean {

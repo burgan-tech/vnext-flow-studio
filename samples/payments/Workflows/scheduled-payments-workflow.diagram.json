@@ -1,0 +1,32 @@
+{
+  "nodePos": {
+    "payment-configuration": {
+      "x": 606,
+      "y": 100
+    },
+    "payment-active": {
+      "x": 1088,
+      "y": 359
+    },
+    "payment-deactive": {
+      "x": 100,
+      "y": 387
+    },
+    "payment-cycle-check": {
+      "x": 1320,
+      "y": -243
+    },
+    "payment-finished": {
+      "x": 1424,
+      "y": 667
+    },
+    "payment-terminated": {
+      "x": 606,
+      "y": 346
+    },
+    "__start__": {
+      "x": 264,
+      "y": 100
+    }
+  }
+}
