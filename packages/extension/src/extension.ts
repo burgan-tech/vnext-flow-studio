@@ -866,6 +866,91 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             }
             break;
 
+          case 'mapping:createFile': {
+            const { stateKey, list, from, transitionKey, sharedTransitionKey, index, location, code } = message;
+
+            if (!location) {
+              break; // Silently skip if no location specified
+            }
+
+            // Resolve the absolute path
+            const workspaceFolder = vscode.workspace.getWorkspaceFolder(flowUri);
+            const basePath = workspaceFolder?.uri.fsPath || path.dirname(flowUri.fsPath);
+            const absolutePath = path.resolve(basePath, location);
+            const fileUri = vscode.Uri.file(absolutePath);
+
+            // Check if file already exists
+            try {
+              await vscode.workspace.fs.stat(fileUri);
+              // File exists, don't overwrite it
+              console.log(`Mapping file already exists: ${location}`);
+              break;
+            } catch (error) {
+              // File doesn't exist, create it
+            }
+
+            // Create directories if they don't exist
+            const dirUri = vscode.Uri.file(path.dirname(absolutePath));
+            try {
+              await vscode.workspace.fs.createDirectory(dirUri);
+            } catch (error) {
+              // Directory might already exist, ignore
+            }
+
+            // Decode Base64 code if provided, otherwise use default template
+            let csharpCode = '';
+            if (code) {
+              try {
+                // Check if code is Base64 encoded
+                const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(code) && code.length % 4 === 0 && code.length > 10;
+                if (isBase64) {
+                  csharpCode = Buffer.from(code, 'base64').toString('utf8');
+                } else {
+                  csharpCode = code;
+                }
+              } catch (error) {
+                csharpCode = code; // Fallback to raw code
+              }
+            }
+
+            // Use default template if no code provided
+            if (!csharpCode) {
+              csharpCode = `using System;
+using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+
+public class MappingHandler : IMapping
+{
+    public async Task<ScriptResponse> InputHandler(ScriptContext context)
+    {
+        // TODO: Implement input mapping logic
+        return new ScriptResponse
+        {
+            Data = context.Body.Data
+        };
+    }
+
+    public async Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        // TODO: Implement output mapping logic
+        return new ScriptResponse
+        {
+            Data = context.Body.Data
+        };
+    }
+}`;
+            }
+
+            try {
+              await vscode.workspace.fs.writeFile(fileUri, Buffer.from(csharpCode, 'utf8'));
+              console.log(`Created mapping file: ${location}`);
+
+            } catch (error) {
+              console.error(`Failed to create mapping file: ${error}`);
+            }
+            break;
+          }
+
           case 'mapping:loadFromFile': {
             const { stateKey, list, from, transitionKey, sharedTransitionKey, index, transition: latestTransition } = message;
 

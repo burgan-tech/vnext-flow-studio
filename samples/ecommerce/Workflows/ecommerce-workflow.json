@@ -99,11 +99,22 @@
             "schema": null,
             "rule": {
               "location": "./src/AuthSuccessRule.csx",
-              "code": "dXNpbmcgU3lzdGVtLlRocmVhZGluZy5UYXNrczsKdXNpbmcgQkJULldvcmtmbG93LlNjcmlwdGluZzsKCnB1YmxpYyBjbGFzcyBBdXRoU3VjY2Vzc1J1bGUgOiBJQ29uZGl0aW9uTWFwcGluZwp7CiAgICBwdWJsaWMgYXN5bmMgVGFzazxib29sPiBIYW5kbGVyKFNjcmlwdENvbnRleHQgY29udGV4dCkKICAgIHsKICAgICAgICByZXR1cm4gY29udGV4dC5JbnN0YW5jZS5EYXRhLmxvZ2luLnN1Y2Nlc3MgPT0gdHJ1ZTsKICAgIH0KfQ=="
+              "code": "dXNpbmcgU3lzdGVtLlRocmVhZGluZy5UYXNrczsKdXNpbmcgQkJULldvcmtmbG93LlNjcmlwdGluZzsKCnB1YmxpYyBjbGFzcyBBdXRoU3VjY2Vzc1J1bGUgOiBJQ29uZGl0aW9uTWFwcGluZwp7CiAgICBwdWJsaWMgYXN5bmMgVGFzazxib29sPiBIYW5kbGVyKFNjcmlwdENvbnRleHQgY29udGV4dCkKICAgIHsKICAgICAgICB2YXIgdGVzdCA9IGNvbnRleHQuSW5zdGFuY2UuSWQ7CiAgICAgICAgcmV0dXJuIGNvbnRleHQuSW5zdGFuY2UuRGF0YS5sb2dpbi5zdWNjZXNzID09IHRydWU7CiAgICB9Cn0="
             },
             "timer": null,
             "view": null,
-            "onExecutionTasks": []
+            "onExecutionTasks": [
+              {
+                "order": 1,
+                "task": {
+                  "ref": "samples/payments/Tasks/activate-payment-schedule.json"
+                },
+                "mapping": {
+                  "location": "./src/mappings/new.csx",
+                  "code": "Ly8gRW50ZXIgeW91ciBDIyBydWxlIGNvZGUgaGVyZQoKdXNpbmcgU3lzdGVtOwp1c2luZyBCQlQuV29ya2Zsb3cuRG9tYWluOwoKcHVibGljIGNsYXNzIFlvdXJSdWxlIDogSUNvbmRpdGlvbk1hcHBpbmcKewogICAgcHVibGljIGFzeW5jIFRhc2s8Ym9vbD4gSGFuZGxlcihTY3JpcHRDb250ZXh0IGNvbnRleHQpCiAgICB7CiAgICAgICAgLy8gVE9ETzogSW1wbGVtZW50IHlvdXIgcnVsZSBsb2dpYwogICAgICAgIHJldHVybiB0cnVlOwogICAgfQp9"
+                }
+              }
+            ]
           },
           {
             "key": "auth-failed",

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { ExecutionTask, TaskDefinition } from '@amorphie-flow-studio/core';
 import { isTaskRef } from './utils';
+import { RuleEditor } from './RuleEditor';
 
 interface ExecutionTaskListEditorProps {
   title: string;
@@ -17,11 +18,62 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
   onLoadFromFile,
   onChange
 }) => {
+  // State for mapping code texts (decoded from Base64)
+  const [mappingTexts, setMappingTexts] = useState<string[]>([]);
+
+  // Decode Base64 mapping codes when tasks change
+  useEffect(() => {
+    const decodedTexts = tasks.map(task => {
+      const code = task.mapping?.code || '';
+      if (code) {
+        try {
+          // Check if it looks like Base64 and decode it
+          const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(code) && code.length % 4 === 0 && code.length > 10;
+          if (isBase64) {
+            return atob(code);
+          } else {
+            return code;
+          }
+        } catch (error) {
+          return code;
+        }
+      }
+      return '';
+    });
+    setMappingTexts(decodedTexts);
+  }, [tasks]);
 
   const handleTaskChange = (index: number, task: ExecutionTask) => {
+    console.log('🔍 handleTaskChange called:', { index, taskMapping: task.mapping });
     const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
     sortedTasks[index] = task;
+    console.log('🔍 Calling onChange with updated tasks:', sortedTasks.length, 'tasks');
     onChange(sortedTasks);
+  };
+
+  const handleMappingCodeChange = (index: number, code: string) => {
+    console.log('🔍 handleMappingCodeChange called:', { index, codeLength: code?.length, codePreview: code?.substring(0, 50) });
+
+    // Update the mapping text state
+    const newMappingTexts = [...mappingTexts];
+    newMappingTexts[index] = code;
+    setMappingTexts(newMappingTexts);
+
+    // Update the task with the new code (raw text, encoding will happen on save)
+    const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
+    if (sortedTasks[index]) {
+      const updatedTask = {
+        ...sortedTasks[index],
+        mapping: {
+          ...sortedTasks[index].mapping,
+          code: code
+        }
+      };
+      console.log('🔍 Updating task with new code:', { taskIndex: index, newCodeLength: code?.length });
+      handleTaskChange(index, updatedTask);
+    } else {
+      console.log('❌ No task found at index:', index);
+    }
   };
 
   const handleAddTask = () => {
@@ -289,6 +341,30 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
                   </button>
                 )}
               </div>
+            </div>
+
+            <div className="property-panel__field">
+              <label>Code (Base64 or inline):</label>
+              <RuleEditor
+                title=""
+                rule={task.mapping ? { location: task.mapping.location, code: task.mapping.code } : undefined}
+                inlineText={mappingTexts[index] || ''}
+                hideLocation={true}
+                onChange={(mapping) => {
+                  if (mapping) {
+                    handleTaskChange(index, {
+                      ...task,
+                      mapping: { location: mapping.location, code: mapping.code }
+                    });
+                  } else {
+                    handleTaskChange(index, {
+                      ...task,
+                      mapping: { location: '', code: '' }
+                    });
+                  }
+                }}
+                onInlineChange={(code) => handleMappingCodeChange(index, code)}
+              />
             </div>
 
           </div>

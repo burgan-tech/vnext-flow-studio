@@ -379,10 +379,87 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
   };
 
   const handleStateSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    console.log('🔍 handleStateSubmit called!');
     event.preventDefault();
-    if (!selection || selection.kind !== 'state' || !stateDraft) return;
+    if (!selection || selection.kind !== 'state' || !stateDraft) {
+      console.log('❌ Early return:', { selection, hasStateDraft: !!stateDraft });
+      return;
+    }
+    console.log('✅ Proceeding with state save...');
 
     const sanitized = sanitizeState(stateDraft);
+
+    // Encode execution task mapping codes to Base64 before saving
+    const encodeExecutionTaskMappings = (tasks?: any[]) => {
+      if (!tasks) return tasks;
+      return tasks.map(task => {
+        if (task.mapping && task.mapping.code) {
+          try {
+            const code = task.mapping.code;
+            console.log('🔍 Encoding execution task mapping code:', code?.substring(0, 100) + '...');
+
+            // Encode any non-empty code to Base64 (more permissive)
+            if (code && code.trim().length > 0) {
+              const encodedCode = btoa(code);
+              console.log('✅ Encoded execution task mapping to Base64');
+              return {
+                ...task,
+                mapping: {
+                  ...task.mapping,
+                  code: encodedCode
+                }
+              };
+            }
+          } catch (error) {
+            console.error('Failed to encode execution task mapping to Base64:', error);
+          }
+        }
+        return task;
+      });
+    };
+
+    // Encode mappings in onEntries and onExits
+    if (sanitized.onEntries) {
+      sanitized.onEntries = encodeExecutionTaskMappings(sanitized.onEntries);
+    }
+    if (sanitized.onExits) {
+      sanitized.onExits = encodeExecutionTaskMappings(sanitized.onExits);
+    }
+
+    // Auto-create .csx files for execution tasks if they don't exist
+    const createMappingFiles = (tasks?: any[]) => {
+      if (!tasks) return;
+      console.log('🔍 Checking', tasks.length, 'execution tasks for file creation');
+      tasks.forEach((task, index) => {
+        console.log('🔍 Task', index, ':', {
+          hasMapping: !!task.mapping,
+          hasLocation: !!task.mapping?.location,
+          hasCode: !!task.mapping?.code,
+          location: task.mapping?.location,
+          codeLength: task.mapping?.code?.length
+        });
+
+        if (task.mapping && task.mapping.location && task.mapping.code) {
+          console.log('📁 Creating file for task', index, 'at', task.mapping.location);
+          postMessage({
+            type: 'mapping:createFile',
+            stateKey: stateDraft.key,
+            list: undefined, // Will be determined by context
+            index,
+            location: task.mapping.location,
+            code: task.mapping.code
+          });
+        }
+      });
+    };
+
+    // Create files for onEntries and onExits
+    if (stateDraft.onEntries) {
+      createMappingFiles(stateDraft.onEntries);
+    }
+    if (stateDraft.onExits) {
+      createMappingFiles(stateDraft.onExits);
+    }
 
     postMessage({
       type: 'domain:updateState',
@@ -392,27 +469,94 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
   };
 
   const handleTransitionSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    console.log('🔍 handleTransitionSubmit called!');
     event.preventDefault();
-    if (!selection || selection.kind !== 'transition' || !transitionDraft) return;
+    if (!selection || selection.kind !== 'transition' || !transitionDraft) {
+      console.log('❌ Early return:', { selection, hasTransitionDraft: !!transitionDraft });
+      return;
+    }
+    console.log('✅ Proceeding with transition save...');
 
+    console.log('🔍 Sanitizing transition...');
     const sanitized = sanitizeTransition(transitionDraft);
+    console.log('✅ Transition sanitized');
 
     // Encode rule text to Base64 before saving
+    console.log('🔍 Checking rule encoding...', { hasRule: !!sanitized.rule, hasRuleText: !!ruleText });
     if (sanitized.rule && ruleText) {
       try {
+        console.log('🔍 Encoding rule to Base64...');
         sanitized.rule.code = btoa(ruleText);
+        console.log('✅ Rule encoded to Base64');
       } catch (error) {
         console.error('Failed to encode rule to Base64:', error);
         sanitized.rule.code = ruleText; // fallback to plain text
       }
     }
 
+    // Encode execution task mapping codes to Base64 before saving
+    console.log('🔍 Setting up execution task encoding...');
+    const encodeExecutionTaskMappings = (tasks?: any[]) => {
+      if (!tasks) return tasks;
+      console.log('🔍 Processing', tasks.length, 'execution tasks for encoding');
+      return tasks.map(task => {
+        if (task.mapping && task.mapping.code) {
+          try {
+            const code = task.mapping.code;
+            console.log('🔍 Encoding transition execution task mapping code:', code?.substring(0, 100) + '...');
+
+            // Encode any non-empty code to Base64 (more permissive)
+            if (code && code.trim().length > 0) {
+              const encodedCode = btoa(code);
+              console.log('✅ Encoded transition execution task mapping to Base64');
+              return {
+                ...task,
+                mapping: {
+                  ...task.mapping,
+                  code: encodedCode
+                }
+              };
+            }
+          } catch (error) {
+            console.error('Failed to encode transition execution task mapping to Base64:', error);
+          }
+        }
+        return task;
+      });
+    };
+
+    // Encode mappings in onExecutionTasks
+    console.log('🔍 Checking onExecutionTasks...', { hasOnExecutionTasks: !!sanitized.onExecutionTasks });
+    if (sanitized.onExecutionTasks) {
+      console.log('🔍 Encoding onExecutionTasks...');
+      sanitized.onExecutionTasks = encodeExecutionTaskMappings(sanitized.onExecutionTasks);
+      console.log('✅ onExecutionTasks encoded');
+    }
+
+    // Auto-create .csx files for transition execution tasks if they don't exist
+    if (transitionDraft.onExecutionTasks) {
+      transitionDraft.onExecutionTasks.forEach((task, index) => {
+        if (task.mapping && task.mapping.location && task.mapping.code) {
+          postMessage({
+            type: 'mapping:createFile',
+            from: selection.from,
+            transitionKey: selection.transitionKey,
+            index,
+            location: task.mapping.location,
+            code: task.mapping.code
+          });
+        }
+      });
+    }
+
+    console.log('🔍 Sending postMessage to update transition...');
     postMessage({
       type: 'domain:updateTransition',
       from: selection.from,
       transitionKey: selection.transitionKey,
       transition: sanitized
     });
+    console.log('✅ postMessage sent successfully');
   };
 
   const handleSharedTransitionSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -666,7 +810,11 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
             {/* views replaced with single view reference in new schema */}
 
-            <button type="submit" className="property-panel__save">
+            <button
+              type="submit"
+              className="property-panel__save"
+              onClick={() => console.log('🔍 Save state button clicked!')}
+            >
               Save state
             </button>
           </form>
@@ -928,6 +1076,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               type="submit"
               className="property-panel__save"
               disabled={transitionHasErrors}
+              onClick={() => console.log('🔍 Save transition button clicked!')}
             >
               Save transition
             </button>

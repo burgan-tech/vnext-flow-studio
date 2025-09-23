@@ -43,6 +43,17 @@ export type MsgFromWebview =
       index: number;
     }
   | {
+      type: 'mapping:createFile';
+      stateKey?: string;
+      list?: 'onEntries' | 'onExits';
+      from?: string;
+      transitionKey?: string;
+      sharedTransitionKey?: string;
+      index: number;
+      location: string;
+      code?: string;
+    }
+  | {
       type: 'rule:loadFromFile';
       from: string;
       transitionKey: string;
