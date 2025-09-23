@@ -386,6 +386,12 @@
   margin-bottom: 8px;
 }
 
+.property-panel__editor-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .property-panel__toggle-button {
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
@@ -401,11 +407,71 @@
   background: var(--vscode-button-hoverBackground);
 }
 
+.property-panel__fullscreen-button {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-foreground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.property-panel__fullscreen-button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
 .property-panel__hint {
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
   margin-top: 4px;
   font-style: italic;
+}
+
+/* Fullscreen Mode */
+.property-panel__field--fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  background: var(--vscode-editor-background) !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.property-panel__field--fullscreen .property-panel__field-header {
+  flex-shrink: 0 !important;
+  margin-bottom: 12px !important;
+}
+
+.property-panel__field--fullscreen .property-panel__monaco-container {
+  flex: 1 !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  border-radius: 8px !important;
+}
+
+.property-panel__field--fullscreen .property-panel__hint {
+  flex-shrink: 0 !important;
+  margin-top: 8px !important;
+}
+
+.property-panel__fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.1);
+  z-index: -1;
+  cursor: pointer;
 }
 
 /* Common Styles */

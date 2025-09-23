@@ -276,9 +276,21 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
       // Schema mode will be derived from the schema value in the editor
 
-      // Initialize rule text
+      // Initialize rule text - decode Base64 if needed
       if (clone.rule) {
-        setRuleText(clone.rule.code || '');
+        const code = clone.rule.code || '';
+        try {
+          // Check if it looks like Base64 and decode it
+          const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(code) && code.length % 4 === 0 && code.length > 10;
+          if (isBase64) {
+            const decoded = atob(code);
+            setRuleText(decoded);
+          } else {
+            setRuleText(code);
+          }
+        } catch (error) {
+          setRuleText(code);
+        }
       } else {
         setRuleText('');
       }
@@ -297,9 +309,21 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
       // Schema mode will be derived from the schema value in the editor
 
-      // Initialize rule text
+      // Initialize rule text - decode Base64 if needed
       if (clone.rule) {
-        setSharedRuleText(clone.rule.code || '');
+        const code = clone.rule.code || '';
+        try {
+          // Check if it looks like Base64 and decode it
+          const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(code) && code.length % 4 === 0 && code.length > 10;
+          if (isBase64) {
+            const decoded = atob(code);
+            setSharedRuleText(decoded);
+          } else {
+            setSharedRuleText(code);
+          }
+        } catch (error) {
+          setSharedRuleText(code);
+        }
       } else {
         setSharedRuleText('');
       }
@@ -373,6 +397,16 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
     const sanitized = sanitizeTransition(transitionDraft);
 
+    // Encode rule text to Base64 before saving
+    if (sanitized.rule && ruleText) {
+      try {
+        sanitized.rule.code = btoa(ruleText);
+      } catch (error) {
+        console.error('Failed to encode rule to Base64:', error);
+        sanitized.rule.code = ruleText; // fallback to plain text
+      }
+    }
+
     postMessage({
       type: 'domain:updateTransition',
       from: selection.from,
@@ -388,6 +422,16 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
     // The sanitizeTransition function works for both regular and shared transitions
     const { availableIn, ...transitionFields } = sharedTransitionDraft;
     const sanitized = sanitizeTransition(transitionFields as Transition);
+
+    // Encode shared rule text to Base64 before saving
+    if (sanitized.rule && sharedRuleText) {
+      try {
+        sanitized.rule.code = btoa(sharedRuleText);
+      } catch (error) {
+        console.error('Failed to encode shared rule to Base64:', error);
+        sanitized.rule.code = sharedRuleText; // fallback to plain text
+      }
+    }
 
     // Combine sanitized fields with availableIn
     const updatedSharedTransition: SharedTransition = {
