@@ -4,7 +4,6 @@ import {
   type State,
   type Transition,
   type VersionStrategy,
-  type TriggerType,
   type StateType,
   type StateSubType,
   type Label,
@@ -20,6 +19,7 @@ import {
   SchemaEditor,
   ExecutionTaskListEditor,
   ViewEditor,
+  EnhancedSchedulingEditor,
   isSchemaRef,
   isTaskRef,
   type SchemaMode
@@ -40,12 +40,6 @@ interface PropertyPanelProps {
 }
 
 const versionStrategies: VersionStrategy[] = ['Major', 'Minor'];
-const triggerOptions: { value: TriggerType; label: string }[] = [
-  { value: 0, label: 'Manual' },
-  { value: 1, label: 'Automatic' },
-  { value: 2, label: 'Timeout' },
-  { value: 3, label: 'Event' }
-];
 
 const stateTypeOptions: { value: StateType; label: string }[] = [
   { value: 1, label: 'Initial' },
@@ -478,8 +472,14 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
     console.log('✅ Proceeding with transition save...');
 
     console.log('🔍 Sanitizing transition...');
-    const sanitized = sanitizeTransition(transitionDraft);
+    const sanitized = sanitizeTransition(transitionDraft) as any;
     console.log('✅ Transition sanitized');
+
+    // Preserve duration for timeout triggers
+    if (transitionDraft.triggerType === 2 && (transitionDraft as any).duration) {
+      sanitized.duration = (transitionDraft as any).duration;
+      console.log('🔍 Preserving timeout duration:', sanitized.duration);
+    }
 
     // Encode rule text to Base64 before saving
     console.log('🔍 Checking rule encoding...', { hasRule: !!sanitized.rule, hasRuleText: !!ruleText });
@@ -565,7 +565,13 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
     // The sanitizeTransition function works for both regular and shared transitions
     const { availableIn, ...transitionFields } = sharedTransitionDraft;
-    const sanitized = sanitizeTransition(transitionFields as Transition);
+    const sanitized = sanitizeTransition(transitionFields as Transition) as any;
+
+    // Preserve duration for timeout triggers
+    if (sharedTransitionDraft.triggerType === 2 && (sharedTransitionDraft as any).duration) {
+      sanitized.duration = (sharedTransitionDraft as any).duration;
+      console.log('🔍 Preserving shared transition timeout duration:', sanitized.duration);
+    }
 
     // Encode shared rule text to Base64 before saving
     if (sanitized.rule && sharedRuleText) {
@@ -850,25 +856,28 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               />
             </label>
 
-            <label className="property-panel__field">
-              <span>Trigger type</span>
-              <select
-                value={transitionDraft.triggerType}
-                onChange={(event) =>
+            {/* Enhanced Scheduling Editor for Trigger Type */}
+            <EnhancedSchedulingEditor
+              title="Transition Trigger"
+              triggerType={transitionDraft.triggerType}
+              onTriggerTypeChange={(triggerType) =>
+                setTransitionDraft((prev) =>
+                  prev ? { ...prev, triggerType } : prev
+                )
+              }
+              duration={
+                transitionDraft.triggerType === 2 && (transitionDraft as any).duration
+                  ? (transitionDraft as any).duration
+                  : 'PT1H'
+              }
+              onDurationChange={(duration) => {
+                if (transitionDraft.triggerType === 2) {
                   setTransitionDraft((prev) =>
-                    prev
-                      ? { ...prev, triggerType: Number(event.target.value) as TriggerType }
-                      : prev
-                  )
+                    prev ? { ...prev, duration } as any : prev
+                  );
                 }
-              >
-                {triggerOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              }}
+            />
 
             <label className="property-panel__field">
               <span>Version strategy</span>
@@ -890,113 +899,6 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               </select>
             </label>
 
-            {/* Trigger type specific configurations */}
-            {transitionDraft.triggerType === 0 && (
-              <div className="property-panel__info">
-                <span className="property-panel__info-icon">ℹ️</span>
-                <span>Manual transitions are triggered by user actions or API calls.</span>
-              </div>
-            )}
-
-            {transitionDraft.triggerType === 1 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Automatic Trigger Configuration</span>
-                </div>
-                <div className="property-panel__info">
-                  <span className="property-panel__info-icon">⚡</span>
-                  <span>This transition will trigger immediately when the state is entered.</span>
-                </div>
-                <p className="property-panel__muted">
-                  Use the Rule field below to add conditions for this automatic transition.
-                </p>
-              </div>
-            )}
-
-            {/* Timeout configuration - shown only when triggerType is 2 (Timeout) */}
-            {transitionDraft.triggerType === 2 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Timeout Configuration</span>
-                </div>
-                <label className="property-panel__field">
-                  <span>Duration (ISO 8601)</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., PT30M, PT1H, PT45S"
-                    value={(transitionDraft as any).timeoutDuration || ''}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) =>
-                        prev ? { ...prev, timeoutDuration: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    Format: PT[hours]H[minutes]M[seconds]S
-                  </small>
-                </label>
-                <label className="property-panel__field">
-                  <span>Reset Strategy</span>
-                  <select
-                    value={(transitionDraft as any).timeoutReset || 'N'}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) =>
-                        prev ? { ...prev, timeoutReset: event.target.value } as any : prev
-                      )
-                    }
-                  >
-                    <option value="N">Never (N)</option>
-                    <option value="R">Reset (R)</option>
-                  </select>
-                  <small className="property-panel__help">
-                    Never: Timer runs once. Reset: Timer restarts on state re-entry.
-                  </small>
-                </label>
-              </div>
-            )}
-
-            {transitionDraft.triggerType === 3 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Event Trigger Configuration</span>
-                </div>
-                <label className="property-panel__field">
-                  <span>Event Type</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., payment.completed, order.shipped"
-                    value={(transitionDraft as any).eventType || ''}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) =>
-                        prev ? { ...prev, eventType: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    The event type that will trigger this transition
-                  </small>
-                </label>
-                <label className="property-panel__field">
-                  <span>Event Source (Optional)</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., payment-service, order-system"
-                    value={(transitionDraft as any).eventSource || ''}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) =>
-                        prev ? { ...prev, eventSource: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    Filter events by source system or service
-                  </small>
-                </label>
-                <p className="property-panel__muted">
-                  Use the Schema field below to define the expected event payload structure.
-                </p>
-              </div>
-            )}
 
             <LabelListEditor
               title="Labels"
@@ -1121,25 +1023,28 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               />
             </label>
 
-            <label className="property-panel__field">
-              <span>Trigger type</span>
-              <select
-                value={sharedTransitionDraft.triggerType}
-                onChange={(event) =>
+            {/* Enhanced Scheduling Editor for Shared Transition Trigger Type */}
+            <EnhancedSchedulingEditor
+              title="Shared Transition Trigger"
+              triggerType={sharedTransitionDraft.triggerType}
+              onTriggerTypeChange={(triggerType) =>
+                setSharedTransitionDraft((prev) =>
+                  prev ? { ...prev, triggerType } : prev
+                )
+              }
+              duration={
+                sharedTransitionDraft.triggerType === 2 && (sharedTransitionDraft as any).duration
+                  ? (sharedTransitionDraft as any).duration
+                  : 'PT1H'
+              }
+              onDurationChange={(duration) => {
+                if (sharedTransitionDraft.triggerType === 2) {
                   setSharedTransitionDraft((prev) =>
-                    prev
-                      ? { ...prev, triggerType: Number(event.target.value) as TriggerType }
-                      : prev
-                  )
+                    prev ? { ...prev, duration } as any : prev
+                  );
                 }
-              >
-                {triggerOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              }}
+            />
 
             <label className="property-panel__field">
               <span>Version strategy</span>
@@ -1161,113 +1066,6 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               </select>
             </label>
 
-            {/* Trigger type specific configurations */}
-            {sharedTransitionDraft.triggerType === 0 && (
-              <div className="property-panel__info">
-                <span className="property-panel__info-icon">ℹ️</span>
-                <span>Manual transitions are triggered by user actions or API calls.</span>
-              </div>
-            )}
-
-            {sharedTransitionDraft.triggerType === 1 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Automatic Trigger Configuration</span>
-                </div>
-                <div className="property-panel__info">
-                  <span className="property-panel__info-icon">⚡</span>
-                  <span>This transition will trigger immediately when any of the selected states is entered.</span>
-                </div>
-                <p className="property-panel__muted">
-                  Use the Rule field below to add conditions for this automatic transition.
-                </p>
-              </div>
-            )}
-
-            {/* Timeout configuration - shown only when triggerType is 2 (Timeout) */}
-            {sharedTransitionDraft.triggerType === 2 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Timeout Configuration</span>
-                </div>
-                <label className="property-panel__field">
-                  <span>Duration (ISO 8601)</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., PT30M, PT1H, PT45S"
-                    value={(sharedTransitionDraft as any).timeoutDuration || ''}
-                    onChange={(event) =>
-                      setSharedTransitionDraft((prev) =>
-                        prev ? { ...prev, timeoutDuration: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    Format: PT[hours]H[minutes]M[seconds]S
-                  </small>
-                </label>
-                <label className="property-panel__field">
-                  <span>Reset Strategy</span>
-                  <select
-                    value={(sharedTransitionDraft as any).timeoutReset || 'N'}
-                    onChange={(event) =>
-                      setSharedTransitionDraft((prev) =>
-                        prev ? { ...prev, timeoutReset: event.target.value } as any : prev
-                      )
-                    }
-                  >
-                    <option value="N">Never (N)</option>
-                    <option value="R">Reset (R)</option>
-                  </select>
-                  <small className="property-panel__help">
-                    Never: Timer runs once. Reset: Timer restarts on state re-entry.
-                  </small>
-                </label>
-              </div>
-            )}
-
-            {sharedTransitionDraft.triggerType === 3 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Event Trigger Configuration</span>
-                </div>
-                <label className="property-panel__field">
-                  <span>Event Type</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., payment.completed, order.shipped"
-                    value={(sharedTransitionDraft as any).eventType || ''}
-                    onChange={(event) =>
-                      setSharedTransitionDraft((prev) =>
-                        prev ? { ...prev, eventType: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    The event type that will trigger this transition from any available state
-                  </small>
-                </label>
-                <label className="property-panel__field">
-                  <span>Event Source (Optional)</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., payment-service, order-system"
-                    value={(sharedTransitionDraft as any).eventSource || ''}
-                    onChange={(event) =>
-                      setSharedTransitionDraft((prev) =>
-                        prev ? { ...prev, eventSource: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    Filter events by source system or service
-                  </small>
-                </label>
-                <p className="property-panel__muted">
-                  Use the Schema field below to define the expected event payload structure.
-                </p>
-              </div>
-            )}
 
             <LabelListEditor
               title="Labels"
