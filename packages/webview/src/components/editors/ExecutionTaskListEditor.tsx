@@ -20,6 +20,8 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
 }) => {
   // State for mapping code texts (decoded from Base64)
   const [mappingTexts, setMappingTexts] = useState<string[]>([]);
+  // State for tracking which tasks are expanded
+  const [expandedTasks, setExpandedTasks] = useState<Set<number>>(new Set());
 
   // Decode Base64 mapping codes when tasks change
   useEffect(() => {
@@ -83,6 +85,13 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
       mapping: { location: './src/mappings/new.csx', code: '' }
     };
     onChange([...tasks, newTask]);
+
+    // Auto-expand the newly added task
+    setExpandedTasks(prev => {
+      const newSet = new Set(prev);
+      newSet.add(tasks.length);
+      return newSet;
+    });
   };
 
   const handleRemoveTask = (index: number) => {
@@ -93,6 +102,25 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
       task.order = i + 1;
     });
     onChange(newTasks.length > 0 ? newTasks : undefined);
+
+    // Remove from expanded state
+    setExpandedTasks(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(index);
+      return newSet;
+    });
+  };
+
+  const toggleTaskExpansion = (index: number) => {
+    setExpandedTasks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
   };
 
   const handleMoveTask = (index: number, direction: 'up' | 'down') => {
@@ -122,24 +150,44 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
 
   return (
     <div className="property-panel__group">
-      <div className="property-panel__group-header">
-        <span>{title}</span>
-        <button
-          type="button"
-          onClick={handleAddTask}
-          className="property-panel__add-button"
-        >
-          +
-        </button>
-      </div>
+      {title && (
+        <div className="property-panel__group-header">
+          <span>{title}</span>
+          <button
+            type="button"
+            onClick={handleAddTask}
+            className="property-panel__add-button"
+          >
+            +
+          </button>
+        </div>
+      )}
 
       {tasks.length === 0 ? (
         <p className="property-panel__muted">No tasks defined.</p>
       ) : (
-        [...tasks].sort((a, b) => a.order - b.order).map((task, index) => (
+        [...tasks].sort((a, b) => a.order - b.order).map((task, index) => {
+          const isExpanded = expandedTasks.has(index);
+          return (
           <div key={index} className="property-panel__task-item">
             <div className="property-panel__task-header">
-              <span>Task #{index + 1}</span>
+              <button
+                type="button"
+                onClick={() => toggleTaskExpansion(index)}
+                className="property-panel__task-toggle"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: 'inherit'
+                }}
+              >
+                <span style={{ marginRight: '4px' }}>{isExpanded ? '▼' : '▶'}</span>
+                <span>Task #{task.order}</span>
+              </button>
               <div className="property-panel__task-actions">
                 <button
                   type="button"
@@ -169,6 +217,8 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
               </div>
             </div>
 
+            {isExpanded && (
+              <div className="property-panel__task-content">
             <div className="property-panel__field">
               <label>Order:</label>
               <input
@@ -375,9 +425,11 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
                 onInlineChange={(code) => handleMappingCodeChange(index, code)}
               />
             </div>
+              </div>
+            )}
 
           </div>
-        ))
+        );})
       )}
     </div>
   );

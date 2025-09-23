@@ -138,19 +138,21 @@ export const EnhancedTriggerEditor: React.FC<EnhancedTriggerEditorProps> = ({
 
   return (
     <div className="property-panel__group">
-      <div className="property-panel__group-header">
-        <span>{title}</span>
-        {showTimeoutSettings && (
-          <button
-            type="button"
-            onClick={() => setShowPresets(!showPresets)}
-            className="property-panel__action-button"
-            title="Duration presets"
-          >
-            ⏱️
-          </button>
-        )}
-      </div>
+      {title && (
+        <div className="property-panel__group-header">
+          <span>{title}</span>
+          {showTimeoutSettings && (
+            <button
+              type="button"
+              onClick={() => setShowPresets(!showPresets)}
+              className="property-panel__action-button"
+              title="Duration presets"
+            >
+              ⏱️
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="property-panel__field">
         <label>Trigger Type:</label>

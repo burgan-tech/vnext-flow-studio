@@ -24,16 +24,18 @@ export const LabelListEditor: React.FC<LabelListEditorProps> = ({ title, labels,
 
   return (
     <div className="property-panel__group">
-      <div className="property-panel__group-header">
-        <span>{title}</span>
-        <button
-          type="button"
-          onClick={handleAddLabel}
-          className="property-panel__add-button"
-        >
-          +
-        </button>
-      </div>
+      {title && (
+        <div className="property-panel__group-header">
+          <span>{title}</span>
+          <button
+            type="button"
+            onClick={handleAddLabel}
+            className="property-panel__add-button"
+          >
+            +
+          </button>
+        </div>
+      )}
       {labels.length === 0 ? (
         <p className="property-panel__muted">No labels defined.</p>
       ) : (

@@ -1,3 +1,4 @@
+export { CollapsibleSection } from './CollapsibleSection';
 export { LabelListEditor } from './LabelListEditor';
 export { RuleEditor } from './RuleEditor';
 export { SchemaEditor } from './SchemaEditor';

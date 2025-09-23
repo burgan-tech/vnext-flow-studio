@@ -1073,18 +1073,20 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
 
   return (
     <div className="property-panel__group">
-      <div className="property-panel__group-header">
-        <span>{title}</span>
-        {!hasRule && (
-          <button
-            type="button"
-            onClick={() => onChange({ location: './src/rules/new.csx', code: '' })}
-            className="property-panel__add-button"
-          >
-            +
-          </button>
-        )}
-      </div>
+      {title && (
+        <div className="property-panel__group-header">
+          <span>{title}</span>
+          {!hasRule && (
+            <button
+              type="button"
+              onClick={() => onChange({ location: './src/rules/new.csx', code: '' })}
+              className="property-panel__add-button"
+            >
+              +
+            </button>
+          )}
+        </div>
+      )}
 
       {hasRule && rule && (
         <div className="property-panel__rule-editor">
