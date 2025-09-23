@@ -1,0 +1,223 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://vnext.com/schemas/extension-definition.schema.json",
+    "title": "vNext Extension Definition",
+    "description": "Schema for vNext Extension Component Definition JSON files (sys-extensions flow)",
+    "type": "object",
+    "required": [
+        "key",
+        "version",
+        "domain",
+        "flow",
+        "flowVersion",
+        "tags",
+        "attributes"
+    ],
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "JSON Schema reference",
+            "format": "uri"
+        },
+        "key": {
+            "type": "string",
+            "description": "Extension key identifier",
+            "pattern": "^[a-z0-9-]+$"
+        },
+        "version": {
+            "type": "string",
+            "description": "Version in Major.Minor.Patch format",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "domain": {
+            "type": "string",
+            "description": "Domain identifier",
+            "pattern": "^[a-z0-9-]+$"
+        },
+        "flow": {
+            "type": "string",
+            "description": "Flow identifier for extensions",
+            "const": "sys-extensions"
+        },
+        "flowVersion": {
+            "type": "string",
+            "description": "Flow version",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "tags": {
+            "type": "array",
+            "description": "Extension tags",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1
+        },
+        "attributes": {
+            "type": "object",
+            "description": "Extension definition attributes",
+            "required": [
+                "type",
+                "scope",
+                "task"
+            ],
+            "properties": {
+                "type": {
+                    "type": "integer",
+                    "description": "Extension type (ExtensionType enum value)",
+                    "oneOf": [
+                        {
+                            "const": 1,
+                            "description": "Global - Extension that will work while recording samples are rotating in all streams"
+                        },
+                        {
+                            "const": 2,
+                            "description": "GlobalAndRequested - Extension that will work on all streams and when requesting recording samples"
+                        },
+                        {
+                            "const": 3,
+                            "description": "DefinedFlows - Extension that will only work on the streams for which it is defined"
+                        },
+                        {
+                            "const": 4,
+                            "description": "DefinedFlowAndRequested - An extension that will only work on the streams it is defined for and when requested"
+                        }
+                    ]
+                },
+                "scope": {
+                    "type": "integer",
+                    "description": "Extension scope (ExtensionScope enum value)",
+                    "oneOf": [
+                        {
+                            "const": 1,
+                            "description": "GetInstance - The extension works on {domain}/workflows/{workflow}/instances/{instance} endpoint"
+                        },
+                        {
+                            "const": 2,
+                            "description": "GetAllInstances - The extension works on {domain}/workflows/{workflow}/instances endpoint"
+                        },
+                        {
+                            "const": 3,
+                            "description": "Everywhere - The extension works on all get endpoints"
+                        }
+                    ]
+                },
+                "task": {
+                    "type": "object",
+                    "description": "Extension execution task",
+                    "required": [
+                        "order",
+                        "task",
+                        "mapping"
+                    ],
+                    "properties": {
+                        "order": {
+                            "type": "integer",
+                            "description": "Task execution order",
+                            "minimum": 1
+                        },
+                        "task": {
+                            "description": "Task reference - can be either explicit reference or $ref",
+                            "oneOf": [
+                                {
+                                    "type": "object",
+                                    "description": "Explicit task reference",
+                                    "required": [
+                                        "key",
+                                        "domain",
+                                        "flow",
+                                        "version"
+                                    ],
+                                    "properties": {
+                                        "key": {
+                                            "type": "string",
+                                            "description": "Task key"
+                                        },
+                                        "domain": {
+                                            "type": "string",
+                                            "description": "Task domain"
+                                        },
+                                        "flow": {
+                                            "type": "string",
+                                            "description": "Task workflow",
+                                            "const": "sys-tasks"
+                                        },
+                                        "version": {
+                                            "type": "string",
+                                            "description": "Task version",
+                                            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "type": "object",
+                                    "description": "Task reference using ref",
+                                    "required": [
+                                        "ref"
+                                    ],
+                                    "properties": {
+                                        "ref": {
+                                            "type": "string",
+                                            "description": "Reference to task file"
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                }
+                            ]
+                        },
+                        "mapping": {
+                            "type": "object",
+                            "description": "Extension mapping code",
+                            "required": [
+                                "location",
+                                "code"
+                            ],
+                            "properties": {
+                                "location": {
+                                    "type": "string",
+                                    "description": "Code file location",
+                                    "pattern": "^\\./.*\\.csx$"
+                                },
+                                "code": {
+                                    "type": "string",
+                                    "description": "Mapping code content",
+                                    "minLength": 1
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "labels": {
+                    "type": "array",
+                    "description": "Multi-language labels for extension",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "label",
+                            "language"
+                        ],
+                        "properties": {
+                            "label": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "language": {
+                                "type": "string",
+                                "pattern": "^[a-z]{2}-[A-Z]{2}$",
+                                "examples": [
+                                    "en-US",
+                                    "tr-TR",
+                                    "de-DE"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false
+}

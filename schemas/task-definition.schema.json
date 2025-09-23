@@ -1,0 +1,468 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://vnext.com/schemas/task-definition.schema.json",
+    "title": "vNext Task Definition",
+    "description": "Schema for vNext Task Component Definition JSON files (sys-tasks flow)",
+    "type": "object",
+    "required": [
+        "key",
+        "version",
+        "domain",
+        "flow",
+        "flowVersion",
+        "tags",
+        "attributes"
+    ],
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "JSON Schema reference"
+        },
+        "key": {
+            "type": "string",
+            "description": "Task key identifier",
+            "pattern": "^[a-z0-9-]+$"
+        },
+        "version": {
+            "type": "string",
+            "description": "Version in Major.Minor.Patch format",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "domain": {
+            "type": "string",
+            "description": "Domain identifier",
+            "pattern": "^[a-z0-9-]+$"
+        },
+        "flow": {
+            "type": "string",
+            "description": "Flow identifier for tasks",
+            "const": "sys-tasks"
+        },
+        "flowVersion": {
+            "type": "string",
+            "description": "Flow version",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "tags": {
+            "type": "array",
+            "description": "Task tags",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1
+        },
+        "attributes": {
+            "type": "object",
+            "description": "Task definition attributes",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "Task type (TaskType enum value as string)",
+                    "enum": [
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7"
+                    ],
+                    "enumDescriptions": [
+                        "Dapr HTTP Endpoint",
+                        "Dapr Binding",
+                        "Dapr Service",
+                        "Dapr PubSub",
+                        "Human Task",
+                        "HTTP Task",
+                        "Script Task"
+                    ]
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "1"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "type": {
+                                "const": "1"
+                            },
+                            "config": {
+                                "type": "object",
+                                "description": "Dapr HTTP Endpoint configuration",
+                                "properties": {
+                                    "endpointName": {
+                                        "type": "string",
+                                        "description": "Dapr HTTP endpoint name"
+                                    },
+                                    "path": {
+                                        "type": "string",
+                                        "description": "HTTP endpoint path"
+                                    },
+                                    "method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "GET",
+                                            "POST",
+                                            "PUT",
+                                            "DELETE",
+                                            "PATCH"
+                                        ],
+                                        "description": "HTTP method"
+                                    },
+                                    "headers": {
+                                        "type": "object",
+                                        "description": "HTTP headers"
+                                    }
+                                },
+                                "required": [
+                                    "endpointName",
+                                    "path",
+                                    "method"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "config"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "2"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "type": {
+                                "const": "2"
+                            },
+                            "config": {
+                                "type": "object",
+                                "description": "Dapr Binding configuration",
+                                "properties": {
+                                    "bindingName": {
+                                        "type": "string",
+                                        "description": "Dapr binding name"
+                                    },
+                                    "operation": {
+                                        "type": "string",
+                                        "description": "Binding operation"
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "description": "Binding metadata"
+                                    },
+                                    "data": {
+                                        "type": "object",
+                                        "description": "Binding data"
+                                    }
+                                },
+                                "required": [
+                                    "bindingName",
+                                    "operation"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "config"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "3"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "type": {
+                                "const": "3"
+                            },
+                            "config": {
+                                "type": "object",
+                                "description": "Dapr Service configuration",
+                                "properties": {
+                                    "appId": {
+                                        "type": "string",
+                                        "description": "Dapr app ID"
+                                    },
+                                    "methodName": {
+                                        "type": "string",
+                                        "description": "Service method name"
+                                    },
+                                    "httpVerb": {
+                                        "type": "string",
+                                        "enum": [
+                                            "GET",
+                                            "POST",
+                                            "PUT",
+                                            "DELETE",
+                                            "PATCH"
+                                        ],
+                                        "description": "HTTP verb"
+                                    },
+                                    "data": {
+                                        "type": "object",
+                                        "description": "Service call data"
+                                    },
+                                    "queryString": {
+                                        "type": "string",
+                                        "description": "Query string parameters"
+                                    },
+                                    "timeoutSeconds": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "description": "Timeout in seconds"
+                                    }
+                                },
+                                "required": [
+                                    "appId",
+                                    "methodName"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "config"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "4"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "type": {
+                                "const": "4"
+                            },
+                            "config": {
+                                "type": "object",
+                                "description": "Dapr PubSub configuration",
+                                "properties": {
+                                    "pubSubName": {
+                                        "type": "string",
+                                        "description": "PubSub component name"
+                                    },
+                                    "topic": {
+                                        "type": "string",
+                                        "description": "Topic name"
+                                    },
+                                    "data": {
+                                        "type": "object",
+                                        "description": "Message data"
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "description": "Message metadata"
+                                    }
+                                },
+                                "required": [
+                                    "pubSubName",
+                                    "topic"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "config"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "5"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "type": {
+                                "const": "5"
+                            },
+                            "config": {
+                                "type": "object",
+                                "description": "Human Task configuration",
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "description": "Task title",
+                                        "minLength": 1
+                                    },
+                                    "instructions": {
+                                        "type": "string",
+                                        "description": "Task instructions",
+                                        "minLength": 1
+                                    },
+                                    "assignedTo": {
+                                        "type": "string",
+                                        "description": "Assigned person/group",
+                                        "minLength": 1
+                                    },
+                                    "dueDate": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Due date (ISO 8601 format)",
+                                        "format": "date-time"
+                                    },
+                                    "form": {
+                                        "description": "Form definition in JSON format"
+                                    },
+                                    "reminderIntervalMinutes": {
+                                        "type": "integer",
+                                        "description": "Reminder interval in minutes",
+                                        "minimum": 0
+                                    },
+                                    "escalationTimeoutMinutes": {
+                                        "type": "integer",
+                                        "description": "Escalation timeout in minutes",
+                                        "minimum": 0
+                                    },
+                                    "escalationAssignee": {
+                                        "type": "string",
+                                        "description": "Escalation assignee"
+                                    }
+                                },
+                                "required": [
+                                    "title",
+                                    "instructions",
+                                    "assignedTo"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "config"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "6"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "type": {
+                                "const": "6"
+                            },
+                            "config": {
+                                "type": "object",
+                                "description": "HTTP Task configuration",
+                                "properties": {
+                                    "url": {
+                                        "type": "string",
+                                        "description": "HTTP URL"
+                                    },
+                                    "method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "GET",
+                                            "POST",
+                                            "PUT",
+                                            "DELETE",
+                                            "PATCH"
+                                        ],
+                                        "description": "HTTP method"
+                                    },
+                                    "headers": {
+                                        "type": "object",
+                                        "description": "HTTP headers"
+                                    },
+                                    "body": {
+                                        "type": "object",
+                                        "description": "HTTP request body"
+                                    },
+                                    "timeoutSeconds": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "description": "Timeout in seconds"
+                                    },
+                                    "validateSsl": {
+                                        "type": "boolean",
+                                        "description": "Whether to validate SSL certificates"
+                                    }
+                                },
+                                "required": [
+                                    "url",
+                                    "method"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "config"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "7"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "type": {
+                                "const": "7"
+                            },
+                            "config": {
+                                "type": "object",
+                                "description": "Script Task configuration",
+                                "properties": {}
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "config"
+                        ],
+                        "additionalProperties": false
+                    }
+                }
+            ]
+        }
+    },
+    "additionalProperties": false
+}

@@ -5,6 +5,13 @@ export { ExecutionTaskListEditor } from './ExecutionTaskListEditor';
 export { ViewEditor } from './ViewEditor';
 export { FunctionListEditor } from './FunctionListEditor';
 export { ExtensionListEditor } from './ExtensionListEditor';
+
+// Enhanced editors with IntelliSense
+export { EnhancedMappingEditor } from './EnhancedMappingEditor';
+export { EnhancedRuleEditor } from './EnhancedRuleEditor';
+export { EnhancedExecutionTaskEditor } from './EnhancedExecutionTaskEditor';
+export { EnhancedSchedulingEditor } from './EnhancedSchedulingEditor';
+
 export {
   isSchemaRef,
   isSchemaInlineRef,
