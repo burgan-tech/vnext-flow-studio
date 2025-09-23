@@ -4,6 +4,292 @@ import type { Rule } from '@amorphie-flow-studio/core';
 import { getAllBBTWorkflowIntelliSense } from '../../types/bbt-workflow-intellisense';
 import type { IntelliSenseItem } from '../../types/workflow-types';
 
+// Get template based on task type
+function getTemplateForTaskType(taskType?: string): string {
+  const baseTemplate = `using System;
+using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions;
+
+public class MappingHandler : ScriptBase, IMapping
+{
+    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Access instance data
+        var instanceId = context.Instance.Id;
+        var instanceKey = context.Instance.Key;
+        var currentState = context.Instance.CurrentState;
+        var instanceData = context.Instance.Data;
+
+        // Prepare request data
+        response.Data = new
+        {
+            instanceId = instanceId,
+            instanceKey = instanceKey,
+            currentState = currentState,
+            data = instanceData,
+            requestTime = DateTime.UtcNow
+        };
+
+        // Set headers
+        response.Headers = new Dictionary<string, string>
+        {
+            ["X-Instance-Id"] = instanceId.ToString(),
+            ["X-Flow"] = context.Instance.Flow
+        };
+
+        return Task.FromResult(response);
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Transform response data
+        response.Data = new
+        {
+            success = context.Body?.IsSuccess ?? true,
+            message = context.Body?.ErrorMessage ?? "Success",
+            result = context.Body?.Data,
+            timestamp = DateTime.UtcNow
+        };
+
+        return Task.FromResult(response);
+    }
+}`;
+
+  switch (taskType) {
+    case '6': // HttpTask
+      return `using System;
+using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions;
+
+public class HttpTaskMapping : ScriptBase, IMapping
+{
+    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var httpTask = (task as HttpTask)!;
+        var response = new ScriptResponse();
+
+        // Access instance data
+        var customerId = context.Instance.Data?.customerId;
+        var userId = context.Instance.Data?.userId;
+
+        // Prepare request data
+        response.Data = new
+        {
+            customerId = customerId,
+            userId = userId,
+            timestamp = DateTime.UtcNow
+        };
+
+        // Set authorization header
+        response.Headers = new Dictionary<string, string>
+        {
+            ["Authorization"] = "Bearer " + GetSecret("dapr_store", "api_store", "auth_token"),
+            ["Content-Type"] = "application/json"
+        };
+
+        return Task.FromResult(response);
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Transform response data
+        response.Data = new
+        {
+            success = context.Body?.success ?? false,
+            message = context.Body?.message ?? "No message",
+            timestamp = DateTime.UtcNow
+        };
+
+        return Task.FromResult(response);
+    }
+}`;
+
+    case '3': // DaprServiceTask
+      return `using System;
+using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions;
+
+public class DaprServiceMapping : ScriptBase, IMapping
+{
+    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var daprTask = (task as DaprServiceTask)!;
+        var response = new ScriptResponse();
+
+        // Access instance data
+        var instanceData = context.Instance.Data;
+        var workflowId = context.Instance.Id;
+
+        // Prepare service call data
+        response.Data = new
+        {
+            workflowInstanceId = workflowId,
+            flow = context.Instance.Flow,
+            currentState = context.Instance.CurrentState,
+            data = instanceData
+        };
+
+        return Task.FromResult(response);
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Process service response
+        response.Data = new
+        {
+            processed = true,
+            result = context.Body?.result,
+            timestamp = DateTime.UtcNow
+        };
+
+        return Task.FromResult(response);
+    }
+}`;
+
+    case '5': // HumanTask
+      return `using System;
+using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions;
+
+public class HumanTaskMapping : ScriptBase, IMapping
+{
+    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var humanTask = (task as HumanTask)!;
+        var response = new ScriptResponse();
+
+        // Prepare human task data
+        response.Data = new
+        {
+            taskId = Guid.NewGuid(),
+            instanceId = context.Instance.Id,
+            title = humanTask.Title,
+            instructions = humanTask.Instructions,
+            assignedTo = humanTask.AssignedTo,
+            dueDate = humanTask.DueDate,
+            form = humanTask.Form,
+            instanceData = context.Instance.Data
+        };
+
+        return Task.FromResult(response);
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Process human task result
+        response.Data = new
+        {
+            approved = context.Body?.approved ?? false,
+            comments = context.Body?.comments ?? "",
+            completedBy = context.Body?.completedBy ?? "",
+            completedAt = DateTime.UtcNow
+        };
+
+        return Task.FromResult(response);
+    }
+}`;
+
+    case '7': // ScriptTask
+      return `using System;
+using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions;
+
+public class ScriptTaskMapping : ScriptBase, IMapping
+{
+    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var scriptTask = (task as ScriptTask)!;
+        var response = new ScriptResponse();
+
+        // Prepare script execution data
+        response.Data = new
+        {
+            instanceId = context.Instance.Id,
+            scriptCode = scriptTask.Script.Code,
+            language = scriptTask.Script.Language,
+            inputData = context.Instance.Data
+        };
+
+        return Task.FromResult(response);
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Process script execution result
+        response.Data = new
+        {
+            executed = true,
+            result = context.Body,
+            executionTime = DateTime.UtcNow
+        };
+
+        return Task.FromResult(response);
+    }
+}`;
+
+    case '2': // DaprBindingTask
+      return `using System;
+using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions;
+
+public class DaprBindingMapping : ScriptBase, IMapping
+{
+    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var bindingTask = (task as DaprBindingTask)!;
+        var response = new ScriptResponse();
+
+        // Prepare binding data
+        response.Data = new
+        {
+            bindingName = bindingTask.BindingName,
+            operation = bindingTask.Operation,
+            metadata = bindingTask.Metadata,
+            instanceData = context.Instance.Data
+        };
+
+        return Task.FromResult(response);
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Process binding result
+        response.Data = new
+        {
+            success = true,
+            result = context.Body,
+            processedAt = DateTime.UtcNow
+        };
+
+        return Task.FromResult(response);
+    }
+}`;
+
+    default:
+      return baseTemplate;
+  }
+}
+
 // Object property definitions for IntelliSense
 function getObjectProperties(objectName: string): IntelliSenseItem[] {
   const objectName_lower = objectName.toLowerCase();
@@ -374,6 +660,7 @@ interface RuleEditorProps {
   onChange: (rule?: Rule) => void;
   onInlineChange: (text: string) => void;
   hideLocation?: boolean; // Hide the location field when used for mapping code
+  taskType?: string; // Task type for applying appropriate templates
 }
 
 export const RuleEditor: React.FC<RuleEditorProps> = ({
@@ -383,7 +670,8 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
   onLoadFromFile,
   onChange,
   onInlineChange,
-  hideLocation = false
+  hideLocation = false,
+  taskType
 }) => {
   const hasRule = Boolean(rule);
   const [displayText, setDisplayText] = useState(inlineText);
@@ -399,8 +687,9 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
     if (inlineText) {
       setDisplayText(inlineText);
            } else {
-             console.log('🆕 No content, setting default template');
-             setDisplayText('// Enter your C# mapping code here\nusing System;\nusing System.Threading.Tasks;\nusing BBT.Workflow.Scripting;\nusing BBT.Workflow.Definitions;\n\npublic class MappingHandler : ScriptBase, IMapping\n{\n    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)\n    {\n        var response = new ScriptResponse();\n\n        // Access instance data\n        var instanceId = context.Instance.Id;\n        var instanceKey = context.Instance.Key;\n        var currentState = context.Instance.CurrentState;\n        var instanceData = context.Instance.Data;\n\n        // Prepare request data\n        response.Data = new\n        {\n            instanceId = instanceId,\n            instanceKey = instanceKey,\n            currentState = currentState,\n            data = instanceData,\n            requestTime = DateTime.UtcNow\n        };\n\n        // Set headers\n        response.Headers = new Dictionary<string, string>\n        {\n            ["X-Instance-Id"] = instanceId.ToString(),\n            ["X-Flow"] = context.Instance.Flow\n        };\n\n        return Task.FromResult(response);\n    }\n\n    public Task<ScriptResponse> OutputHandler(ScriptContext context)\n    {\n        var response = new ScriptResponse();\n\n        // Transform response data\n        response.Data = new\n        {\n            success = context.Body?.IsSuccess ?? true,\n            message = context.Body?.ErrorMessage ?? "Success",\n            result = context.Body?.Data,\n            timestamp = DateTime.UtcNow\n        };\n\n        return Task.FromResult(response);\n    }\n}');
+             console.log('🆕 No content, setting task-specific template for type:', taskType);
+             const template = getTemplateForTaskType(taskType);
+             setDisplayText(template);
            }
   }, [inlineText]);
 
@@ -495,7 +784,64 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
           console.log('🔍 Text before cursor:', textBeforeCursor);
           console.log('🔍 Current word:', currentWord);
 
+          // Start with BBT Workflow suggestions
           let suggestions = [...bbtSuggestions];
+
+          // Add default C# IntelliSense suggestions
+          const defaultCSharpSuggestions: IntelliSenseItem[] = [
+            // C# Keywords
+            { label: 'var', kind: 'Keyword', insertText: 'var', documentation: 'Implicitly typed local variable', detail: 'keyword', sortText: '001' },
+            { label: 'if', kind: 'Keyword', insertText: 'if (${1:condition})\n{\n\t$2\n}', documentation: 'If statement', detail: 'keyword', sortText: '002' },
+            { label: 'else', kind: 'Keyword', insertText: 'else\n{\n\t$1\n}', documentation: 'Else statement', detail: 'keyword', sortText: '003' },
+            { label: 'for', kind: 'Keyword', insertText: 'for (int i = 0; i < ${1:count}; i++)\n{\n\t$2\n}', documentation: 'For loop', detail: 'keyword', sortText: '004' },
+            { label: 'foreach', kind: 'Keyword', insertText: 'foreach (var ${1:item} in ${2:collection})\n{\n\t$3\n}', documentation: 'Foreach loop', detail: 'keyword', sortText: '005' },
+            { label: 'while', kind: 'Keyword', insertText: 'while (${1:condition})\n{\n\t$2\n}', documentation: 'While loop', detail: 'keyword', sortText: '006' },
+            { label: 'switch', kind: 'Keyword', insertText: 'switch (${1:value})\n{\n\tcase ${2:case}:\n\t\t$3\n\t\tbreak;\n\tdefault:\n\t\t$4\n\t\tbreak;\n}', documentation: 'Switch statement', detail: 'keyword', sortText: '007' },
+            { label: 'try', kind: 'Keyword', insertText: 'try\n{\n\t$1\n}\ncatch (Exception ex)\n{\n\t$2\n}', documentation: 'Try-catch block', detail: 'keyword', sortText: '008' },
+            { label: 'return', kind: 'Keyword', insertText: 'return $1;', documentation: 'Return statement', detail: 'keyword', sortText: '009' },
+            { label: 'throw', kind: 'Keyword', insertText: 'throw new Exception("${1:message}");', documentation: 'Throw exception', detail: 'keyword', sortText: '010' },
+
+            // Common Types
+            { label: 'string', kind: 'Class', insertText: 'string', documentation: 'String type', detail: 'type', sortText: '020' },
+            { label: 'int', kind: 'Class', insertText: 'int', documentation: 'Integer type', detail: 'type', sortText: '021' },
+            { label: 'bool', kind: 'Class', insertText: 'bool', documentation: 'Boolean type', detail: 'type', sortText: '022' },
+            { label: 'DateTime', kind: 'Class', insertText: 'DateTime', documentation: 'DateTime type', detail: 'type', sortText: '023' },
+            { label: 'Guid', kind: 'Class', insertText: 'Guid', documentation: 'GUID type', detail: 'type', sortText: '024' },
+            { label: 'object', kind: 'Class', insertText: 'object', documentation: 'Object type', detail: 'type', sortText: '025' },
+            { label: 'dynamic', kind: 'Class', insertText: 'dynamic', documentation: 'Dynamic type', detail: 'type', sortText: '026' },
+            { label: 'List', kind: 'Class', insertText: 'List<${1:T}>', documentation: 'Generic List', detail: 'type', sortText: '027' },
+            { label: 'Dictionary', kind: 'Class', insertText: 'Dictionary<${1:TKey}, ${2:TValue}>', documentation: 'Generic Dictionary', detail: 'type', sortText: '028' },
+            { label: 'Task', kind: 'Class', insertText: 'Task', documentation: 'Task type', detail: 'type', sortText: '029' },
+            { label: 'Task<T>', kind: 'Class', insertText: 'Task<${1:T}>', documentation: 'Generic Task', detail: 'type', sortText: '030' },
+
+            // Common Methods
+            { label: 'Console.WriteLine', kind: 'Method', insertText: 'Console.WriteLine("${1:message}");', documentation: 'Write line to console', detail: 'method', sortText: '040' },
+            { label: 'Console.WriteLine', kind: 'Method', insertText: 'Console.WriteLine(${1:value});', documentation: 'Write line to console', detail: 'method', sortText: '041' },
+            { label: 'string.IsNullOrEmpty', kind: 'Method', insertText: 'string.IsNullOrEmpty(${1:value})', documentation: 'Check if string is null or empty', detail: 'method', sortText: '042' },
+            { label: 'string.IsNullOrWhiteSpace', kind: 'Method', insertText: 'string.IsNullOrWhiteSpace(${1:value})', documentation: 'Check if string is null or whitespace', detail: 'method', sortText: '043' },
+            { label: 'DateTime.UtcNow', kind: 'Property', insertText: 'DateTime.UtcNow', documentation: 'Current UTC time', detail: 'property', sortText: '044' },
+            { label: 'DateTime.Now', kind: 'Property', insertText: 'DateTime.Now', documentation: 'Current local time', detail: 'property', sortText: '045' },
+            { label: 'Guid.NewGuid', kind: 'Method', insertText: 'Guid.NewGuid()', documentation: 'Generate new GUID', detail: 'method', sortText: '046' },
+            { label: 'Math.Round', kind: 'Method', insertText: 'Math.Round(${1:value}, ${2:decimals})', documentation: 'Round number to specified decimals', detail: 'method', sortText: '047' },
+            { label: 'Math.Max', kind: 'Method', insertText: 'Math.Max(${1:val1}, ${2:val2})', documentation: 'Get maximum of two values', detail: 'method', sortText: '048' },
+            { label: 'Math.Min', kind: 'Method', insertText: 'Math.Min(${1:val1}, ${2:val2})', documentation: 'Get minimum of two values', detail: 'method', sortText: '049' },
+
+            // LINQ Methods
+            { label: 'Where', kind: 'Method', insertText: 'Where(${1:x} => ${2:condition})', documentation: 'Filter collection', detail: 'method', sortText: '060' },
+            { label: 'Select', kind: 'Method', insertText: 'Select(${1:x} => ${2:expression})', documentation: 'Transform collection', detail: 'method', sortText: '061' },
+            { label: 'FirstOrDefault', kind: 'Method', insertText: 'FirstOrDefault(${1:x} => ${2:condition})', documentation: 'Get first element or default', detail: 'method', sortText: '062' },
+            { label: 'Any', kind: 'Method', insertText: 'Any(${1:x} => ${2:condition})', documentation: 'Check if any element matches condition', detail: 'method', sortText: '063' },
+            { label: 'Count', kind: 'Method', insertText: 'Count(${1:x} => ${2:condition})', documentation: 'Count elements matching condition', detail: 'method', sortText: '064' },
+            { label: 'OrderBy', kind: 'Method', insertText: 'OrderBy(${1:x} => ${2:key})', documentation: 'Sort collection ascending', detail: 'method', sortText: '065' },
+            { label: 'OrderByDescending', kind: 'Method', insertText: 'OrderByDescending(${1:x} => ${2:key})', documentation: 'Sort collection descending', detail: 'method', sortText: '066' },
+            { label: 'Take', kind: 'Method', insertText: 'Take(${1:count})', documentation: 'Take first N elements', detail: 'method', sortText: '067' },
+            { label: 'Skip', kind: 'Method', insertText: 'Skip(${1:count})', documentation: 'Skip first N elements', detail: 'method', sortText: '068' },
+            { label: 'ToList', kind: 'Method', insertText: 'ToList()', documentation: 'Convert to List', detail: 'method', sortText: '069' },
+            { label: 'ToArray', kind: 'Method', insertText: 'ToArray()', documentation: 'Convert to Array', detail: 'method', sortText: '070' }
+          ];
+
+          // Add default C# suggestions to the list
+          suggestions = [...suggestions, ...defaultCSharpSuggestions];
 
           // Check if we're typing after a dot (object property access)
           if (textBeforeCursor.endsWith('.')) {

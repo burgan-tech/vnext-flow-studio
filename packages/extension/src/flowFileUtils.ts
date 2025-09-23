@@ -26,6 +26,7 @@ export function isWorkflowJsonUri(uri: vscode.Uri): boolean {
   const hasJsonSuffix = normalizedPath.endsWith(JSON_SUFFIX);
   const isDiagram = isDiagramFile(uri);
   const hasWorkflowsSegment = segments.includes(WORKFLOWS_SEGMENT);
+  const isFlowDefinition = normalizedPath.endsWith(FLOW_DEFINITION_SUFFIX);
 
   console.log('isWorkflowJsonUri check:', {
     path: uri.path,
@@ -34,7 +35,8 @@ export function isWorkflowJsonUri(uri: vscode.Uri): boolean {
     hasJsonSuffix,
     isDiagram,
     hasWorkflowsSegment,
-    result: hasJsonSuffix && !isDiagram && hasWorkflowsSegment
+    isFlowDefinition,
+    result: hasJsonSuffix && !isDiagram && (isFlowDefinition || hasWorkflowsSegment)
   });
 
   if (!hasJsonSuffix) {
@@ -45,7 +47,11 @@ export function isWorkflowJsonUri(uri: vscode.Uri): boolean {
     return false;
   }
 
-  return hasWorkflowsSegment;
+  // Accept all JSON files that are either:
+  // 1. .flow.json files, OR
+  // 2. Any .json file in a workflows directory, OR
+  // 3. Any .json file (for broader compatibility)
+  return isFlowDefinition || hasWorkflowsSegment || true; // Allow all JSON files
 }
 
 export function isFlowDefinitionUri(uri: vscode.Uri): boolean {
@@ -66,10 +72,11 @@ export function getDiagramUri(flowUri: vscode.Uri): vscode.Uri {
   return flowUri.with({ path: `${path}${DIAGRAM_SUFFIX}` });
 }
 
-export const FLOW_FILE_GLOBS = ['**/*.flow.json', '**/workflows/**/*.json'];
+export const FLOW_FILE_GLOBS = ['**/*.flow.json', '**/workflows/**/*.json', '**/*.json'];
 export const FLOW_AND_DIAGRAM_GLOBS = [
   '**/*.flow.json',
   '**/*.diagram.json',
   '**/workflows/**/*.json',
-  '**/workflows/**/*.diagram.json'
+  '**/workflows/**/*.diagram.json',
+  '**/*.json'
 ];

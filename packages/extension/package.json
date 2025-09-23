@@ -11,11 +11,13 @@
   "engines": {
     "vscode": "^1.92.0"
   },
-  "categories": ["Other"],
-    "activationEvents": [
-      "onLanguage:json",
-      "onCommand:flowEditor.open"
-    ],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:json",
+    "onCommand:flowEditor.open"
+  ],
   "main": "./dist/extension.js",
   "files": [
     "dist/extension.js",
@@ -38,14 +40,14 @@
     "menus": {
       "explorer/context": [
         {
-          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourcePath =~ /workflows/)",
+          "when": "resourceExtname == .json",
           "command": "flowEditor.open",
           "group": "navigation"
         }
       ],
       "editor/title": [
         {
-          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourcePath =~ /workflows/)",
+          "when": "resourceExtname == .json",
           "command": "flowEditor.open",
           "group": "navigation"
         }
@@ -61,6 +63,9 @@
           },
           {
             "filenamePattern": "**/workflows/**/*.json"
+          },
+          {
+            "filenamePattern": "*.json"
           }
         ],
         "priority": "option"
@@ -68,7 +73,11 @@
     ],
     "jsonValidation": [
       {
-        "fileMatch": ["**/*.flow.json", "**/workflows/**/*.json"],
+        "fileMatch": [
+          "**/*.flow.json",
+          "**/workflows/**/*.json",
+          "**/*.json"
+        ],
         "url": "./schemas/workflow-definition.schema.json"
       }
     ]

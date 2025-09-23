@@ -350,6 +350,15 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
                 rule={task.mapping ? { location: task.mapping.location, code: task.mapping.code } : undefined}
                 inlineText={mappingTexts[index] || ''}
                 hideLocation={true}
+                taskType={(() => {
+                  // Try to get task type from available tasks
+                  if (isTaskRef(task.task)) {
+                    const taskDef = availableTasks.find(t => t.key === task.task.ref);
+                    return taskDef?.type;
+                  } else {
+                    return task.task.type;
+                  }
+                })()}
                 onChange={(mapping) => {
                   if (mapping) {
                     handleTaskChange(index, {
