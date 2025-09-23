@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Canvas } from './components/Canvas';
 import '@xyflow/react/dist/style.css';
 import './rf-theme.css';
+import './enhanced-editors.css';
 
 function App() {
   return <Canvas />;

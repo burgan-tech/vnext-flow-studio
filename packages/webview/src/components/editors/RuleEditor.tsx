@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import * as monaco from 'monaco-editor';
 import type { Rule } from '@amorphie-flow-studio/core';
+import { getAllBBTWorkflowIntelliSense } from '../../types/bbt-workflow-intellisense';
 
 interface RuleEditorProps {
   title: string;
@@ -20,6 +22,9 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
 }) => {
   const hasRule = Boolean(rule);
   const [displayText, setDisplayText] = useState(inlineText);
+  const [useMonaco, setUseMonaco] = useState(false);
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Decode Base64 content for display
   useEffect(() => {
@@ -55,6 +60,107 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
     }
     onInlineChange(codeToStore);
   };
+
+  // Initialize Monaco Editor
+  const initializeMonaco = useCallback(async () => {
+    if (!editorContainerRef.current || editorRef.current) return;
+
+    try {
+      // Register C# language for syntax highlighting
+      monaco.languages.register({ id: 'csharp' });
+      
+      // Set up C# language configuration
+      monaco.languages.setLanguageConfiguration('csharp', {
+        comments: {
+          lineComment: '//',
+          blockComment: ['/*', '*/']
+        },
+        brackets: [
+          ['{', '}'],
+          ['[', ']'],
+          ['(', ')']
+        ],
+        autoClosingPairs: [
+          { open: '{', close: '}' },
+          { open: '[', close: ']' },
+          { open: '(', close: ')' },
+          { open: '"', close: '"' },
+          { open: "'", close: "'" }
+        ],
+        surroundingPairs: [
+          { open: '{', close: '}' },
+          { open: '[', close: ']' },
+          { open: '(', close: ')' },
+          { open: '"', close: '"' },
+          { open: "'", close: "'" }
+        ]
+      });
+
+      // Create editor instance
+      const editor = monaco.editor.create(editorContainerRef.current, {
+        value: displayText,
+        language: 'csharp',
+        theme: 'vs-dark',
+        fontSize: 12,
+        lineNumbers: 'on',
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+        wordWrap: 'on'
+      });
+
+      editorRef.current = editor;
+
+      // Set up IntelliSense
+      const bbtSuggestions = getAllBBTWorkflowIntelliSense();
+      
+      const completionProvider = monaco.languages.registerCompletionItemProvider('csharp', {
+        provideCompletionItems: (model, position) => {
+          const suggestions = bbtSuggestions.map(item => ({
+            label: item.label,
+            kind: monaco.languages.CompletionItemKind[item.kind as keyof typeof monaco.languages.CompletionItemKind] || monaco.languages.CompletionItemKind.Text,
+            insertText: item.insertText,
+            documentation: item.documentation,
+            detail: item.detail,
+            sortText: item.sortText
+          }));
+
+          return { suggestions };
+        }
+      });
+
+      // Handle content changes
+      editor.onDidChangeModelContent(() => {
+        const value = editor.getValue();
+        setDisplayText(value);
+        handleCodeChange(value);
+      });
+
+      // Cleanup on unmount
+      return () => {
+        completionProvider.dispose();
+        editor.dispose();
+      };
+    } catch (error) {
+      console.error('Failed to initialize Monaco Editor:', error);
+    }
+  }, [displayText, handleCodeChange]);
+
+  // Toggle between Monaco and textarea
+  const toggleEditor = useCallback(() => {
+    if (useMonaco && editorRef.current) {
+      editorRef.current.dispose();
+      editorRef.current = null;
+    }
+    setUseMonaco(!useMonaco);
+  }, [useMonaco]);
+
+  // Initialize Monaco when switching to Monaco mode
+  useEffect(() => {
+    if (useMonaco) {
+      initializeMonaco();
+    }
+  }, [useMonaco, initializeMonaco]);
 
   return (
     <div className="property-panel__group">
@@ -97,21 +203,45 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
           </div>
 
           <div className="property-panel__field">
-            <label>Code (Base64 or inline):</label>
-            <textarea
-              value={displayText}
-              onChange={(e) => handleCodeChange(e.target.value)}
-              placeholder="Enter C# script code (auto-encodes to Base64)"
-              className="property-panel__textarea"
-              rows={8}
-              style={{
-                fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-                fontSize: '12px',
-                lineHeight: '1.4'
-              }}
-            />
+            <div className="property-panel__field-header">
+              <label>Code (Base64 or inline):</label>
+              <button
+                type="button"
+                onClick={toggleEditor}
+                className="property-panel__toggle-button"
+                title={useMonaco ? "Switch to simple editor" : "Switch to IntelliSense editor"}
+              >
+                {useMonaco ? "📝 Simple" : "🧠 IntelliSense"}
+              </button>
+            </div>
+            
+            {useMonaco ? (
+              <div 
+                ref={editorContainerRef}
+                style={{ 
+                  height: '200px', 
+                  border: '1px solid #333',
+                  borderRadius: '4px'
+                }}
+              />
+            ) : (
+              <textarea
+                value={displayText}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                placeholder="Enter C# script code (auto-encodes to Base64)"
+                className="property-panel__textarea"
+                rows={8}
+                style={{
+                  fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                  fontSize: '12px',
+                  lineHeight: '1.4'
+                }}
+              />
+            )}
+            
             <div className="property-panel__hint">
               ✨ C# code is automatically detected and encoded as Base64
+              {useMonaco && " | 🧠 IntelliSense active with BBT Workflow suggestions"}
             </div>
           </div>
 

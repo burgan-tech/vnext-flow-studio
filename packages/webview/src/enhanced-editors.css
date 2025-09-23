@@ -378,6 +378,36 @@
   border-top: 1px solid var(--vscode-panel-border);
 }
 
+/* Rule Editor Monaco Support */
+.property-panel__field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.property-panel__toggle-button {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.property-panel__toggle-button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.property-panel__hint {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 4px;
+  font-style: italic;
+}
+
 /* Common Styles */
 .property-panel__input-group {
   display: flex;

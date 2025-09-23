@@ -5,6 +5,12 @@
  */
 
 import type { IntelliSenseItem } from './workflow-types';
+import {
+  parseBBTWorkflowXml,
+  BBT_WORKFLOW_DOMAIN_XML,
+  BBT_WORKFLOW_SCRIPTING_XML,
+  type ParsedMember
+} from './bbt-workflow-xml-parser';
 
 // Core BBT Workflow IntelliSense suggestions
 export const BBT_WORKFLOW_INTELLISENSE: IntelliSenseItem[] = [
@@ -434,10 +440,76 @@ public class \${1:YourMappingName}MappingRule : IConditionMapping
 ];
 
 // Helper function to get all BBT Workflow IntelliSense items
+/**
+ * Convert parsed XML members to IntelliSense items
+ */
+function convertXmlToIntelliSense(members: ParsedMember[]): IntelliSenseItem[] {
+  const suggestions: IntelliSenseItem[] = [];
+
+  for (const member of members) {
+    let kind: IntelliSenseItem['kind'] = 'Text';
+    let insertText = member.name;
+    let detail = member.type;
+
+    switch (member.type) {
+      case 'class':
+      case 'interface':
+        kind = 'Class';
+        detail = `${member.type}: ${member.fullName}`;
+        break;
+
+      case 'method':
+        kind = 'Method';
+        if (member.parameters && member.parameters.length > 0) {
+          const paramList = member.parameters.map((p, i) => `\${${i + 1}:${p.name}}`).join(', ');
+          insertText = `${member.name}(${paramList})`;
+        } else {
+          insertText = `${member.name}()`;
+        }
+        detail = `method: ${member.name}`;
+        break;
+
+      case 'property':
+        kind = 'Property';
+        detail = `property: ${member.name}`;
+        break;
+
+      case 'field':
+        kind = 'Field';
+        detail = `field: ${member.name}`;
+        break;
+    }
+
+    suggestions.push({
+      label: member.name,
+      kind,
+      insertText,
+      documentation: member.summary || `${member.type}: ${member.name}`,
+      detail,
+      sortText: member.type === 'interface' ? '001' : member.type === 'class' ? '002' : '999'
+    });
+  }
+
+  return suggestions;
+}
+
+/**
+ * Get all BBT Workflow IntelliSense suggestions including XML-parsed items
+ */
 export function getAllBBTWorkflowIntelliSense(): IntelliSenseItem[] {
+  // Parse XML documentation
+  const domainAssembly = parseBBTWorkflowXml(BBT_WORKFLOW_DOMAIN_XML);
+  const scriptingAssembly = parseBBTWorkflowXml(BBT_WORKFLOW_SCRIPTING_XML);
+
+  // Convert to IntelliSense items
+  const domainSuggestions = convertXmlToIntelliSense(domainAssembly.members);
+  const scriptingSuggestions = convertXmlToIntelliSense(scriptingAssembly.members);
+
   return [
     ...BBT_WORKFLOW_INTELLISENSE,
     ...BBT_WORKFLOW_USINGS,
-    ...BBT_WORKFLOW_TEMPLATES
+    ...BBT_WORKFLOW_TEMPLATES,
+    ...domainSuggestions,
+    ...scriptingSuggestions
   ];
 }
