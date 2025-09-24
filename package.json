@@ -1,7 +1,25 @@
 {
   "name": "amorphie-flow-studio",
+  "version": "0.3.0",
+  "description": "Visual editor for Amorphie Workflow Projects - A VS Code extension for designing and managing workflow definitions",
   "private": true,
-  "workspaces": ["packages/*"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amorphie/amorphie-flow-studio.git"
+  },
+  "keywords": [
+    "workflow",
+    "visual-editor",
+    "vscode-extension",
+    "amorphie",
+    "typescript",
+    "react"
+  ],
+  "author": "Amorphie Flow Studio",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "npm run -w packages/core build && npm run -w packages/webview build && npm run -w packages/extension build",
     "watch": "npm -w packages/core run watch & npm -w packages/webview run dev & npm -w packages/extension run watch",

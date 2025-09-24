@@ -1,0 +1,28 @@
+{
+  "nodePos": {
+    "authentication": {
+      "x": 256,
+      "y": 324
+    },
+    "product-browsing": {
+      "x": 722,
+      "y": -136
+    },
+    "cart-management": {
+      "x": 978,
+      "y": 100
+    },
+    "order-processing": {
+      "x": 1454,
+      "y": 100
+    },
+    "order-confirmation": {
+      "x": 1930,
+      "y": 132
+    },
+    "__start__": {
+      "x": -242,
+      "y": 132
+    }
+  }
+}

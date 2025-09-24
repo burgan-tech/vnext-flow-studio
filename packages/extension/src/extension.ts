@@ -13,6 +13,46 @@ import {
 } from './flowFileUtils';
 import { loadAllCatalogs, REFERENCE_PATTERNS } from './referenceCatalog';
 
+// Get localized label from workflow attributes
+function getWorkflowLabel(workflow: Workflow, fallback: string = 'Amorphie Flow Studio'): string {
+  if (!workflow.attributes?.labels || workflow.attributes.labels.length === 0) {
+    return fallback;
+  }
+
+  // Get system language (e.g., 'en-US', 'tr-TR')
+  const systemLanguage = Intl.DateTimeFormat().resolvedOptions().locale;
+
+  // Try to find exact match first
+  let label = workflow.attributes.labels.find(l => l.language === systemLanguage)?.label;
+
+  // If no exact match, try to find by language code (e.g., 'en' from 'en-US')
+  if (!label) {
+    const languageCode = systemLanguage.split('-')[0];
+    label = workflow.attributes.labels.find(l => l.language.startsWith(languageCode))?.label;
+  }
+
+  // If still no match, use the first available label
+  if (!label) {
+    label = workflow.attributes.labels[0]?.label;
+  }
+
+  return label || fallback;
+}
+
+// Helper function to update workflow and panel title
+function updateWorkflowAndTitle(panel: vscode.WebviewPanel, workflow: Workflow, derived: any) {
+  // Update panel title with localized label
+  const newLabel = getWorkflowLabel(workflow);
+  panel.title = newLabel;
+
+  // Send workflow update to webview
+  panel.webview.postMessage({
+    type: 'workflow:update',
+    workflow: workflow,
+    derived: derived
+  });
+}
+
 // Get template based on task type - using default template for extension
 function getTemplateForTaskType(taskType?: string): string {
   // For now, use the default template in the extension
@@ -92,10 +132,14 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       return;
     }
 
-    // Create webview panel
+    // Load workflow first to get the label
+    let currentWorkflow = await readJson<Workflow>(flowUri);
+
+    // Create webview panel with localized title
+    const workflowLabel = getWorkflowLabel(currentWorkflow);
     const panel = vscode.window.createWebviewPanel(
       'amorphieFlow',
-      'Amorphie Flow Studio',
+      workflowLabel,
       vscode.ViewColumn.Active,
       {
         enableScripts: true,
@@ -139,7 +183,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       panel.webview.html = `
         <!DOCTYPE html>
         <html>
-          <head><title>Amorphie Flow Studio</title></head>
+          <head><title>${workflowLabel}</title></head>
           <body>
             <div style="padding: 20px; font-family: Arial, sans-serif;">
               <h2>Webview Not Built</h2>
@@ -151,8 +195,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       `;
     }
 
-    // Load workflow and diagram
-    let currentWorkflow = await readJson<Workflow>(flowUri);
+    // Load diagram (workflow already loaded above)
     const diagramUri = getDiagramUri(flowUri);
     let currentDiagram: Diagram;
     let currentTasks: TaskDefinition[] = [];
@@ -1260,13 +1303,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
         if (changedKey === flowUriKey) {
           const updatedWorkflow = await readJson<Workflow>(flowUri);
           currentWorkflow = updatedWorkflow;
-          currentWorkflow = updatedWorkflow;
           const updatedDerived = toReactFlow(updatedWorkflow, currentDiagram, 'en');
-          panel.webview.postMessage({
-            type: 'workflow:update',
-            workflow: updatedWorkflow,
-            derived: updatedDerived
-          });
+          updateWorkflowAndTitle(panel, updatedWorkflow, updatedDerived);
           const updatedProblems = lint(updatedWorkflow, { tasks: currentTasks });
           await diagnosticsProvider.updateDiagnostics(flowUri, updatedWorkflow, currentTasks);
           panel.webview.postMessage({
@@ -1276,13 +1314,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
         } else if (changedUri.path === diagramUri.path) {
           const updatedDiagram = await readJson<Diagram>(diagramUri);
           currentDiagram = updatedDiagram;
-          currentDiagram = updatedDiagram;
           const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
-          panel.webview.postMessage({
-            type: 'workflow:update',
-            workflow: currentWorkflow,
-            derived: updatedDerived
-          });
+          updateWorkflowAndTitle(panel, currentWorkflow, updatedDerived);
           panel.webview.postMessage({
             type: 'diagram:update',
             diagram: currentDiagram

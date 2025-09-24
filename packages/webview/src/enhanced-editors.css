@@ -416,10 +416,14 @@
   font-size: 11px;
   cursor: pointer;
   transition: all 0.2s ease;
+  margin-left: 8px;
+  font-weight: 500;
 }
 
 .property-panel__fullscreen-button:hover {
   background: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .property-panel__hint {
@@ -443,6 +447,9 @@
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .property-panel__field--fullscreen .property-panel__field-header {

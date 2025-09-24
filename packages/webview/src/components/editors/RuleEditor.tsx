@@ -718,7 +718,15 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
       cursorPosition = editorRef.current.getPosition() || cursorPosition;
     }
 
-    setIsFullscreen(!isFullscreen);
+    const newFullscreenState = !isFullscreen;
+    setIsFullscreen(newFullscreenState);
+
+    // Handle body scroll lock for fullscreen
+    if (newFullscreenState) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
 
     // Restore layout and cursor position after toggle
     setTimeout(() => {
@@ -735,6 +743,7 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isFullscreen) {
         setIsFullscreen(false);
+        document.body.style.overflow = '';
       }
     };
 
@@ -743,6 +752,13 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
   }, [isFullscreen]);
+
+  // Cleanup: restore body scroll when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   // Initialize Monaco when switching to Monaco mode
   useEffect(() => {

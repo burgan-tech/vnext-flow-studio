@@ -4,6 +4,8 @@
   "publisher": "your-org",
   "version": "0.3.0",
   "description": "Visual editor for Amorphie Workflow Projects",
+  "license": "MIT",
+  "author": "Amorphie Flow Studio",
   "repository": {
     "type": "git",
     "url": "https://github.com/amorphie/amorphie-flow-studio.git"
@@ -13,6 +15,14 @@
   },
   "categories": [
     "Other"
+  ],
+  "keywords": [
+    "workflow",
+    "visual-editor",
+    "amorphie",
+    "typescript",
+    "react",
+    "monaco-editor"
   ],
   "activationEvents": [
     "onLanguage:json",
