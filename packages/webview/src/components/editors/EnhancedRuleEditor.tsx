@@ -113,6 +113,7 @@ export const EnhancedRuleEditor: React.FC<EnhancedRuleEditorProps> = ({
   const [showTemplates, setShowTemplates] = useState(false);
   const [editorMode, setEditorMode] = useState<'basic' | 'advanced'>('basic');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
   const hasRule = Boolean(rule);
 
   useEffect(() => {
@@ -179,9 +180,33 @@ export const EnhancedRuleEditor: React.FC<EnhancedRuleEditorProps> = ({
 
   return (
     <div className="property-panel__group">
-      <div className="property-panel__group-header">
-        <span>{title}</span>
-        <div className="property-panel__header-actions">
+      <div className="property-panel__group-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button
+          type="button"
+          onClick={() => hasRule ? setIsExpanded(!isExpanded) : null}
+          className="property-panel__collapsible-toggle"
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: hasRule ? 'pointer' : 'default',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            color: 'inherit',
+            fontSize: 'inherit',
+            fontWeight: 'inherit',
+            flex: '1',
+            textAlign: 'left'
+          }}
+        >
+          {hasRule && (
+            <span style={{ marginRight: '8px', fontSize: '12px' }}>
+              {isExpanded ? '▼' : '▶'}
+            </span>
+          )}
+          <span>{title || 'Rule'}</span>
+        </button>
+        <div className="property-panel__header-actions" style={{ display: 'flex', alignItems: 'center' }}>
           {!hasRule && (
             <button
               type="button"
@@ -215,7 +240,7 @@ export const EnhancedRuleEditor: React.FC<EnhancedRuleEditorProps> = ({
         </div>
       </div>
 
-      {hasRule && rule && (
+      {hasRule && rule && isExpanded && (
         <>
           <div className="property-panel__field">
             <label>Location:</label>

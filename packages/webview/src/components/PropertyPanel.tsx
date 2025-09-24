@@ -16,11 +16,11 @@ import { useBridge } from '../hooks/useBridge';
 import {
   CollapsibleSection,
   LabelListEditor,
-  RuleEditor,
   SchemaEditor,
   ExecutionTaskListEditor,
   ViewEditor,
   EnhancedTriggerEditor,
+  EnhancedRuleEditor,
   isSchemaRef,
   isTaskRef,
   type SchemaMode
@@ -1035,33 +1035,36 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 )
               }
             >
-            <RuleEditor
-              title=""
-              rule={transitionDraft.rule}
-              inlineText={ruleText}
-              onLoadFromFile={() => {
-                if (selection?.kind === 'transition') {
-                  postMessage({
-                    type: 'rule:loadFromFile',
-                    from: selection.from,
-                    transitionKey: selection.transitionKey
-                  });
-                }
-              }}
-              onChange={(rule) => {
-                setTransitionDraft((prev) => {
-                  if (!prev) return prev;
-                  const next = { ...prev } as Transition & Record<string, unknown>;
-                  if (rule) {
-                    next.rule = rule;
-                  } else {
-                    delete next.rule;
+              <EnhancedRuleEditor
+                title=""
+                rule={transitionDraft.rule}
+                inlineText={ruleText}
+                onLoadFromFile={() => {
+                  if (selection?.kind === 'transition') {
+                    postMessage({
+                      type: 'rule:loadFromFile',
+                      from: selection.from,
+                      transitionKey: selection.transitionKey
+                    });
                   }
-                  return next as Transition;
-                });
-              }}
-              onInlineChange={setRuleText}
-            />
+                }}
+                onChange={(rule) => {
+                  setTransitionDraft((prev) => {
+                    if (!prev) return prev;
+                    const next = { ...prev } as Transition & Record<string, unknown>;
+                    if (rule) {
+                      next.rule = rule;
+                    } else {
+                      delete next.rule;
+                    }
+                    return next as Transition;
+                  });
+                }}
+                onInlineChange={setRuleText}
+                currentState={selectedTransition?.fromState}
+                workflow={workflow}
+                availableTasks={availableTasks}
+              />
             </CollapsibleSection>
 
             <CollapsibleSection title="Schema" defaultExpanded={false}>
@@ -1277,27 +1280,29 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 )
               }
             >
-              <RuleEditor
+              <EnhancedRuleEditor
                 title=""
                 rule={sharedTransitionDraft.rule}
-              inlineText={sharedRuleText}
-              onLoadFromFile={() => {
-                // TODO: Implement shared transition rule file loading
-                console.log('Load rule from file for shared transition');
-              }}
-              onChange={(rule) => {
-                setSharedTransitionDraft((prev) => {
-                  if (!prev) return prev;
-                  const next = { ...prev } as SharedTransition & Record<string, unknown>;
-                  if (rule) {
-                    next.rule = rule;
-                  } else {
-                    delete next.rule;
-                  }
-                  return next as SharedTransition;
-                });
-              }}
-              onInlineChange={setSharedRuleText}
+                inlineText={sharedRuleText}
+                onLoadFromFile={() => {
+                  // TODO: Implement shared transition rule file loading
+                  console.log('Load rule from file for shared transition');
+                }}
+                onChange={(rule) => {
+                  setSharedTransitionDraft((prev) => {
+                    if (!prev) return prev;
+                    const next = { ...prev } as SharedTransition & Record<string, unknown>;
+                    if (rule) {
+                      next.rule = rule;
+                    } else {
+                      delete next.rule;
+                    }
+                    return next as SharedTransition;
+                  });
+                }}
+                onInlineChange={setSharedRuleText}
+                workflow={workflow}
+                availableTasks={availableTasks}
               />
             </CollapsibleSection>
 

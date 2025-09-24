@@ -88,7 +88,7 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
-    "@nextcredit/core": "*"
+    "@amorphie-flow-studio/core": "*"
   },
   "devDependencies": {
     "esbuild": "^0.23.0",
