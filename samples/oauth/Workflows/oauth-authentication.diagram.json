@@ -1,0 +1,52 @@
+{
+  "nodePos": {
+    "client-validation": {
+      "x": 100,
+      "y": 591
+    },
+    "grant-type-selection": {
+      "x": 412,
+      "y": 454
+    },
+    "password-auth": {
+      "x": 888,
+      "y": 454
+    },
+    "authorization-code-auth": {
+      "x": 888,
+      "y": 174
+    },
+    "mfa-check": {
+      "x": 1364,
+      "y": 454
+    },
+    "push-notification-mfa": {
+      "x": 2316,
+      "y": 454
+    },
+    "otp-mfa": {
+      "x": 1840,
+      "y": 174
+    },
+    "device-registration": {
+      "x": 2316,
+      "y": 174
+    },
+    "token-generation": {
+      "x": 2792,
+      "y": 454
+    },
+    "authentication-success": {
+      "x": 3268,
+      "y": 486
+    },
+    "authentication-failed": {
+      "x": 3268,
+      "y": 100
+    },
+    "__start__": {
+      "x": -212,
+      "y": 591
+    }
+  }
+}

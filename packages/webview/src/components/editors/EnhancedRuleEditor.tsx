@@ -19,6 +19,7 @@ interface EnhancedRuleEditorProps {
   currentState?: State;
   workflow?: Workflow;
   availableTasks?: TaskDefinition[];
+  hideHeader?: boolean;
 }
 
 interface RuleTemplate {
@@ -108,7 +109,8 @@ export const EnhancedRuleEditor: React.FC<EnhancedRuleEditorProps> = ({
   onInlineChange,
   currentState,
   workflow,
-  availableTasks = []
+  availableTasks = [],
+  hideHeader = false
 }) => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [editorMode, setEditorMode] = useState<'basic' | 'advanced'>('basic');
@@ -180,67 +182,69 @@ export const EnhancedRuleEditor: React.FC<EnhancedRuleEditorProps> = ({
 
   return (
     <div className="property-panel__group">
-      <div className="property-panel__group-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button
-          type="button"
-          onClick={() => hasRule ? setIsExpanded(!isExpanded) : null}
-          className="property-panel__collapsible-toggle"
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: hasRule ? 'pointer' : 'default',
-            padding: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            color: 'inherit',
-            fontSize: 'inherit',
-            fontWeight: 'inherit',
-            flex: '1',
-            textAlign: 'left'
-          }}
-        >
-          {hasRule && (
-            <span style={{ marginRight: '8px', fontSize: '12px' }}>
-              {isExpanded ? '▼' : '▶'}
-            </span>
-          )}
-          <span>{title || 'Rule'}</span>
-        </button>
-        <div className="property-panel__header-actions" style={{ display: 'flex', alignItems: 'center' }}>
-          {!hasRule && (
-            <button
-              type="button"
-              onClick={() => onChange({ location: './src/rules/new.csx', code: '' })}
-              className="property-panel__add-button"
-              title="Add rule"
-            >
-              +
-            </button>
-          )}
-          {hasRule && (
-            <>
+      {!hideHeader && (
+        <div className="property-panel__group-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button
+            type="button"
+            onClick={() => hasRule ? setIsExpanded(!isExpanded) : null}
+            className="property-panel__collapsible-toggle"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: hasRule ? 'pointer' : 'default',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              color: 'inherit',
+              fontSize: 'inherit',
+              fontWeight: 'inherit',
+              flex: '1',
+              textAlign: 'left'
+            }}
+          >
+            {hasRule && (
+              <span style={{ marginRight: '8px', fontSize: '12px' }}>
+                {isExpanded ? '▼' : '▶'}
+              </span>
+            )}
+            <span>{title || 'Rule'}</span>
+          </button>
+          <div className="property-panel__header-actions" style={{ display: 'flex', alignItems: 'center' }}>
+            {!hasRule && (
               <button
                 type="button"
-                onClick={() => setShowTemplates(!showTemplates)}
-                className="property-panel__action-button"
-                title="Rule templates"
+                onClick={() => onChange({ location: './src/rules/new.csx', code: '' })}
+                className="property-panel__add-button"
+                title="Add rule"
               >
-                📚
+                +
               </button>
-              <button
-                type="button"
-                onClick={() => setEditorMode(editorMode === 'basic' ? 'advanced' : 'basic')}
-                className="property-panel__action-button"
-                title={`Switch to ${editorMode === 'basic' ? 'advanced' : 'basic'} editor`}
-              >
-                {editorMode === 'basic' ? '⚡' : '📝'}
-              </button>
-            </>
-          )}
+            )}
+            {hasRule && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowTemplates(!showTemplates)}
+                  className="property-panel__action-button"
+                  title="Rule templates"
+                >
+                  📚
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditorMode(editorMode === 'basic' ? 'advanced' : 'basic')}
+                  className="property-panel__action-button"
+                  title={`Switch to ${editorMode === 'basic' ? 'advanced' : 'basic'} editor`}
+                >
+                  {editorMode === 'basic' ? '⚡' : '📝'}
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {hasRule && rule && isExpanded && (
+      {hasRule && rule && (hideHeader || isExpanded) && (
         <>
           <div className="property-panel__field">
             <label>Location:</label>
@@ -300,7 +304,7 @@ export const EnhancedRuleEditor: React.FC<EnhancedRuleEditorProps> = ({
               onMessage={(message) => console.log('Rule editor message:', message)}
               height="200px"
               showTemplateSelector={false}
-              allowFullScreen={false}
+              allowFullScreen={true}
               currentState={currentState}
               workflow={workflow}
               availableTasks={availableTasks}
