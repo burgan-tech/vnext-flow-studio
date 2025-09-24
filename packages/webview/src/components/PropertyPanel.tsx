@@ -1035,6 +1035,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 currentState={selectedTransition?.fromState}
                 workflow={workflow}
                 availableTasks={availableTasks}
+                hideHeader={true}
               />
             </CollapsibleSection>
 
@@ -1274,6 +1275,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 onInlineChange={setSharedRuleText}
                 workflow={workflow}
                 availableTasks={availableTasks}
+                hideHeader={true}
               />
             </CollapsibleSection>
 
