@@ -3,292 +3,8 @@ import * as monaco from 'monaco-editor';
 import type { Rule } from '@amorphie-flow-studio/core';
 import { getAllBBTWorkflowIntelliSense } from '../../types/bbt-workflow-intellisense';
 import type { IntelliSenseItem } from '../../types/workflow-types';
+import { getTemplateForTaskType } from '../../utils/taskTemplates';
 
-// Get template based on task type
-function getTemplateForTaskType(taskType?: string): string {
-  const baseTemplate = `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class MappingHandler : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Access instance data
-        var instanceId = context.Instance.Id;
-        var instanceKey = context.Instance.Key;
-        var currentState = context.Instance.CurrentState;
-        var instanceData = context.Instance.Data;
-
-        // Prepare request data
-        response.Data = new
-        {
-            instanceId = instanceId,
-            instanceKey = instanceKey,
-            currentState = currentState,
-            data = instanceData,
-            requestTime = DateTime.UtcNow
-        };
-
-        // Set headers
-        response.Headers = new Dictionary<string, string>
-        {
-            ["X-Instance-Id"] = instanceId.ToString(),
-            ["X-Flow"] = context.Instance.Flow
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Transform response data
-        response.Data = new
-        {
-            success = context.Body?.IsSuccess ?? true,
-            message = context.Body?.ErrorMessage ?? "Success",
-            result = context.Body?.Data,
-            timestamp = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-  switch (taskType) {
-    case '6': // HttpTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class HttpTaskMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var httpTask = (task as HttpTask)!;
-        var response = new ScriptResponse();
-
-        // Access instance data
-        var customerId = context.Instance.Data?.customerId;
-        var userId = context.Instance.Data?.userId;
-
-        // Prepare request data
-        response.Data = new
-        {
-            customerId = customerId,
-            userId = userId,
-            timestamp = DateTime.UtcNow
-        };
-
-        // Set authorization header
-        response.Headers = new Dictionary<string, string>
-        {
-            ["Authorization"] = "Bearer " + GetSecret("dapr_store", "api_store", "auth_token"),
-            ["Content-Type"] = "application/json"
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Transform response data
-        response.Data = new
-        {
-            success = context.Body?.success ?? false,
-            message = context.Body?.message ?? "No message",
-            timestamp = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    case '3': // DaprServiceTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class DaprServiceMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var daprTask = (task as DaprServiceTask)!;
-        var response = new ScriptResponse();
-
-        // Access instance data
-        var instanceData = context.Instance.Data;
-        var workflowId = context.Instance.Id;
-
-        // Prepare service call data
-        response.Data = new
-        {
-            workflowInstanceId = workflowId,
-            flow = context.Instance.Flow,
-            currentState = context.Instance.CurrentState,
-            data = instanceData
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Process service response
-        response.Data = new
-        {
-            processed = true,
-            result = context.Body?.result,
-            timestamp = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    case '5': // HumanTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class HumanTaskMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var humanTask = (task as HumanTask)!;
-        var response = new ScriptResponse();
-
-        // Prepare human task data
-        response.Data = new
-        {
-            taskId = Guid.NewGuid(),
-            instanceId = context.Instance.Id,
-            title = humanTask.Title,
-            instructions = humanTask.Instructions,
-            assignedTo = humanTask.AssignedTo,
-            dueDate = humanTask.DueDate,
-            form = humanTask.Form,
-            instanceData = context.Instance.Data
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Process human task result
-        response.Data = new
-        {
-            approved = context.Body?.approved ?? false,
-            comments = context.Body?.comments ?? "",
-            completedBy = context.Body?.completedBy ?? "",
-            completedAt = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    case '7': // ScriptTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class ScriptTaskMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var scriptTask = (task as ScriptTask)!;
-        var response = new ScriptResponse();
-
-        // Prepare script execution data
-        response.Data = new
-        {
-            instanceId = context.Instance.Id,
-            scriptCode = scriptTask.Script.Code,
-            language = scriptTask.Script.Language,
-            inputData = context.Instance.Data
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Process script execution result
-        response.Data = new
-        {
-            executed = true,
-            result = context.Body,
-            executionTime = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    case '2': // DaprBindingTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class DaprBindingMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var bindingTask = (task as DaprBindingTask)!;
-        var response = new ScriptResponse();
-
-        // Prepare binding data
-        response.Data = new
-        {
-            bindingName = bindingTask.BindingName,
-            operation = bindingTask.Operation,
-            metadata = bindingTask.Metadata,
-            instanceData = context.Instance.Data
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Process binding result
-        response.Data = new
-        {
-            success = true,
-            result = context.Body,
-            processedAt = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    default:
-      return baseTemplate;
-  }
-}
 
 // Object property definitions for IntelliSense
 function getObjectProperties(objectName: string): IntelliSenseItem[] {
@@ -682,12 +398,10 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
 
   // Set display text from inlineText (PropertyPanel now handles Base64 decoding)
   useEffect(() => {
-    console.log('🔍 Processing inlineText:', inlineText?.substring(0, 50) + '...');
 
     if (inlineText) {
       setDisplayText(inlineText);
            } else {
-             console.log('🆕 No content, setting task-specific template for type:', taskType);
              const template = getTemplateForTaskType(taskType);
              setDisplayText(template);
            }
@@ -711,7 +425,6 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
 
       if (!csharpExists) {
         monaco.languages.register({ id: 'csharp' });
-        console.log('🔧 Registered C# language');
       }
 
       // Set up C# language configuration
@@ -763,13 +476,10 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
 
       // Set up IntelliSense - ensure it's registered properly
       const bbtSuggestions = getAllBBTWorkflowIntelliSense();
-      console.log('🧠 Setting up IntelliSense with', bbtSuggestions.length, 'suggestions');
 
       const completionProvider = monaco.languages.registerCompletionItemProvider('csharp', {
         triggerCharacters: ['.', ' ', '('],
         provideCompletionItems: (model, position) => {
-          console.log('🧠 IntelliSense triggered at position:', position);
-
           // Get the text before the cursor
           const lineContent = model.getLineContent(position.lineNumber);
           const textBeforeCursor = lineContent.substring(0, position.column - 1);
@@ -780,9 +490,6 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
             0
           );
           const currentWord = textBeforeCursor.substring(wordStart);
-
-          console.log('🔍 Text before cursor:', textBeforeCursor);
-          console.log('🔍 Current word:', currentWord);
 
           // Start with BBT Workflow suggestions
           let suggestions = [...bbtSuggestions];
@@ -853,22 +560,17 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
             const propertyChainMatch = beforeDot.match(/([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)$/);
             const propertyChain = propertyChainMatch ? propertyChainMatch[1] : '';
 
-            console.log('🔍 Full property chain:', propertyChain);
-
             // Determine the object type based on the property chain
             let objectType = '';
             if (propertyChain.includes('.')) {
               // Handle chained properties like context.Instance
               const parts = propertyChain.split('.');
 
-              console.log('🔍 Property chain parts:', parts);
-
               // Check if this is a valid object chain or if we've reached a terminal property
               if (parts.length === 2) {
                 const baseObject = parts[0].toLowerCase();
                 const property = parts[1].toLowerCase();
 
-                console.log('🔍 Base object:', baseObject, 'Property:', property);
 
                 // Map known property chains to their types (only if the property is an object)
                 if (baseObject === 'context' && property === 'instance') {
@@ -888,13 +590,11 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
                 const firstProperty = parts[1].toLowerCase();
                 const lastProperty = parts[parts.length - 1].toLowerCase();
 
-                console.log('🔍 Deep chain - Base:', baseObject, 'First property:', firstProperty, 'Last property:', lastProperty);
 
                 // Define terminal properties (properties that don't have sub-properties)
                 const terminalProperties = ['id', 'userid', 'correlationid', 'state', 'statuscode', 'errormessage', 'name', 'count'];
 
                 if (terminalProperties.includes(lastProperty)) {
-                  console.log('🔍 Terminal property detected:', lastProperty, '- no suggestions');
                   objectType = ''; // No suggestions for terminal properties
                 } else {
                   // Only provide suggestions for object properties, not terminal string/number properties
@@ -908,13 +608,11 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
               objectType = propertyChain.toLowerCase();
             }
 
-            console.log('🔍 Resolved object type:', objectType);
 
             // When we're after a dot, ONLY show object properties for the specific object type
             // This prevents showing suggestions for other objects
             if (objectType) {
               const objectProperties = getObjectProperties(objectType);
-              console.log('🔍 Object properties from getObjectProperties:', objectProperties.length, 'items:', objectProperties.map(p => p.label));
 
               // Only show properties for this specific object type
               suggestions = objectProperties;
@@ -923,7 +621,6 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
               suggestions = [];
             }
 
-            console.log('🔍 Final suggestions for', objectType, ':', suggestions.length, 'items:', suggestions.map(s => s.label));
           }
 
           // Filter suggestions based on current word
@@ -953,8 +650,6 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
             }
           }));
 
-          console.log('🧠 Returning', monacoSuggestions.length, 'suggestions');
-          console.log('🔍 Suggestions:', monacoSuggestions.map(s => s.label));
           return { suggestions: monacoSuggestions };
         }
       });

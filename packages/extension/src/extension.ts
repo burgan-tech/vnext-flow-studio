@@ -13,9 +13,11 @@ import {
 } from './flowFileUtils';
 import { loadAllCatalogs, REFERENCE_PATTERNS } from './referenceCatalog';
 
-// Get template based on task type
+// Get template based on task type - using default template for extension
 function getTemplateForTaskType(taskType?: string): string {
-  const baseTemplate = `using System;
+  // For now, use the default template in the extension
+  // In the future, this could be enhanced to load templates from the webview package
+  return `using System;
 using System.Threading.Tasks;
 using BBT.Workflow.Scripting;
 using BBT.Workflow.Definitions;
@@ -68,235 +70,6 @@ public class MappingHandler : ScriptBase, IMapping
         return Task.FromResult(response);
     }
 }`;
-
-  switch (taskType) {
-    case '6': // HttpTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class HttpTaskMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var httpTask = (task as HttpTask)!;
-        var response = new ScriptResponse();
-
-        // Access instance data
-        var customerId = context.Instance.Data?.customerId;
-        var userId = context.Instance.Data?.userId;
-
-        // Prepare request data
-        response.Data = new
-        {
-            customerId = customerId,
-            userId = userId,
-            timestamp = DateTime.UtcNow
-        };
-
-        // Set authorization header
-        response.Headers = new Dictionary<string, string>
-        {
-            ["Authorization"] = "Bearer " + GetSecret("dapr_store", "api_store", "auth_token"),
-            ["Content-Type"] = "application/json"
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Transform response data
-        response.Data = new
-        {
-            success = context.Body?.success ?? false,
-            message = context.Body?.message ?? "No message",
-            timestamp = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    case '3': // DaprServiceTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class DaprServiceMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var daprTask = (task as DaprServiceTask)!;
-        var response = new ScriptResponse();
-
-        // Access instance data
-        var instanceData = context.Instance.Data;
-        var workflowId = context.Instance.Id;
-
-        // Prepare service call data
-        response.Data = new
-        {
-            workflowInstanceId = workflowId,
-            flow = context.Instance.Flow,
-            currentState = context.Instance.CurrentState,
-            data = instanceData
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Process service response
-        response.Data = new
-        {
-            processed = true,
-            result = context.Body?.result,
-            timestamp = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    case '5': // HumanTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class HumanTaskMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var humanTask = (task as HumanTask)!;
-        var response = new ScriptResponse();
-
-        // Prepare human task data
-        response.Data = new
-        {
-            taskId = Guid.NewGuid(),
-            instanceId = context.Instance.Id,
-            title = humanTask.Title,
-            instructions = humanTask.Instructions,
-            assignedTo = humanTask.AssignedTo,
-            dueDate = humanTask.DueDate,
-            form = humanTask.Form,
-            instanceData = context.Instance.Data
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Process human task result
-        response.Data = new
-        {
-            approved = context.Body?.approved ?? false,
-            comments = context.Body?.comments ?? "",
-            completedBy = context.Body?.completedBy ?? "",
-            completedAt = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    case '7': // ScriptTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class ScriptTaskMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var scriptTask = (task as ScriptTask)!;
-        var response = new ScriptResponse();
-
-        // Prepare script execution data
-        response.Data = new
-        {
-            instanceId = context.Instance.Id,
-            scriptCode = scriptTask.Script.Code,
-            language = scriptTask.Script.Language,
-            inputData = context.Instance.Data
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Process script execution result
-        response.Data = new
-        {
-            executed = true,
-            result = context.Body,
-            executionTime = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    case '2': // DaprBindingTask
-      return `using System;
-using System.Threading.Tasks;
-using BBT.Workflow.Scripting;
-using BBT.Workflow.Definitions;
-
-public class DaprBindingMapping : ScriptBase, IMapping
-{
-    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
-    {
-        var bindingTask = (task as DaprBindingTask)!;
-        var response = new ScriptResponse();
-
-        // Prepare binding data
-        response.Data = new
-        {
-            bindingName = bindingTask.BindingName,
-            operation = bindingTask.Operation,
-            metadata = bindingTask.Metadata,
-            instanceData = context.Instance.Data
-        };
-
-        return Task.FromResult(response);
-    }
-
-    public Task<ScriptResponse> OutputHandler(ScriptContext context)
-    {
-        var response = new ScriptResponse();
-
-        // Process binding result
-        response.Data = new
-        {
-            success = true,
-            result = context.Body,
-            processedAt = DateTime.UtcNow
-        };
-
-        return Task.FromResult(response);
-    }
-}`;
-
-    default:
-      return baseTemplate;
-  }
 }
 
 async function readJson<T>(uri: vscode.Uri): Promise<T> {
@@ -311,11 +84,9 @@ async function writeJson(uri: vscode.Uri, data: any): Promise<void> {
 
 async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionContext, diagnosticsProvider: FlowDiagnosticsProvider, activePanels: Map<string, vscode.WebviewPanel>) {
   try {
-    console.log('Opening flow editor for:', flowUri.toString());
-    console.log('Is flow definition URI:', isFlowDefinitionUri(flowUri));
 
     if (!isFlowDefinitionUri(flowUri)) {
-      const errorMsg = `Amorphie Flow Studio can only open *.flow.json files or JSON files within a workflows directory. File: ${flowUri.path}`;
+      const errorMsg = `Amorphie Flow Studio can only open *.flow.json, *-subflow.json, *-workflow.json files or JSON files within workflows/Workflows directories. File: ${flowUri.path}`;
       console.error(errorMsg);
       vscode.window.showErrorMessage(errorMsg);
       return;
@@ -354,16 +125,13 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
 
     try {
       const indexHtmlUri = vscode.Uri.joinPath(webviewDistPath, 'index.html');
-      console.log('Loading webview from:', indexHtmlUri.toString());
       const indexHtmlContent = await vscode.workspace.fs.readFile(indexHtmlUri);
       let html = new TextDecoder().decode(indexHtmlContent);
 
       // Fix asset paths for webview
       const webviewUri = panel.webview.asWebviewUri(webviewDistPath);
-      console.log('Webview URI:', webviewUri.toString());
       html = html.replace(/(src|href)="\//g, (_, attr) => `${attr}="${webviewUri}/`);
 
-      console.log('Setting webview HTML:', html.substring(0, 200) + '...');
       panel.webview.html = html;
     } catch (error) {
       console.error('Failed to load webview content:', error);
@@ -1169,7 +937,6 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             try {
               await vscode.workspace.fs.stat(fileUri);
               // File exists, don't overwrite it
-              console.log(`Mapping file already exists: ${location}`);
               break;
             } catch (error) {
               // File doesn't exist, create it
@@ -1206,7 +973,6 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
 
             try {
               await vscode.workspace.fs.writeFile(fileUri, Buffer.from(csharpCode, 'utf8'));
-              console.log(`Created mapping file: ${location}`);
 
             } catch (error) {
               console.error(`Failed to create mapping file: ${error}`);
@@ -1571,7 +1337,6 @@ class FlowEditorProvider implements vscode.CustomTextEditorProvider {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('🚀 Amorphie Flow Studio ACTIVATING...');
   vscode.window.showInformationMessage('Amorphie Flow Studio extension activated!');
 
   // Initialize diagnostics
@@ -1673,7 +1438,6 @@ export function activate(context: vscode.ExtensionContext) {
   const openCommand = vscode.commands.registerCommand(
     'flowEditor.open',
     async (uri?: vscode.Uri) => {
-      console.log('🎯 flowEditor.open command triggered with URI:', uri?.toString());
       vscode.window.showInformationMessage(`Opening workflow file: ${uri?.path || 'file picker'}`);
 
       const flowUri = uri ?? (
@@ -1684,21 +1448,18 @@ export function activate(context: vscode.ExtensionContext) {
       )?.[0];
 
       if (!flowUri) {
-        console.log('❌ No file URI provided');
         return;
       }
 
-      console.log('🔍 Checking if file is recognized:', flowUri.toString());
       if (!isFlowDefinitionUri(flowUri)) {
         const errorMsg = `File not recognized as workflow: ${flowUri.path}`;
         console.error('❌', errorMsg);
         vscode.window.showErrorMessage(
-          'Select a *.flow.json file or a JSON workflow stored under a workflows directory.'
+          'Select a *.flow.json, *-subflow.json, *-workflow.json file or a JSON workflow stored under a workflows/Workflows directory.'
         );
         return;
       }
 
-      console.log('✅ File recognized, opening editor...');
       await openFlowEditor(flowUri, context, diagnosticsProvider, activePanels);
     }
   );
@@ -1711,5 +1472,4 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-  console.log('Amorphie Flow Studio deactivated');
 }

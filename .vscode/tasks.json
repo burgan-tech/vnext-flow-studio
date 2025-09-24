@@ -38,7 +38,7 @@
       "label": "Install Extension",
       "type": "shell",
       "command": "code",
-      "args": ["--install-extension", "packages/extension/amorphie-flow-studio-0.3.0.vsix", "--force"],
+      "args": ["--install-extension", "packages/extension/amorphie-flow-studio-*.vsix", "--force"],
       "group": "build",
       "dependsOn": "Package Extension",
       "presentation": {

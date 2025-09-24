@@ -13,6 +13,7 @@ import {
   type SharedTransition,
 } from '@nextcredit/core';
 import { useBridge } from '../hooks/useBridge';
+import { decodeBase64, encodeBase64 } from '../utils/base64Utils';
 import {
   CollapsibleSection,
   LabelListEditor,
@@ -274,18 +275,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       // Initialize rule text - decode Base64 if needed
       if (clone.rule) {
         const code = clone.rule.code || '';
-        try {
-          // Check if it looks like Base64 and decode it
-          const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(code) && code.length % 4 === 0 && code.length > 10;
-          if (isBase64) {
-            const decoded = atob(code);
-            setRuleText(decoded);
-          } else {
-            setRuleText(code);
-          }
-        } catch (error) {
-          setRuleText(code);
-        }
+        setRuleText(decodeBase64(code));
       } else {
         setRuleText('');
       }
@@ -307,18 +297,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       // Initialize rule text - decode Base64 if needed
       if (clone.rule) {
         const code = clone.rule.code || '';
-        try {
-          // Check if it looks like Base64 and decode it
-          const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(code) && code.length % 4 === 0 && code.length > 10;
-          if (isBase64) {
-            const decoded = atob(code);
-            setSharedRuleText(decoded);
-          } else {
-            setSharedRuleText(code);
-          }
-        } catch (error) {
-          setSharedRuleText(code);
-        }
+        setSharedRuleText(decodeBase64(code));
       } else {
         setSharedRuleText('');
       }
@@ -483,16 +462,8 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
     }
 
     // Encode rule text to Base64 before saving
-    console.log('🔍 Checking rule encoding...', { hasRule: !!sanitized.rule, hasRuleText: !!ruleText });
     if (sanitized.rule && ruleText) {
-      try {
-        console.log('🔍 Encoding rule to Base64...');
-        sanitized.rule.code = btoa(ruleText);
-        console.log('✅ Rule encoded to Base64');
-      } catch (error) {
-        console.error('Failed to encode rule to Base64:', error);
-        sanitized.rule.code = ruleText; // fallback to plain text
-      }
+      sanitized.rule.code = encodeBase64(ruleText);
     }
 
     // Encode execution task mapping codes to Base64 before saving
