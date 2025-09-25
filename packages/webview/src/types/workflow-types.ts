@@ -111,7 +111,7 @@ export interface StartTransition extends TransitionBase {
 }
 
 // Regular transition
-export interface Transition extends TransitionBase {}
+export type Transition = TransitionBase;
 
 // State structure
 export interface State {

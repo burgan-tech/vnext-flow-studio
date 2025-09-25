@@ -54,7 +54,7 @@ function updateWorkflowAndTitle(panel: vscode.WebviewPanel, workflow: Workflow, 
 }
 
 // Get template based on task type - using default template for extension
-function getTemplateForTaskType(taskType?: string): string {
+function getTemplateForTaskType(_taskType?: string): string {
   // For now, use the default template in the extension
   // In the future, this could be enhanced to load templates from the webview package
   return `using System;
@@ -964,7 +964,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             break;
 
           case 'mapping:createFile': {
-            const { stateKey, list, from, transitionKey, sharedTransitionKey, index, location, code } = message;
+            const { location, code } = message;
 
             if (!location) {
               break; // Silently skip if no location specified
@@ -981,7 +981,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               await vscode.workspace.fs.stat(fileUri);
               // File exists, don't overwrite it
               break;
-            } catch (error) {
+            } catch {
               // File doesn't exist, create it
             }
 
@@ -989,7 +989,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             const dirUri = vscode.Uri.file(path.dirname(absolutePath));
             try {
               await vscode.workspace.fs.createDirectory(dirUri);
-            } catch (error) {
+            } catch {
               // Directory might already exist, ignore
             }
 
@@ -1004,7 +1004,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
                 } else {
                   csharpCode = code;
                 }
-              } catch (error) {
+              } catch {
                 csharpCode = code; // Fallback to raw code
               }
             }

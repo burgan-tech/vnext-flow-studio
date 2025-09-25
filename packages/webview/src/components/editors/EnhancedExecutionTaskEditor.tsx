@@ -4,8 +4,7 @@ import type {
   ExecutionTask,
   TaskDefinition,
   State,
-  Workflow,
-  TaskTypeInfo
+  Workflow
 } from '../../types/workflow-types';
 
 interface EnhancedExecutionTaskEditorProps {

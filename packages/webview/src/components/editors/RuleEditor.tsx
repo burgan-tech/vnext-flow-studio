@@ -405,14 +405,14 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
              const template = getTemplateForTaskType(taskType);
              setDisplayText(template);
            }
-  }, [inlineText]);
+  }, [inlineText, taskType]);
 
-  const handleCodeChange = (value: string) => {
+  const handleCodeChange = useCallback((value: string) => {
     // Store the raw C# code - don't encode to Base64 on every change
     // Base64 encoding will happen when the form is saved
     setDisplayText(value);
     onInlineChange(value);
-  };
+  }, [onInlineChange]);
 
   // Initialize Monaco Editor
   const initializeMonaco = useCallback(async () => {
@@ -586,8 +586,6 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({
                 }
               } else if (parts.length >= 3) {
                 // For deeper chains like context.Instance.Id, check if the last property is a terminal value
-                const baseObject = parts[0].toLowerCase();
-                const firstProperty = parts[1].toLowerCase();
                 const lastProperty = parts[parts.length - 1].toLowerCase();
 
 

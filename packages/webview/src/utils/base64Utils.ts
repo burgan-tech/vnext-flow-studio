@@ -19,7 +19,7 @@ export function decodeBase64(code: string): string {
     } else {
       return code;
     }
-  } catch (error) {
+  } catch {
     return code;
   }
 }

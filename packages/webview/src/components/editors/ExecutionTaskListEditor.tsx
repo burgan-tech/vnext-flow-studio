@@ -36,7 +36,7 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
           } else {
             return code;
           }
-        } catch (error) {
+        } catch {
           return code;
         }
       }

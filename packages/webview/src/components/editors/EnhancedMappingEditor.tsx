@@ -7,8 +7,7 @@ import type {
   MappingConfiguration,
   WorkflowContext,
   IntelliSenseItem,
-  TaskTypeInfo,
-  TriggerTypeInfo
+  TaskTypeInfo
 } from '../../types/workflow-types';
 import { getAllBBTWorkflowIntelliSense } from '../../types/bbt-workflow-intellisense';
 
@@ -277,10 +276,6 @@ export const EnhancedMappingEditor: React.FC<EnhancedMappingEditorProps> = ({
   readOnly = false,
   showTemplateSelector = true,
   allowFullScreen = false,
-  workspaceRoot = '',
-  enableLSP = false,
-  mappingType = 'mapping',
-  includeReferences = [],
   currentState,
   workflow,
   availableTasks = [],
@@ -302,7 +297,7 @@ export const EnhancedMappingEditor: React.FC<EnhancedMappingEditorProps> = ({
         const decodedContent = atob(mapping.code);
         setEditorContent(decodedContent);
         onMessage('Loaded mapping from base64 content');
-      } catch (error) {
+      } catch {
         setEditorContent(mapping.code);
         onMessage('Loaded mapping content directly');
       }
@@ -311,7 +306,7 @@ export const EnhancedMappingEditor: React.FC<EnhancedMappingEditorProps> = ({
       setEditorContent(templateContent);
       onMessage('Initialized with default template');
     }
-  }, [mapping.code]);
+  }, [mapping.code, onMessage]);
 
   const getDefaultTemplate = () => {
     return `// C# Mapping Script
@@ -376,7 +371,7 @@ return new {
             '>>', '>>>', '+=', '-=', '*=', '/=', '&=', '|=',
             '^=', '%=', '<<=', '>>=', '>>>='
           ],
-          symbols: /[=><!~?:&|+\-*\/\^%]+/,
+          symbols: /[=><!~?:&|+\-*/^%]+/,
           escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
           tokenizer: {
             root: [
@@ -387,10 +382,10 @@ return new {
                 }
               }],
               { include: '@whitespace' },
-              [/\d*\.\d+([eE][\-+]?\d+)?[fFdD]?/, 'number.float'],
+              [/\d*\.\d+([eE][-+]?\d+)?[fFdD]?/, 'number.float'],
               [/0[xX][0-9a-fA-F]+[Ll]?/, 'number.hex'],
               [/\d+[Ll]?/, 'number'],
-              [/[{}()\[\]]/, '@brackets'],
+              [/[{}()[\]]/, '@brackets'],
               [/[<>](?!@symbols)/, '@brackets'],
               [/@symbols/, {
                 cases: {
@@ -412,10 +407,10 @@ return new {
               [/\/\/.*$/, 'comment']
             ],
             comment: [
-              [/[^\/*]+/, 'comment'],
+              [/[^/*]+/, 'comment'],
               [/\/\*/, 'comment', '@push'],
               [/\*\//, 'comment', '@pop'],
-              [/[\/*]/, 'comment']
+              [/[/*]/, 'comment']
             ],
             string: [
               [/[^\\"]+/, 'string'],
@@ -456,7 +451,7 @@ return new {
             { open: '"', close: '"' },
             { open: "'", close: "'" }
           ],
-          wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g,
+          wordPattern: /(-?\d*\.\d\w*)|([^`~!@#%^&*()\-=+[\]{}\\|;:'",.<>/?\\s]+)/g,
           indentationRules: {
             increaseIndentPattern: /^.*\{[^}"']*$/,
             decreaseIndentPattern: /^(.*\*\/)?\s*\}.*$/
@@ -597,7 +592,7 @@ return new {
         editorRef.current = null;
       }
     };
-  }, [editorContainerRef.current, readOnly]);
+  }, [readOnly]);
 
   // Update editor content when editorContent changes
   useEffect(() => {
@@ -640,7 +635,7 @@ return new {
   const getSchemaBasedSuggestions = (
     context: WorkflowContext,
     currentWord: string,
-    position: monaco.Position
+    _position: monaco.Position
   ): IntelliSenseItem[] => {
     const suggestions: IntelliSenseItem[] = [];
 
