@@ -4,7 +4,6 @@ import {
   type State,
   type Transition,
   type VersionStrategy,
-  type TriggerType,
   type StateType,
   type StateSubType,
   type Label,
@@ -14,12 +13,15 @@ import {
   type SharedTransition,
 } from '@nextcredit/core';
 import { useBridge } from '../hooks/useBridge';
+import { decodeBase64, encodeBase64 } from '../utils/base64Utils';
 import {
+  CollapsibleSection,
   LabelListEditor,
-  RuleEditor,
   SchemaEditor,
   ExecutionTaskListEditor,
   ViewEditor,
+  EnhancedTriggerEditor,
+  EnhancedRuleEditor,
   isSchemaRef,
   isTaskRef,
   type SchemaMode
@@ -40,12 +42,6 @@ interface PropertyPanelProps {
 }
 
 const versionStrategies: VersionStrategy[] = ['Major', 'Minor'];
-const triggerOptions: { value: TriggerType; label: string }[] = [
-  { value: 0, label: 'Manual' },
-  { value: 1, label: 'Automatic' },
-  { value: 2, label: 'Timeout' },
-  { value: 3, label: 'Event' }
-];
 
 const stateTypeOptions: { value: StateType; label: string }[] = [
   { value: 1, label: 'Initial' },
@@ -276,9 +272,10 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
       // Schema mode will be derived from the schema value in the editor
 
-      // Initialize rule text
+      // Initialize rule text - decode Base64 if needed
       if (clone.rule) {
-        setRuleText(clone.rule.code || '');
+        const code = clone.rule.code || '';
+        setRuleText(decodeBase64(code));
       } else {
         setRuleText('');
       }
@@ -297,9 +294,10 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
       // Schema mode will be derived from the schema value in the editor
 
-      // Initialize rule text
+      // Initialize rule text - decode Base64 if needed
       if (clone.rule) {
-        setSharedRuleText(clone.rule.code || '');
+        const code = clone.rule.code || '';
+        setSharedRuleText(decodeBase64(code));
       } else {
         setSharedRuleText('');
       }
@@ -355,10 +353,87 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
   };
 
   const handleStateSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    console.log('🔍 handleStateSubmit called!');
     event.preventDefault();
-    if (!selection || selection.kind !== 'state' || !stateDraft) return;
+    if (!selection || selection.kind !== 'state' || !stateDraft) {
+      console.log('❌ Early return:', { selection, hasStateDraft: !!stateDraft });
+      return;
+    }
+    console.log('✅ Proceeding with state save...');
 
     const sanitized = sanitizeState(stateDraft);
+
+    // Encode execution task mapping codes to Base64 before saving
+    const encodeExecutionTaskMappings = (tasks?: any[]) => {
+      if (!tasks) return tasks;
+      return tasks.map(task => {
+        if (task.mapping && task.mapping.code) {
+          try {
+            const code = task.mapping.code;
+            console.log('🔍 Encoding execution task mapping code:', code?.substring(0, 100) + '...');
+
+            // Encode any non-empty code to Base64 (more permissive)
+            if (code && code.trim().length > 0) {
+              const encodedCode = btoa(code);
+              console.log('✅ Encoded execution task mapping to Base64');
+              return {
+                ...task,
+                mapping: {
+                  ...task.mapping,
+                  code: encodedCode
+                }
+              };
+            }
+          } catch (error) {
+            console.error('Failed to encode execution task mapping to Base64:', error);
+          }
+        }
+        return task;
+      });
+    };
+
+    // Encode mappings in onEntries and onExits
+    if (sanitized.onEntries) {
+      sanitized.onEntries = encodeExecutionTaskMappings(sanitized.onEntries);
+    }
+    if (sanitized.onExits) {
+      sanitized.onExits = encodeExecutionTaskMappings(sanitized.onExits);
+    }
+
+    // Auto-create .csx files for execution tasks if they don't exist
+    const createMappingFiles = (tasks?: any[]) => {
+      if (!tasks) return;
+      console.log('🔍 Checking', tasks.length, 'execution tasks for file creation');
+      tasks.forEach((task, index) => {
+        console.log('🔍 Task', index, ':', {
+          hasMapping: !!task.mapping,
+          hasLocation: !!task.mapping?.location,
+          hasCode: !!task.mapping?.code,
+          location: task.mapping?.location,
+          codeLength: task.mapping?.code?.length
+        });
+
+        if (task.mapping && task.mapping.location && task.mapping.code) {
+          console.log('📁 Creating file for task', index, 'at', task.mapping.location);
+          postMessage({
+            type: 'mapping:createFile',
+            stateKey: stateDraft.key,
+            list: undefined, // Will be determined by context
+            index,
+            location: task.mapping.location,
+            code: task.mapping.code
+          });
+        }
+      });
+    };
+
+    // Create files for onEntries and onExits
+    if (stateDraft.onEntries) {
+      createMappingFiles(stateDraft.onEntries);
+    }
+    if (stateDraft.onExits) {
+      createMappingFiles(stateDraft.onExits);
+    }
 
     postMessage({
       type: 'domain:updateState',
@@ -368,17 +443,92 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
   };
 
   const handleTransitionSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    console.log('🔍 handleTransitionSubmit called!');
     event.preventDefault();
-    if (!selection || selection.kind !== 'transition' || !transitionDraft) return;
+    if (!selection || selection.kind !== 'transition' || !transitionDraft) {
+      console.log('❌ Early return:', { selection, hasTransitionDraft: !!transitionDraft });
+      return;
+    }
+    console.log('✅ Proceeding with transition save...');
 
-    const sanitized = sanitizeTransition(transitionDraft);
+    console.log('🔍 Sanitizing transition...');
+    const sanitized = sanitizeTransition(transitionDraft) as any;
+    console.log('✅ Transition sanitized');
 
+    // Preserve duration for timeout triggers
+    if (transitionDraft.triggerType === 2 && (transitionDraft as any).duration) {
+      sanitized.duration = (transitionDraft as any).duration;
+      console.log('🔍 Preserving timeout duration:', sanitized.duration);
+    }
+
+    // Encode rule text to Base64 before saving
+    if (sanitized.rule && ruleText) {
+      sanitized.rule.code = encodeBase64(ruleText);
+    }
+
+    // Encode execution task mapping codes to Base64 before saving
+    console.log('🔍 Setting up execution task encoding...');
+    const encodeExecutionTaskMappings = (tasks?: any[]) => {
+      if (!tasks) return tasks;
+      console.log('🔍 Processing', tasks.length, 'execution tasks for encoding');
+      return tasks.map(task => {
+        if (task.mapping && task.mapping.code) {
+          try {
+            const code = task.mapping.code;
+            console.log('🔍 Encoding transition execution task mapping code:', code?.substring(0, 100) + '...');
+
+            // Encode any non-empty code to Base64 (more permissive)
+            if (code && code.trim().length > 0) {
+              const encodedCode = btoa(code);
+              console.log('✅ Encoded transition execution task mapping to Base64');
+              return {
+                ...task,
+                mapping: {
+                  ...task.mapping,
+                  code: encodedCode
+                }
+              };
+            }
+          } catch (error) {
+            console.error('Failed to encode transition execution task mapping to Base64:', error);
+          }
+        }
+        return task;
+      });
+    };
+
+    // Encode mappings in onExecutionTasks
+    console.log('🔍 Checking onExecutionTasks...', { hasOnExecutionTasks: !!sanitized.onExecutionTasks });
+    if (sanitized.onExecutionTasks) {
+      console.log('🔍 Encoding onExecutionTasks...');
+      sanitized.onExecutionTasks = encodeExecutionTaskMappings(sanitized.onExecutionTasks);
+      console.log('✅ onExecutionTasks encoded');
+    }
+
+    // Auto-create .csx files for transition execution tasks if they don't exist
+    if (transitionDraft.onExecutionTasks) {
+      transitionDraft.onExecutionTasks.forEach((task, index) => {
+        if (task.mapping && task.mapping.location && task.mapping.code) {
+          postMessage({
+            type: 'mapping:createFile',
+            from: selection.from,
+            transitionKey: selection.transitionKey,
+            index,
+            location: task.mapping.location,
+            code: task.mapping.code
+          });
+        }
+      });
+    }
+
+    console.log('🔍 Sending postMessage to update transition...');
     postMessage({
       type: 'domain:updateTransition',
       from: selection.from,
       transitionKey: selection.transitionKey,
       transition: sanitized
     });
+    console.log('✅ postMessage sent successfully');
   };
 
   const handleSharedTransitionSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -387,7 +537,23 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
     // The sanitizeTransition function works for both regular and shared transitions
     const { availableIn, ...transitionFields } = sharedTransitionDraft;
-    const sanitized = sanitizeTransition(transitionFields as Transition);
+    const sanitized = sanitizeTransition(transitionFields as Transition) as any;
+
+    // Preserve duration for timeout triggers
+    if (sharedTransitionDraft.triggerType === 2 && (sharedTransitionDraft as any).duration) {
+      sanitized.duration = (sharedTransitionDraft as any).duration;
+      console.log('🔍 Preserving shared transition timeout duration:', sanitized.duration);
+    }
+
+    // Encode shared rule text to Base64 before saving
+    if (sanitized.rule && sharedRuleText) {
+      try {
+        sanitized.rule.code = btoa(sharedRuleText);
+      } catch (error) {
+        console.error('Failed to encode shared rule to Base64:', error);
+        sanitized.rule.code = sharedRuleText; // fallback to plain text
+      }
+    }
 
     // Combine sanitized fields with availableIn
     const updatedSharedTransition: SharedTransition = {
@@ -443,93 +609,114 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
         {selection?.kind === 'state' && stateDraft ? (
           <form className="property-panel__section" onSubmit={handleStateSubmit}>
             <h3 className="property-panel__section-title">{stateDraft.key}</h3>
-            <label className="property-panel__field">
-              <span>Key</span>
-              <input
-                type="text"
-                value={stateDraft.key}
-                onChange={(event) =>
-                  setStateDraft((prev) =>
-                    prev ? { ...prev, key: event.target.value } : prev
-                  )
+
+            <CollapsibleSection title="Basic Properties" defaultExpanded={true}>
+              <label className="property-panel__field">
+                <span>Key</span>
+                <input
+                  type="text"
+                  value={stateDraft.key}
+                  onChange={(event) =>
+                    setStateDraft((prev) =>
+                      prev ? { ...prev, key: event.target.value } : prev
+                    )
+                  }
+                />
+              </label>
+
+              <label className="property-panel__field">
+                <span>Version strategy</span>
+                <select
+                  value={stateDraft.versionStrategy}
+                  onChange={(event) =>
+                    setStateDraft((prev) =>
+                      prev
+                        ? { ...prev, versionStrategy: event.target.value as VersionStrategy }
+                        : prev
+                    )
+                  }
+                >
+                  {versionStrategies.map((strategy) => (
+                    <option key={strategy} value={strategy}>
+                      {strategy}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="property-panel__field">
+                <span>State type</span>
+                <select
+                  value={stateDraft.stateType}
+                  onChange={(event) =>
+                    setStateDraft((prev) =>
+                      prev ? { ...prev, stateType: Number(event.target.value) as StateType } : prev
+                    )
+                  }
+                >
+                  {stateTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="property-panel__field">
+                <span>State subtype</span>
+                <select
+                  value={stateDraft.stateSubType ?? ''}
+                  onChange={(event) =>
+                    setStateDraft((prev) => {
+                      if (!prev) return prev;
+                      const value = event.target.value;
+                      if (value === '') {
+                        const updated = { ...prev } as State & Record<string, unknown>;
+                        delete updated.stateSubType;
+                        return updated as State;
+                      }
+                      return { ...prev, stateSubType: Number(value) as StateSubType };
+                    })
+                  }
+                >
+                  <option value="">None</option>
+                  {stateSubTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Labels"
+              defaultExpanded={false}
+              headerActions={
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newLabels = [...stateLabels, { label: '', language: 'en' }];
+                    setStateDraft((prev) => (prev ? { ...prev, labels: newLabels } : prev));
+                  }}
+                  className="property-panel__add-button"
+                >
+                  +
+                </button>
+              }
+            >
+              <LabelListEditor
+                title=""
+                labels={stateLabels}
+                onChange={(labels) =>
+                  setStateDraft((prev) => (prev ? { ...prev, labels } : prev))
                 }
               />
-            </label>
+            </CollapsibleSection>
 
-            <label className="property-panel__field">
-              <span>Version strategy</span>
-              <select
-                value={stateDraft.versionStrategy}
-                onChange={(event) =>
-                  setStateDraft((prev) =>
-                    prev
-                      ? { ...prev, versionStrategy: event.target.value as VersionStrategy }
-                      : prev
-                  )
-                }
-              >
-                {versionStrategies.map((strategy) => (
-                  <option key={strategy} value={strategy}>
-                    {strategy}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="property-panel__field">
-              <span>State type</span>
-              <select
-                value={stateDraft.stateType}
-                onChange={(event) =>
-                  setStateDraft((prev) =>
-                    prev ? { ...prev, stateType: Number(event.target.value) as StateType } : prev
-                  )
-                }
-              >
-                {stateTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="property-panel__field">
-              <span>State subtype</span>
-              <select
-                value={stateDraft.stateSubType ?? ''}
-                onChange={(event) =>
-                  setStateDraft((prev) => {
-                    if (!prev) return prev;
-                    const value = event.target.value;
-                    if (value === '') {
-                      const updated = { ...prev } as State & Record<string, unknown>;
-                      delete updated.stateSubType;
-                      return updated as State;
-                    }
-                    return { ...prev, stateSubType: Number(value) as StateSubType };
-                  })
-                }
-              >
-                <option value="">None</option>
-                {stateSubTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <LabelListEditor
-              title="Labels"
-              labels={stateLabels}
-              onChange={(labels) =>
-                setStateDraft((prev) => (prev ? { ...prev, labels } : prev))
-              }
-            />
-
+            <CollapsibleSection title="View Reference" defaultExpanded={false}>
             <ViewEditor
-              title="View Reference"
+              title=""
               view={stateDraft.view}
               availableViews={catalogs.view}
               onModeChange={(mode) => {
@@ -565,9 +752,36 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 setStateDraft(prev => prev ? { ...prev, view: { ref } } : prev);
               }}
             />
+            </CollapsibleSection>
 
+            <CollapsibleSection
+              title="On Entry Tasks"
+              defaultExpanded={false}
+              headerActions={
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newTask = {
+                      order: (stateDraft.onEntries?.length || 0) + 1,
+                      task: { ref: '' },
+                      mapping: { location: './src/mappings/new.csx', code: '' }
+                    };
+                    const newTasks = [...(stateDraft.onEntries || []), newTask];
+                    setStateDraft((prev) => {
+                      if (!prev) return prev;
+                      const next = { ...prev } as State & Record<string, unknown>;
+                      next.onEntries = newTasks;
+                      return next as State;
+                    });
+                  }}
+                  className="property-panel__add-button"
+                >
+                  +
+                </button>
+              }
+            >
             <ExecutionTaskListEditor
-              title="On entry task references"
+              title=""
               tasks={stateDraft.onEntries}
               availableTasks={availableTasks}
               onLoadFromFile={(taskIndex) => {
@@ -591,9 +805,36 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 })
               }
             />
+            </CollapsibleSection>
 
+            <CollapsibleSection
+              title="On Exit Tasks"
+              defaultExpanded={false}
+              headerActions={
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newTask = {
+                      order: (stateDraft.onExits?.length || 0) + 1,
+                      task: { ref: '' },
+                      mapping: { location: './src/mappings/new.csx', code: '' }
+                    };
+                    const newTasks = [...(stateDraft.onExits || []), newTask];
+                    setStateDraft((prev) => {
+                      if (!prev) return prev;
+                      const next = { ...prev } as State & Record<string, unknown>;
+                      next.onExits = newTasks;
+                      return next as State;
+                    });
+                  }}
+                  className="property-panel__add-button"
+                >
+                  +
+                </button>
+              }
+            >
             <ExecutionTaskListEditor
-              title="On exit task references"
+              title=""
               tasks={stateDraft.onExits}
               availableTasks={availableTasks}
               onLoadFromFile={(taskIndex) => {
@@ -617,12 +858,17 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 })
               }
             />
+            </CollapsibleSection>
 
             {/* onExecutionTasks moved to transition level in new schema */}
 
             {/* views replaced with single view reference in new schema */}
 
-            <button type="submit" className="property-panel__save">
+            <button
+              type="submit"
+              className="property-panel__save"
+              onClick={() => console.log('🔍 Save state button clicked!')}
+            >
               Save state
             </button>
           </form>
@@ -632,227 +878,206 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
           <form className="property-panel__section" onSubmit={handleTransitionSubmit}>
             <h3 className="property-panel__section-title">{transitionDraft.key}</h3>
 
-            <label className="property-panel__field">
-              <span>Key</span>
-              <input
-                type="text"
-                value={transitionDraft.key}
-                onChange={(event) =>
-                  setTransitionDraft((prev) =>
-                    prev ? { ...prev, key: event.target.value } : prev
-                  )
-                }
-              />
-            </label>
-
-            <label className="property-panel__field">
-              <span>Target</span>
-              <input
-                type="text"
-                value={transitionDraft.target}
-                onChange={(event) =>
-                  setTransitionDraft((prev) =>
-                    prev ? { ...prev, target: event.target.value } : prev
-                  )
-                }
-              />
-            </label>
-
-            <label className="property-panel__field">
-              <span>Trigger type</span>
-              <select
-                value={transitionDraft.triggerType}
-                onChange={(event) =>
-                  setTransitionDraft((prev) =>
-                    prev
-                      ? { ...prev, triggerType: Number(event.target.value) as TriggerType }
-                      : prev
-                  )
-                }
-              >
-                {triggerOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="property-panel__field">
-              <span>Version strategy</span>
-              <select
-                value={transitionDraft.versionStrategy}
-                onChange={(event) =>
-                  setTransitionDraft((prev) =>
-                    prev
-                      ? { ...prev, versionStrategy: event.target.value as VersionStrategy }
-                      : prev
-                  )
-                }
-              >
-                {versionStrategies.map((strategy) => (
-                  <option key={strategy} value={strategy}>
-                    {strategy}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* Trigger type specific configurations */}
-            {transitionDraft.triggerType === 0 && (
-              <div className="property-panel__info">
-                <span className="property-panel__info-icon">ℹ️</span>
-                <span>Manual transitions are triggered by user actions or API calls.</span>
-              </div>
-            )}
-
-            {transitionDraft.triggerType === 1 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Automatic Trigger Configuration</span>
-                </div>
-                <div className="property-panel__info">
-                  <span className="property-panel__info-icon">⚡</span>
-                  <span>This transition will trigger immediately when the state is entered.</span>
-                </div>
-                <p className="property-panel__muted">
-                  Use the Rule field below to add conditions for this automatic transition.
-                </p>
-              </div>
-            )}
-
-            {/* Timeout configuration - shown only when triggerType is 2 (Timeout) */}
-            {transitionDraft.triggerType === 2 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Timeout Configuration</span>
-                </div>
-                <label className="property-panel__field">
-                  <span>Duration (ISO 8601)</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., PT30M, PT1H, PT45S"
-                    value={(transitionDraft as any).timeoutDuration || ''}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) =>
-                        prev ? { ...prev, timeoutDuration: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    Format: PT[hours]H[minutes]M[seconds]S
-                  </small>
-                </label>
-                <label className="property-panel__field">
-                  <span>Reset Strategy</span>
-                  <select
-                    value={(transitionDraft as any).timeoutReset || 'N'}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) =>
-                        prev ? { ...prev, timeoutReset: event.target.value } as any : prev
-                      )
-                    }
-                  >
-                    <option value="N">Never (N)</option>
-                    <option value="R">Reset (R)</option>
-                  </select>
-                  <small className="property-panel__help">
-                    Never: Timer runs once. Reset: Timer restarts on state re-entry.
-                  </small>
-                </label>
-              </div>
-            )}
-
-            {transitionDraft.triggerType === 3 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Event Trigger Configuration</span>
-                </div>
-                <label className="property-panel__field">
-                  <span>Event Type</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., payment.completed, order.shipped"
-                    value={(transitionDraft as any).eventType || ''}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) =>
-                        prev ? { ...prev, eventType: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    The event type that will trigger this transition
-                  </small>
-                </label>
-                <label className="property-panel__field">
-                  <span>Event Source (Optional)</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., payment-service, order-system"
-                    value={(transitionDraft as any).eventSource || ''}
-                    onChange={(event) =>
-                      setTransitionDraft((prev) =>
-                        prev ? { ...prev, eventSource: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    Filter events by source system or service
-                  </small>
-                </label>
-                <p className="property-panel__muted">
-                  Use the Schema field below to define the expected event payload structure.
-                </p>
-              </div>
-            )}
-
-            <LabelListEditor
-              title="Labels"
-              labels={transitionLabels}
-              onChange={(labels) =>
-                setTransitionDraft((prev) => (prev ? { ...prev, labels } : prev))
-              }
-            />
-
-            <RuleEditor
-              title="Rule"
-              rule={transitionDraft.rule}
-              inlineText={ruleText}
-              onLoadFromFile={() => {
-                if (selection?.kind === 'transition') {
-                  postMessage({
-                    type: 'rule:loadFromFile',
-                    from: selection.from,
-                    transitionKey: selection.transitionKey
-                  });
-                }
-              }}
-              onChange={(rule) => {
-                setTransitionDraft((prev) => {
-                  if (!prev) return prev;
-                  const next = { ...prev } as Transition & Record<string, unknown>;
-                  if (rule) {
-                    next.rule = rule;
-                  } else {
-                    delete next.rule;
+            <CollapsibleSection title="Basic Properties" defaultExpanded={true}>
+              <label className="property-panel__field">
+                <span>Key</span>
+                <input
+                  type="text"
+                  value={transitionDraft.key}
+                  onChange={(event) =>
+                    setTransitionDraft((prev) =>
+                      prev ? { ...prev, key: event.target.value } : prev
+                    )
                   }
-                  return next as Transition;
-                });
-              }}
-              onInlineChange={setRuleText}
-            />
+                />
+              </label>
 
+              <label className="property-panel__field">
+                <span>Target State</span>
+                <input
+                  type="text"
+                  value={transitionDraft.target}
+                  readOnly={true}
+                  disabled={true}
+                  onChange={() => {}}
+                  title="Target state is defined in the flow editor"
+                  style={{
+                    opacity: 0.6,
+                    cursor: 'not-allowed',
+                    backgroundColor: '#f5f5f5',
+                    pointerEvents: 'none'
+                  }}
+                />
+                <small className="property-panel__help">
+                  Target state is defined by the connection in the flow editor
+                </small>
+              </label>
+
+              <label className="property-panel__field">
+                <span>Version strategy</span>
+                <select
+                  value={transitionDraft.versionStrategy}
+                  onChange={(event) =>
+                    setTransitionDraft((prev) =>
+                      prev
+                        ? { ...prev, versionStrategy: event.target.value as VersionStrategy }
+                        : prev
+                    )
+                  }
+                >
+                  {versionStrategies.map((strategy) => (
+                    <option key={strategy} value={strategy}>
+                      {strategy}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </CollapsibleSection>
+
+            {/* Enhanced Trigger Editor for Trigger Type */}
+            <CollapsibleSection title="Transition Trigger" defaultExpanded={true}>
+              <EnhancedTriggerEditor
+                title=""
+                triggerType={transitionDraft.triggerType}
+                onTriggerTypeChange={(triggerType) =>
+                  setTransitionDraft((prev) =>
+                    prev ? { ...prev, triggerType } : prev
+                  )
+                }
+                duration={
+                  transitionDraft.triggerType === 2 && (transitionDraft as any).duration
+                    ? (transitionDraft as any).duration
+                    : 'PT1H'
+                }
+                onDurationChange={(duration) => {
+                  if (transitionDraft.triggerType === 2) {
+                    setTransitionDraft((prev) =>
+                      prev ? { ...prev, duration } as any : prev
+                    );
+                  }
+                }}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Labels"
+              defaultExpanded={false}
+              headerActions={
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newLabels = [...transitionLabels, { label: '', language: 'en' }];
+                    setTransitionDraft((prev) => (prev ? { ...prev, labels: newLabels } : prev));
+                  }}
+                  className="property-panel__add-button"
+                >
+                  +
+                </button>
+              }
+            >
+              <LabelListEditor
+                title=""
+                labels={transitionLabels}
+                onChange={(labels) =>
+                  setTransitionDraft((prev) => (prev ? { ...prev, labels } : prev))
+                }
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Rule"
+              defaultExpanded={false}
+              headerActions={
+                !transitionDraft.rule && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTransitionDraft((prev) => {
+                        if (!prev) return prev;
+                        const next = { ...prev } as Transition & Record<string, unknown>;
+                        next.rule = { location: './src/rules/new.csx', code: '' };
+                        return next as Transition;
+                      });
+                    }}
+                    className="property-panel__add-button"
+                  >
+                    +
+                  </button>
+                )
+              }
+            >
+              <EnhancedRuleEditor
+                title=""
+                rule={transitionDraft.rule}
+                inlineText={ruleText}
+                onLoadFromFile={() => {
+                  if (selection?.kind === 'transition') {
+                    postMessage({
+                      type: 'rule:loadFromFile',
+                      from: selection.from,
+                      transitionKey: selection.transitionKey
+                    });
+                  }
+                }}
+                onChange={(rule) => {
+                  setTransitionDraft((prev) => {
+                    if (!prev) return prev;
+                    const next = { ...prev } as Transition & Record<string, unknown>;
+                    if (rule) {
+                      next.rule = rule;
+                    } else {
+                      delete next.rule;
+                    }
+                    return next as Transition;
+                  });
+                }}
+                onInlineChange={setRuleText}
+                currentState={selectedTransition?.fromState}
+                workflow={workflow}
+                availableTasks={availableTasks}
+                hideHeader={true}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Schema" defaultExpanded={false}>
             <SchemaEditor
-              title="Schema"
+              title=""
               schema={transitionDraft.schema}
               availableSchemas={catalogs.schema}
               onModeChange={handleSchemaModeChange}
               onReferenceChange={(field, value) => handleSchemaReferenceChange(field as 'key' | 'domain' | 'version', value)}
               onRefChange={handleSchemaRefChange}
             />
+            </CollapsibleSection>
 
+            <CollapsibleSection
+              title="On Execution Tasks"
+              defaultExpanded={false}
+              headerActions={
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newTask = {
+                      order: (transitionDraft.onExecutionTasks?.length || 0) + 1,
+                      task: { ref: '' },
+                      mapping: { location: './src/mappings/new.csx', code: '' }
+                    };
+                    const newTasks = [...(transitionDraft.onExecutionTasks || []), newTask];
+                    setTransitionDraft((prev) => {
+                      if (!prev) return prev;
+                      const next = { ...prev } as Transition & Record<string, unknown>;
+                      next.onExecutionTasks = newTasks;
+                      return next as Transition;
+                    });
+                  }}
+                  className="property-panel__add-button"
+                >
+                  +
+                </button>
+              }
+            >
             <ExecutionTaskListEditor
-              title="On execution task references"
+              title=""
               tasks={transitionDraft.onExecutionTasks}
               availableTasks={availableTasks}
               onLoadFromFile={(taskIndex) => {
@@ -879,11 +1104,13 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 })
               }
             />
+            </CollapsibleSection>
 
             <button
               type="submit"
               className="property-panel__save"
               disabled={transitionHasErrors}
+              onClick={() => console.log('🔍 Save transition button clicked!')}
             >
               Save transition
             </button>
@@ -894,222 +1121,168 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
           <form className="property-panel__section" onSubmit={handleSharedTransitionSubmit}>
             <h3 className="property-panel__section-title">{sharedTransitionDraft.key} (Shared)</h3>
 
-            <label className="property-panel__field">
-              <span>Key</span>
-              <input
-                type="text"
-                value={sharedTransitionDraft.key}
-                onChange={(event) =>
+            <CollapsibleSection title="Basic Properties" defaultExpanded={true}>
+              <label className="property-panel__field">
+                <span>Key</span>
+                <input
+                  type="text"
+                  value={sharedTransitionDraft.key}
+                  onChange={(event) =>
+                    setSharedTransitionDraft((prev) =>
+                      prev ? { ...prev, key: event.target.value } : prev
+                    )
+                  }
+                />
+              </label>
+
+              <label className="property-panel__field">
+                <span>Target State</span>
+                <input
+                  type="text"
+                  value={sharedTransitionDraft.target}
+                  onChange={(event) => {
+                    const newTarget = event.target.value;
+                    setSharedTransitionDraft((prev) => {
+                      if (!prev) return prev;
+                      // Remove new target from availableIn if it exists there
+                      const filteredAvailableIn = prev.availableIn.filter(s => s !== newTarget);
+                      return {
+                        ...prev,
+                        target: newTarget,
+                        availableIn: filteredAvailableIn
+                      };
+                    });
+                  }}
+                />
+                <small className="property-panel__help">
+                  The state that all shared instances will transition to
+                </small>
+              </label>
+
+              <label className="property-panel__field">
+                <span>Version strategy</span>
+                <select
+                  value={sharedTransitionDraft.versionStrategy}
+                  onChange={(event) =>
+                    setSharedTransitionDraft((prev) =>
+                      prev
+                        ? { ...prev, versionStrategy: event.target.value as VersionStrategy }
+                        : prev
+                    )
+                  }
+                >
+                  {versionStrategies.map((strategy) => (
+                    <option key={strategy} value={strategy}>
+                      {strategy}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </CollapsibleSection>
+
+            {/* Enhanced Trigger Editor for Shared Transition Trigger Type */}
+            <CollapsibleSection title="Shared Transition Trigger" defaultExpanded={true}>
+              <EnhancedTriggerEditor
+                title=""
+                triggerType={sharedTransitionDraft.triggerType}
+                onTriggerTypeChange={(triggerType) =>
                   setSharedTransitionDraft((prev) =>
-                    prev ? { ...prev, key: event.target.value } : prev
+                    prev ? { ...prev, triggerType } : prev
                   )
                 }
-              />
-            </label>
-
-            <label className="property-panel__field">
-              <span>Target</span>
-              <input
-                type="text"
-                value={sharedTransitionDraft.target}
-                onChange={(event) => {
-                  const newTarget = event.target.value;
-                  setSharedTransitionDraft((prev) => {
-                    if (!prev) return prev;
-                    // Remove new target from availableIn if it exists there
-                    const filteredAvailableIn = prev.availableIn.filter(s => s !== newTarget);
-                    return {
-                      ...prev,
-                      target: newTarget,
-                      availableIn: filteredAvailableIn
-                    };
-                  });
+                duration={
+                  sharedTransitionDraft.triggerType === 2 && (sharedTransitionDraft as any).duration
+                    ? (sharedTransitionDraft as any).duration
+                    : 'PT1H'
+                }
+                onDurationChange={(duration) => {
+                  if (sharedTransitionDraft.triggerType === 2) {
+                    setSharedTransitionDraft((prev) =>
+                      prev ? { ...prev, duration } as any : prev
+                    );
+                  }
                 }}
               />
-            </label>
+            </CollapsibleSection>
 
-            <label className="property-panel__field">
-              <span>Trigger type</span>
-              <select
-                value={sharedTransitionDraft.triggerType}
-                onChange={(event) =>
-                  setSharedTransitionDraft((prev) =>
-                    prev
-                      ? { ...prev, triggerType: Number(event.target.value) as TriggerType }
-                      : prev
-                  )
-                }
-              >
-                {triggerOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="property-panel__field">
-              <span>Version strategy</span>
-              <select
-                value={sharedTransitionDraft.versionStrategy}
-                onChange={(event) =>
-                  setSharedTransitionDraft((prev) =>
-                    prev
-                      ? { ...prev, versionStrategy: event.target.value as VersionStrategy }
-                      : prev
-                  )
-                }
-              >
-                {versionStrategies.map((strategy) => (
-                  <option key={strategy} value={strategy}>
-                    {strategy}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* Trigger type specific configurations */}
-            {sharedTransitionDraft.triggerType === 0 && (
-              <div className="property-panel__info">
-                <span className="property-panel__info-icon">ℹ️</span>
-                <span>Manual transitions are triggered by user actions or API calls.</span>
-              </div>
-            )}
-
-            {sharedTransitionDraft.triggerType === 1 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Automatic Trigger Configuration</span>
-                </div>
-                <div className="property-panel__info">
-                  <span className="property-panel__info-icon">⚡</span>
-                  <span>This transition will trigger immediately when any of the selected states is entered.</span>
-                </div>
-                <p className="property-panel__muted">
-                  Use the Rule field below to add conditions for this automatic transition.
-                </p>
-              </div>
-            )}
-
-            {/* Timeout configuration - shown only when triggerType is 2 (Timeout) */}
-            {sharedTransitionDraft.triggerType === 2 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Timeout Configuration</span>
-                </div>
-                <label className="property-panel__field">
-                  <span>Duration (ISO 8601)</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., PT30M, PT1H, PT45S"
-                    value={(sharedTransitionDraft as any).timeoutDuration || ''}
-                    onChange={(event) =>
-                      setSharedTransitionDraft((prev) =>
-                        prev ? { ...prev, timeoutDuration: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    Format: PT[hours]H[minutes]M[seconds]S
-                  </small>
-                </label>
-                <label className="property-panel__field">
-                  <span>Reset Strategy</span>
-                  <select
-                    value={(sharedTransitionDraft as any).timeoutReset || 'N'}
-                    onChange={(event) =>
-                      setSharedTransitionDraft((prev) =>
-                        prev ? { ...prev, timeoutReset: event.target.value } as any : prev
-                      )
-                    }
-                  >
-                    <option value="N">Never (N)</option>
-                    <option value="R">Reset (R)</option>
-                  </select>
-                  <small className="property-panel__help">
-                    Never: Timer runs once. Reset: Timer restarts on state re-entry.
-                  </small>
-                </label>
-              </div>
-            )}
-
-            {sharedTransitionDraft.triggerType === 3 && (
-              <div className="property-panel__group">
-                <div className="property-panel__group-header">
-                  <span>Event Trigger Configuration</span>
-                </div>
-                <label className="property-panel__field">
-                  <span>Event Type</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., payment.completed, order.shipped"
-                    value={(sharedTransitionDraft as any).eventType || ''}
-                    onChange={(event) =>
-                      setSharedTransitionDraft((prev) =>
-                        prev ? { ...prev, eventType: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    The event type that will trigger this transition from any available state
-                  </small>
-                </label>
-                <label className="property-panel__field">
-                  <span>Event Source (Optional)</span>
-                  <input
-                    type="text"
-                    placeholder="e.g., payment-service, order-system"
-                    value={(sharedTransitionDraft as any).eventSource || ''}
-                    onChange={(event) =>
-                      setSharedTransitionDraft((prev) =>
-                        prev ? { ...prev, eventSource: event.target.value } as any : prev
-                      )
-                    }
-                  />
-                  <small className="property-panel__help">
-                    Filter events by source system or service
-                  </small>
-                </label>
-                <p className="property-panel__muted">
-                  Use the Schema field below to define the expected event payload structure.
-                </p>
-              </div>
-            )}
-
-            <LabelListEditor
+            <CollapsibleSection
               title="Labels"
-              labels={sharedTransitionDraft.labels || []}
-              onChange={(labels) =>
-                setSharedTransitionDraft((prev) => (prev ? { ...prev, labels } : prev))
+              defaultExpanded={false}
+              headerActions={
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newLabels = [...(sharedTransitionDraft.labels || []), { label: '', language: 'en' }];
+                    setSharedTransitionDraft((prev) => (prev ? { ...prev, labels: newLabels } : prev));
+                  }}
+                  className="property-panel__add-button"
+                >
+                  +
+                </button>
               }
-            />
+            >
+              <LabelListEditor
+                title=""
+                labels={sharedTransitionDraft.labels || []}
+                onChange={(labels) =>
+                  setSharedTransitionDraft((prev) => (prev ? { ...prev, labels } : prev))
+                }
+              />
+            </CollapsibleSection>
 
-            <RuleEditor
+            <CollapsibleSection
               title="Rule"
-              rule={sharedTransitionDraft.rule}
-              inlineText={sharedRuleText}
-              onLoadFromFile={() => {
-                // TODO: Implement shared transition rule file loading
-                console.log('Load rule from file for shared transition');
-              }}
-              onChange={(rule) => {
-                setSharedTransitionDraft((prev) => {
-                  if (!prev) return prev;
-                  const next = { ...prev } as SharedTransition & Record<string, unknown>;
-                  if (rule) {
-                    next.rule = rule;
-                  } else {
-                    delete next.rule;
-                  }
-                  return next as SharedTransition;
-                });
-              }}
-              onInlineChange={setSharedRuleText}
-            />
+              defaultExpanded={false}
+              headerActions={
+                !sharedTransitionDraft.rule && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSharedTransitionDraft((prev) => {
+                        if (!prev) return prev;
+                        const next = { ...prev } as SharedTransition & Record<string, unknown>;
+                        next.rule = { location: './src/rules/new.csx', code: '' };
+                        return next as SharedTransition;
+                      });
+                    }}
+                    className="property-panel__add-button"
+                  >
+                    +
+                  </button>
+                )
+              }
+            >
+              <EnhancedRuleEditor
+                title=""
+                rule={sharedTransitionDraft.rule}
+                inlineText={sharedRuleText}
+                onLoadFromFile={() => {
+                  // TODO: Implement shared transition rule file loading
+                  console.log('Load rule from file for shared transition');
+                }}
+                onChange={(rule) => {
+                  setSharedTransitionDraft((prev) => {
+                    if (!prev) return prev;
+                    const next = { ...prev } as SharedTransition & Record<string, unknown>;
+                    if (rule) {
+                      next.rule = rule;
+                    } else {
+                      delete next.rule;
+                    }
+                    return next as SharedTransition;
+                  });
+                }}
+                onInlineChange={setSharedRuleText}
+                workflow={workflow}
+                availableTasks={availableTasks}
+                hideHeader={true}
+              />
+            </CollapsibleSection>
 
-            <SchemaEditor
-              title="Schema"
-              schema={sharedTransitionDraft.schema}
+            <CollapsibleSection title="Schema" defaultExpanded={false}>
+              <SchemaEditor
+                title=""
+                schema={sharedTransitionDraft.schema}
               availableSchemas={catalogs.schema}
               onModeChange={(mode) => {
                 if (mode === 'none') {
@@ -1142,11 +1315,38 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               onRefChange={(ref) => {
                 setSharedTransitionDraft(prev => prev ? { ...prev, schema: { ref } } : prev);
               }}
-            />
+              />
+            </CollapsibleSection>
 
-            <ExecutionTaskListEditor
-              title="On execution task references"
-              tasks={sharedTransitionDraft.onExecutionTasks}
+            <CollapsibleSection
+              title="On Execution Tasks"
+              defaultExpanded={false}
+              headerActions={
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newTask = {
+                      order: (sharedTransitionDraft.onExecutionTasks?.length || 0) + 1,
+                      task: { ref: '' },
+                      mapping: { location: './src/mappings/new.csx', code: '' }
+                    };
+                    const newTasks = [...(sharedTransitionDraft.onExecutionTasks || []), newTask];
+                    setSharedTransitionDraft((prev) => {
+                      if (!prev) return prev;
+                      const next = { ...prev } as SharedTransition & Record<string, unknown>;
+                      next.onExecutionTasks = newTasks;
+                      return next as SharedTransition;
+                    });
+                  }}
+                  className="property-panel__add-button"
+                >
+                  +
+                </button>
+              }
+            >
+              <ExecutionTaskListEditor
+                title=""
+                tasks={sharedTransitionDraft.onExecutionTasks}
               availableTasks={availableTasks}
               onLoadFromFile={(taskIndex) => {
                 if (selection?.kind === 'sharedTransition') {
@@ -1170,56 +1370,56 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                   return next as SharedTransition;
                 })
               }
-            />
+              />
+            </CollapsibleSection>
 
-            <div className="property-panel__group">
-              <div className="property-panel__group-header">
-                <span>Available In States</span>
-              </div>
-              <div className="property-panel__checkbox-list">
-                {workflow.attributes.states.length === 0 ? (
-                  <p className="property-panel__muted">No states available in the workflow.</p>
-                ) : (
-                  workflow.attributes.states
-                    .filter((state) =>
-                      state.stateType !== 3 && // Exclude final states (they can't have outgoing transitions)
-                      state.key !== sharedTransitionDraft.target // Exclude target state (can't transition to itself via shared transition)
-                    )
-                    .map((state) => (
-                    <label key={state.key} className="property-panel__checkbox">
-                      <input
-                        type="checkbox"
-                        checked={sharedTransitionDraft.availableIn.includes(state.key)}
-                        onChange={(event) => {
-                          if (event.target.checked) {
-                            // Add state if not already in the list
-                            if (!sharedTransitionDraft.availableIn.includes(state.key)) {
+            <CollapsibleSection title="Available In States" defaultExpanded={true}>
+              <div className="property-panel__group">
+                <div className="property-panel__checkbox-list">
+                  {workflow.attributes.states.length === 0 ? (
+                    <p className="property-panel__muted">No states available in the workflow.</p>
+                  ) : (
+                    workflow.attributes.states
+                      .filter((state) =>
+                        state.stateType !== 3 && // Exclude final states (they can't have outgoing transitions)
+                        state.key !== sharedTransitionDraft.target // Exclude target state (can't transition to itself via shared transition)
+                      )
+                      .map((state) => (
+                      <label key={state.key} className="property-panel__checkbox">
+                        <input
+                          type="checkbox"
+                          checked={sharedTransitionDraft.availableIn.includes(state.key)}
+                          onChange={(event) => {
+                            if (event.target.checked) {
+                              // Add state if not already in the list
+                              if (!sharedTransitionDraft.availableIn.includes(state.key)) {
+                                setSharedTransitionDraft(prev =>
+                                  prev ? { ...prev, availableIn: [...prev.availableIn, state.key] } : prev
+                                );
+                              }
+                            } else {
+                              // Remove state from the list
                               setSharedTransitionDraft(prev =>
-                                prev ? { ...prev, availableIn: [...prev.availableIn, state.key] } : prev
+                                prev ? { ...prev, availableIn: prev.availableIn.filter(s => s !== state.key) } : prev
                               );
                             }
-                          } else {
-                            // Remove state from the list
-                            setSharedTransitionDraft(prev =>
-                              prev ? { ...prev, availableIn: prev.availableIn.filter(s => s !== state.key) } : prev
-                            );
-                          }
-                        }}
-                      />
-                      <span>{state.key}</span>
-                      {state.labels?.[0]?.label && (
-                        <span className="property-panel__muted"> - {state.labels[0].label}</span>
-                      )}
-                    </label>
-                  ))
+                          }}
+                        />
+                        <span>{state.key}</span>
+                        {state.labels?.[0]?.label && (
+                          <span className="property-panel__muted"> - {state.labels[0].label}</span>
+                        )}
+                      </label>
+                    ))
+                  )}
+                </div>
+                {sharedTransitionDraft.availableIn.length === 0 && (
+                  <p className="property-panel__warning">
+                    ⚠️ Select at least one state where this transition should be available.
+                  </p>
                 )}
               </div>
-              {sharedTransitionDraft.availableIn.length === 0 && (
-                <p className="property-panel__warning">
-                  ⚠️ Select at least one state where this transition should be available.
-                </p>
-              )}
-            </div>
+            </CollapsibleSection>
 
             <p className="property-panel__muted">
               Shared transitions can be triggered from multiple states.

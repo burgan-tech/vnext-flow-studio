@@ -1,0 +1,190 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://vnext.com/schemas/view-definition.schema.json",
+    "title": "vNext View Definition",
+    "description": "Schema for vNext View Component Definition JSON files (sys-views flow)",
+    "type": "object",
+    "required": [
+        "key",
+        "version",
+        "domain",
+        "flow",
+        "flowVersion",
+        "tags",
+        "attributes"
+    ],
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "JSON Schema reference",
+            "format": "uri"
+        },
+        "key": {
+            "type": "string",
+            "description": "View key identifier",
+            "pattern": "^[a-z0-9-]+$"
+        },
+        "version": {
+            "type": "string",
+            "description": "Version in Major.Minor.Patch format",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "domain": {
+            "type": "string",
+            "description": "Domain identifier",
+            "pattern": "^[a-z0-9-]+$"
+        },
+        "flow": {
+            "type": "string",
+            "description": "Flow identifier for views",
+            "const": "sys-views"
+        },
+        "flowVersion": {
+            "type": "string",
+            "description": "Flow version",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "tags": {
+            "type": "array",
+            "description": "View tags",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1
+        },
+        "attributes": {
+            "type": "object",
+            "description": "View definition attributes",
+            "required": [
+                "type",
+                "target",
+                "content"
+            ],
+            "properties": {
+                "type": {
+                    "type": "integer",
+                    "description": "View content type",
+                    "oneOf": [
+                        {
+                            "const": 1,
+                            "description": "JSON content type"
+                        },
+                        {
+                            "const": 2,
+                            "description": "HTML content type"
+                        },
+                        {
+                            "const": 3,
+                            "description": "Markdown content type"
+                        }
+                    ]
+                },
+                "target": {
+                    "type": "integer",
+                    "description": "View target workflow component type",
+                    "oneOf": [
+                        {
+                            "const": 1,
+                            "description": "State targeted view"
+                        },
+                        {
+                            "const": 2,
+                            "description": "Transition targeted view"
+                        },
+                        {
+                            "const": 3,
+                            "description": "Task targeted view"
+                        }
+                    ]
+                },
+                "content": {
+                    "type": "string",
+                    "description": "View content. Can be in JSON, HTML or Markdown format.",
+                    "minLength": 1
+                },
+                "labels": {
+                    "type": "array",
+                    "description": "Multi-language labels for view",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "label",
+                            "language"
+                        ],
+                        "properties": {
+                            "label": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "language": {
+                                "type": "string",
+                                "pattern": "^[a-z]{2}-[A-Z]{2}$",
+                                "examples": [
+                                    "en-US",
+                                    "tr-TR",
+                                    "de-DE"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "display": {
+                    "type": "string",
+                    "description": "View display mode",
+                    "oneOf": [
+                        {
+                            "const": "full-page",
+                            "description": "Full page display"
+                        },
+                        {
+                            "const": "popup",
+                            "description": "Popup/modal display"
+                        },
+                        {
+                            "const": "bottom-sheet",
+                            "description": "Bottom sheet display"
+                        },
+                        {
+                            "const": "top-sheet",
+                            "description": "Top sheet display"
+                        },
+                        {
+                            "const": "drawer",
+                            "description": "Drawer/side menu display"
+                        },
+                        {
+                            "const": "inline",
+                            "description": "Inline display within page"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "type": "object",
+                    "description": "View metadata for rendering hints",
+                    "properties": {
+                        "dismissible": {
+                            "type": "boolean",
+                            "description": "Whether the view can be dismissed"
+                        },
+                        "backdrop": {
+                            "type": "boolean",
+                            "description": "Whether to show backdrop"
+                        },
+                        "animation": {
+                            "type": "string",
+                            "description": "Animation type",
+                            "enum": [
+                                "slide",
+                                "fade",
+                                "scale",
+                                "none"
+                            ]
+                        }
+                    }
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false
+}

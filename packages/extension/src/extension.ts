@@ -13,6 +13,105 @@ import {
 } from './flowFileUtils';
 import { loadAllCatalogs, REFERENCE_PATTERNS } from './referenceCatalog';
 
+// Get localized label from workflow attributes
+function getWorkflowLabel(workflow: Workflow, fallback: string = 'Amorphie Flow Studio'): string {
+  if (!workflow.attributes?.labels || workflow.attributes.labels.length === 0) {
+    return fallback;
+  }
+
+  // Get system language (e.g., 'en-US', 'tr-TR')
+  const systemLanguage = Intl.DateTimeFormat().resolvedOptions().locale;
+
+  // Try to find exact match first
+  let label = workflow.attributes.labels.find(l => l.language === systemLanguage)?.label;
+
+  // If no exact match, try to find by language code (e.g., 'en' from 'en-US')
+  if (!label) {
+    const languageCode = systemLanguage.split('-')[0];
+    label = workflow.attributes.labels.find(l => l.language.startsWith(languageCode))?.label;
+  }
+
+  // If still no match, use the first available label
+  if (!label) {
+    label = workflow.attributes.labels[0]?.label;
+  }
+
+  return label || fallback;
+}
+
+// Helper function to update workflow and panel title
+function updateWorkflowAndTitle(panel: vscode.WebviewPanel, workflow: Workflow, derived: any) {
+  // Update panel title with localized label
+  const newLabel = getWorkflowLabel(workflow);
+  panel.title = newLabel;
+
+  // Send workflow update to webview
+  panel.webview.postMessage({
+    type: 'workflow:update',
+    workflow: workflow,
+    derived: derived
+  });
+}
+
+// Get template based on task type - using default template for extension
+function getTemplateForTaskType(taskType?: string): string {
+  // For now, use the default template in the extension
+  // In the future, this could be enhanced to load templates from the webview package
+  return `using System;
+using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions;
+
+public class MappingHandler : ScriptBase, IMapping
+{
+    public Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Access instance data
+        var instanceId = context.Instance.Id;
+        var instanceKey = context.Instance.Key;
+        var currentState = context.Instance.CurrentState;
+        var instanceData = context.Instance.Data;
+
+        // Prepare request data
+        response.Data = new
+        {
+            instanceId = instanceId,
+            instanceKey = instanceKey,
+            currentState = currentState,
+            data = instanceData,
+            requestTime = DateTime.UtcNow
+        };
+
+        // Set headers
+        response.Headers = new Dictionary<string, string>
+        {
+            ["X-Instance-Id"] = instanceId.ToString(),
+            ["X-Flow"] = context.Instance.Flow
+        };
+
+        return Task.FromResult(response);
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        var response = new ScriptResponse();
+
+        // Transform response data
+        response.Data = new
+        {
+            success = context.Body?.IsSuccess ?? true,
+            message = context.Body?.ErrorMessage ?? "Success",
+            result = context.Body?.Data,
+            timestamp = DateTime.UtcNow
+        };
+
+        return Task.FromResult(response);
+    }
+}`;
+}
+
 async function readJson<T>(uri: vscode.Uri): Promise<T> {
   const buffer = await vscode.workspace.fs.readFile(uri);
   return JSON.parse(new TextDecoder().decode(buffer)) as T;
@@ -25,17 +124,22 @@ async function writeJson(uri: vscode.Uri, data: any): Promise<void> {
 
 async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionContext, diagnosticsProvider: FlowDiagnosticsProvider, activePanels: Map<string, vscode.WebviewPanel>) {
   try {
+
     if (!isFlowDefinitionUri(flowUri)) {
-      vscode.window.showErrorMessage(
-        'Amorphie Flow Studio can only open *.flow.json files or JSON files within a workflows directory.'
-      );
+      const errorMsg = `Amorphie Flow Studio can only open *.flow.json, *-subflow.json, *-workflow.json files or JSON files within workflows/Workflows directories. File: ${flowUri.path}`;
+      console.error(errorMsg);
+      vscode.window.showErrorMessage(errorMsg);
       return;
     }
 
-    // Create webview panel
+    // Load workflow first to get the label
+    let currentWorkflow = await readJson<Workflow>(flowUri);
+
+    // Create webview panel with localized title
+    const workflowLabel = getWorkflowLabel(currentWorkflow);
     const panel = vscode.window.createWebviewPanel(
       'amorphieFlow',
-      'Amorphie Flow Studio',
+      workflowLabel,
       vscode.ViewColumn.Active,
       {
         enableScripts: true,
@@ -65,16 +169,13 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
 
     try {
       const indexHtmlUri = vscode.Uri.joinPath(webviewDistPath, 'index.html');
-      console.log('Loading webview from:', indexHtmlUri.toString());
       const indexHtmlContent = await vscode.workspace.fs.readFile(indexHtmlUri);
       let html = new TextDecoder().decode(indexHtmlContent);
 
       // Fix asset paths for webview
       const webviewUri = panel.webview.asWebviewUri(webviewDistPath);
-      console.log('Webview URI:', webviewUri.toString());
       html = html.replace(/(src|href)="\//g, (_, attr) => `${attr}="${webviewUri}/`);
 
-      console.log('Setting webview HTML:', html.substring(0, 200) + '...');
       panel.webview.html = html;
     } catch (error) {
       console.error('Failed to load webview content:', error);
@@ -82,7 +183,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       panel.webview.html = `
         <!DOCTYPE html>
         <html>
-          <head><title>Amorphie Flow Studio</title></head>
+          <head><title>${workflowLabel}</title></head>
           <body>
             <div style="padding: 20px; font-family: Arial, sans-serif;">
               <h2>Webview Not Built</h2>
@@ -94,8 +195,7 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       `;
     }
 
-    // Load workflow and diagram
-    let currentWorkflow = await readJson<Workflow>(flowUri);
+    // Load diagram (workflow already loaded above)
     const diagramUri = getDiagramUri(flowUri);
     let currentDiagram: Diagram;
     let currentTasks: TaskDefinition[] = [];
@@ -863,6 +963,66 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
             }
             break;
 
+          case 'mapping:createFile': {
+            const { stateKey, list, from, transitionKey, sharedTransitionKey, index, location, code } = message;
+
+            if (!location) {
+              break; // Silently skip if no location specified
+            }
+
+            // Resolve the absolute path
+            const workspaceFolder = vscode.workspace.getWorkspaceFolder(flowUri);
+            const basePath = workspaceFolder?.uri.fsPath || path.dirname(flowUri.fsPath);
+            const absolutePath = path.resolve(basePath, location);
+            const fileUri = vscode.Uri.file(absolutePath);
+
+            // Check if file already exists
+            try {
+              await vscode.workspace.fs.stat(fileUri);
+              // File exists, don't overwrite it
+              break;
+            } catch (error) {
+              // File doesn't exist, create it
+            }
+
+            // Create directories if they don't exist
+            const dirUri = vscode.Uri.file(path.dirname(absolutePath));
+            try {
+              await vscode.workspace.fs.createDirectory(dirUri);
+            } catch (error) {
+              // Directory might already exist, ignore
+            }
+
+            // Decode Base64 code if provided, otherwise use default template
+            let csharpCode = '';
+            if (code) {
+              try {
+                // Check if code is Base64 encoded
+                const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(code) && code.length % 4 === 0 && code.length > 10;
+                if (isBase64) {
+                  csharpCode = Buffer.from(code, 'base64').toString('utf8');
+                } else {
+                  csharpCode = code;
+                }
+              } catch (error) {
+                csharpCode = code; // Fallback to raw code
+              }
+            }
+
+            // Use default template if no code provided
+           if (!csharpCode) {
+             csharpCode = getTemplateForTaskType('default');
+           }
+
+            try {
+              await vscode.workspace.fs.writeFile(fileUri, Buffer.from(csharpCode, 'utf8'));
+
+            } catch (error) {
+              console.error(`Failed to create mapping file: ${error}`);
+            }
+            break;
+          }
+
           case 'mapping:loadFromFile': {
             const { stateKey, list, from, transitionKey, sharedTransitionKey, index, transition: latestTransition } = message;
 
@@ -1143,13 +1303,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
         if (changedKey === flowUriKey) {
           const updatedWorkflow = await readJson<Workflow>(flowUri);
           currentWorkflow = updatedWorkflow;
-          currentWorkflow = updatedWorkflow;
           const updatedDerived = toReactFlow(updatedWorkflow, currentDiagram, 'en');
-          panel.webview.postMessage({
-            type: 'workflow:update',
-            workflow: updatedWorkflow,
-            derived: updatedDerived
-          });
+          updateWorkflowAndTitle(panel, updatedWorkflow, updatedDerived);
           const updatedProblems = lint(updatedWorkflow, { tasks: currentTasks });
           await diagnosticsProvider.updateDiagnostics(flowUri, updatedWorkflow, currentTasks);
           panel.webview.postMessage({
@@ -1159,13 +1314,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
         } else if (changedUri.path === diagramUri.path) {
           const updatedDiagram = await readJson<Diagram>(diagramUri);
           currentDiagram = updatedDiagram;
-          currentDiagram = updatedDiagram;
           const updatedDerived = toReactFlow(currentWorkflow, currentDiagram, 'en');
-          panel.webview.postMessage({
-            type: 'workflow:update',
-            workflow: currentWorkflow,
-            derived: updatedDerived
-          });
+          updateWorkflowAndTitle(panel, currentWorkflow, updatedDerived);
           panel.webview.postMessage({
             type: 'diagram:update',
             diagram: currentDiagram
@@ -1220,7 +1370,7 @@ class FlowEditorProvider implements vscode.CustomTextEditorProvider {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Amorphie Flow Studio activated');
+  vscode.window.showInformationMessage('Amorphie Flow Studio extension activated!');
 
   // Initialize diagnostics
   const diagnosticsProvider = new FlowDiagnosticsProvider();
@@ -1321,6 +1471,8 @@ export function activate(context: vscode.ExtensionContext) {
   const openCommand = vscode.commands.registerCommand(
     'flowEditor.open',
     async (uri?: vscode.Uri) => {
+      vscode.window.showInformationMessage(`Opening workflow file: ${uri?.path || 'file picker'}`);
+
       const flowUri = uri ?? (
         await vscode.window.showOpenDialog({
           filters: { 'Amorphie Flow': ['json'] },
@@ -1328,11 +1480,15 @@ export function activate(context: vscode.ExtensionContext) {
         })
       )?.[0];
 
-      if (!flowUri) return;
+      if (!flowUri) {
+        return;
+      }
 
       if (!isFlowDefinitionUri(flowUri)) {
+        const errorMsg = `File not recognized as workflow: ${flowUri.path}`;
+        console.error('❌', errorMsg);
         vscode.window.showErrorMessage(
-          'Select a *.flow.json file or a JSON workflow stored under a workflows directory.'
+          'Select a *.flow.json, *-subflow.json, *-workflow.json file or a JSON workflow stored under a workflows/Workflows directory.'
         );
         return;
       }
@@ -1349,5 +1505,4 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-  console.log('Amorphie Flow Studio deactivated');
 }

@@ -1,0 +1,180 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>BBT.Workflow.Scripting</name>
+    </assembly>
+    <members>
+        <member name="T:BBT.Workflow.Scripting.Functions.DaprSecretFunctions">
+            <summary>
+            Custom functions for accessing Dapr secret store from scripts
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.DaprSecretFunctions.#ctor(Dapr.Client.DaprClient)">
+            <summary>
+            Custom functions for accessing Dapr secret store from scripts
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.DaprSecretFunctions.GetSecretAsync(System.String,System.String,System.String)">
+            <summary>
+            Gets a secret from Dapr secret store
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <param name="secretKey">The key of the secret</param>
+            <returns>The secret value</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.DaprSecretFunctions.GetSecret(System.String,System.String,System.String)">
+            <summary>
+            Gets a secret from Dapr secret store (synchronous version for script compatibility)
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <param name="secretKey">The key of the secret</param>
+            <returns>The secret value</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.DaprSecretFunctions.GetSecretsAsync(System.String,System.String)">
+            <summary>
+            Gets multiple secrets from Dapr secret store
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <returns>Dictionary of secret keys and values</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.DaprSecretFunctions.GetSecrets(System.String,System.String)">
+            <summary>
+            Gets multiple secrets from Dapr secret store (synchronous version)
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">he name of the secret store</param>
+            <returns>Dictionary of secret keys and values</returns>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.Functions.ScriptBase">
+            <summary>
+            Base class for scripts that provides access to global functions
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.ScriptBase.GetSecret(System.String,System.String,System.String)">
+            <summary>
+            Gets a secret from Dapr secret store
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <param name="secretKey">The key of the secret</param>
+            <returns>The secret value</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.ScriptBase.GetSecretAsync(System.String,System.String,System.String)">
+            <summary>
+            Gets a secret from Dapr secret store asynchronously
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <param name="secretKey">The key of the secret</param>
+            <returns>The secret value</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.ScriptBase.GetSecrets(System.String,System.String)">
+            <summary>
+            Gets multiple secrets from Dapr secret store
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <returns>Dictionary of secret keys and values</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.ScriptBase.GetSecretsAsync(System.String,System.String)">
+            <summary>
+            Gets multiple secrets from Dapr secret store asynchronously
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <returns>Dictionary of secret keys and values</returns>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.Functions.ScriptHelper">
+            <summary>
+            Static helper class for script functions that don't require dependency injection
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.ScriptHelper.SetDaprClient(Dapr.Client.DaprClient)">
+            <summary>
+            Sets the Dapr client instance (should be called during application startup)
+            </summary>
+            <param name="daprClient">The Dapr client instance</param>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.ScriptHelper.GetSecret(System.String,System.String,System.String)">
+            <summary>
+            Gets a secret from Dapr secret store
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <param name="secretKey">The key of the secret</param>
+            <returns>The secret value</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.ScriptHelper.GetSecretAsync(System.String,System.String,System.String)">
+            <summary>
+            Gets a secret from Dapr secret store asynchronously
+            </summary>
+            <param name="storeName">The name of the dapr secret name</param>
+            <param name="secretStore">The name of the secret store</param>
+            <param name="secretKey">The key of the secret</param>
+            <returns>The secret value</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.ScriptHelper.GetSecrets(System.String,System.String)">
+            <summary>
+            Gets multiple secrets from Dapr secret store
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <returns>Dictionary of secret keys and values</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.Functions.ScriptHelper.GetSecretsAsync(System.String,System.String)">
+            <summary>
+            Gets multiple secrets from Dapr secret store asynchronously
+            </summary>
+            <param name="storeName">The name of the secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <returns>Dictionary of secret keys and values</returns>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.GlobalScriptFunctions">
+            <summary>
+            Global functions available to all scripts
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.GlobalScriptFunctions.#ctor(Dapr.Client.DaprClient)">
+            <summary>
+            Global functions available to all scripts
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.GlobalScriptFunctions.GetSecret(System.String,System.String,System.String)">
+            <summary>
+            Gets a secret from Dapr secret store
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <param name="secretKey">The key of the secret</param>
+            <returns>The secret value</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.GlobalScriptFunctions.GetSecrets(System.String,System.String)">
+            <summary>
+            Gets multiple secrets from Dapr secret store
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <returns>Dictionary of secret keys and values</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.GlobalScriptFunctions.GetSecretAsync(System.String,System.String,System.String)">
+            <summary>
+            Gets a secret from Dapr secret store asynchronously
+            </summary>
+            <param name="storeName">The name of the dapr secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <param name="secretKey">The key of the secret</param>
+            <returns>The secret value</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.GlobalScriptFunctions.GetSecretsAsync(System.String,System.String)">
+            <summary>
+            Gets multiple secrets from Dapr secret store asynchronously
+            </summary>
+            <param name="storeName">The name of the secret store</param>
+            <param name="secretStore">The name of the secret store</param>
+            <returns>Dictionary of secret keys and values</returns>
+        </member>
+    </members>
+</doc>

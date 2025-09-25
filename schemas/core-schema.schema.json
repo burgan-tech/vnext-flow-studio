@@ -1,0 +1,316 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://vnext.com/schemas/core-schema.schema.json",
+    "title": "vNext Core Schema Definition",
+    "description": "Schema for vNext Core Schema Definition JSON files",
+    "type": "object",
+    "required": [
+        "key",
+        "version",
+        "domain",
+        "flow",
+        "flowVersion",
+        "tags",
+        "attributes"
+    ],
+    "properties": {
+        "key": {
+            "type": "string",
+            "description": "Schema key identifier",
+            "pattern": "^[a-z0-9-]+$",
+            "examples": [
+                "Schema",
+                "State",
+                "Transition",
+                "Workflow"
+            ]
+        },
+        "version": {
+            "type": "string",
+            "description": "Version in Major.Minor.Patch format",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "examples": [
+                "1.0.0",
+                "1.1.0",
+                "2.0.0"
+            ]
+        },
+        "domain": {
+            "type": "string",
+            "description": "Domain identifier",
+            "pattern": "^[a-z0-9-]+$",
+            "examples": [
+                "Core",
+                "Banking",
+                "Identity"
+            ]
+        },
+        "flow": {
+            "type": "string",
+            "description": "Flow identifier",
+            "pattern": "^[a-z0-9-]+$",
+            "examples": [
+                "Schema",
+                "Workflow",
+                "Task"
+            ]
+        },
+        "flowVersion": {
+            "type": "string",
+            "description": "Flow version",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "tags": {
+            "type": "array",
+            "description": "Schema tags",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1
+        },
+        "attributes": {
+            "type": "object",
+            "description": "Schema attributes - structure varies by schema type"
+        }
+    },
+    "additionalProperties": false,
+    "if": {
+        "properties": {
+            "key": {
+                "const": "State"
+            }
+        }
+    },
+    "then": {
+        "properties": {
+            "attributes": {
+                "$ref": "#/definitions/stateAttributes"
+            }
+        }
+    },
+    "else": {
+        "if": {
+            "properties": {
+                "key": {
+                    "const": "Transition"
+                }
+            }
+        },
+        "then": {
+            "properties": {
+                "attributes": {
+                    "$ref": "#/definitions/transitionAttributes"
+                }
+            }
+        }
+    },
+    "definitions": {
+        "stateAttributes": {
+            "type": "object",
+            "required": [
+                "key",
+                "labels",
+                "type"
+            ],
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "pattern": "^[a-z-]+$"
+                },
+                "labels": {
+                    "$ref": "#/definitions/labels"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "start",
+                        "normal",
+                        "finish"
+                    ],
+                    "description": "State type"
+                },
+                "transitions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reference"
+                    }
+                },
+                "views": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reference"
+                    }
+                },
+                "responses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reference"
+                    }
+                }
+            }
+        },
+        "transitionAttributes": {
+            "type": "object",
+            "required": [
+                "key",
+                "labels",
+                "versionStrategy",
+                "type"
+            ],
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "pattern": "^[a-z-]+$"
+                },
+                "labels": {
+                    "$ref": "#/definitions/labels"
+                },
+                "versionStrategy": {
+                    "$ref": "#/definitions/versionStrategy"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "manual",
+                        "automatic",
+                        "timeout"
+                    ],
+                    "description": "Transition type"
+                },
+                "onExecutionTasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/taskReference"
+                    }
+                }
+            }
+        },
+        "labels": {
+            "type": "array",
+            "description": "Multi-language labels",
+            "items": {
+                "type": "object",
+                "required": [
+                    "label",
+                    "language"
+                ],
+                "properties": {
+                    "label": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "language": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2}-[A-Z]{2}$",
+                        "examples": [
+                            "en-US",
+                            "tr-TR",
+                            "de-DE"
+                        ]
+                    }
+                }
+            },
+            "minItems": 1
+        },
+        "versionStrategy": {
+            "type": "string",
+            "enum": [
+                "Major",
+                "Minor",
+                "Patch"
+            ],
+            "description": "Version strategy for updates"
+        },
+        "reference": {
+            "description": "Generic reference - can be either explicit reference or ref",
+            "oneOf": [
+                {
+                    "type": "object",
+                    "description": "Explicit reference",
+                    "required": [
+                        "key",
+                        "domain",
+                        "flow",
+                        "version"
+                    ],
+                    "properties": {
+                        "key": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "domain": {
+                            "type": "string"
+                        },
+                        "flow": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string",
+                            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+                        }
+                    },
+                    "anyOf": [
+                        {
+                            "required": [
+                                "key"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "id"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "object",
+                    "description": "Reference using ref",
+                    "required": [
+                        "ref"
+                    ],
+                    "properties": {
+                        "ref": {
+                            "type": "string",
+                            "description": "Reference to component file"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            ]
+        },
+        "taskReference": {
+            "type": "object",
+            "required": [
+                "order",
+                "task"
+            ],
+            "properties": {
+                "order": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "task": {
+                    "$ref": "#/definitions/reference"
+                },
+                "mapping": {
+                    "$ref": "#/definitions/mappingReference"
+                }
+            }
+        },
+        "mappingReference": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "pattern": "^\\./.+\\.csx$"
+                },
+                "code": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

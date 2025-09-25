@@ -1,0 +1,3239 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>BBT.Workflow.Domain</name>
+    </assembly>
+    <members>
+        <member name="T:BBT.Workflow.BackgroundJobs.BackgroundJobConsts">
+            <summary>
+            Defines constant values for background job names used throughout the workflow system.
+            These constants ensure consistent job naming and facilitate job routing to appropriate handlers.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.BackgroundJobs.BackgroundJobConsts.FlowTimeoutJobName">
+            <summary>
+            The job name for workflow timeout jobs that handle workflow instance timeouts.
+            These jobs are triggered when a workflow instance exceeds its configured timeout duration.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.BackgroundJobs.BackgroundJobConsts.AutoTransitionJobName">
+            <summary>
+            The job name for auto-transition jobs that handle automatic state transitions.
+            These jobs are triggered immediately to process workflow state changes that don't require user intervention.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.BackgroundJobs.BackgroundJobConsts.TransitionTimerJobName">
+            <summary>
+            The job name for transition timer jobs that handle time-based state transitions.
+            These jobs are scheduled to execute after a specified duration to trigger timed workflow transitions.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1">
+            <summary>
+            Represents comprehensive information about a background job including its configuration,
+            payload, metadata, and execution state. This class encapsulates all necessary data
+            for job persistence, scheduling, and execution tracking.
+            </summary>
+            <typeparam name="T">The type of the job payload. Must be a reference type.</typeparam>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1.JobName">
+            <summary>
+            Gets or sets the name of the job type. This identifier is used to route
+            the job to the appropriate handler during execution.
+            </summary>
+            <value>A string representing the job type name.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1.JobId">
+            <summary>
+            Gets or sets the unique identifier for this specific job instance.
+            This ID is used for job tracking, cancellation, and duplicate prevention.
+            </summary>
+            <value>A unique string identifier for the job instance.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1.ExpressionValue">
+            <summary>
+            Gets or sets the schedule expression value that determines when the job should be executed.
+            This typically contains cron expressions or time-based scheduling information.
+            </summary>
+            <value>A string representing the scheduling expression.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1.Payload">
+            <summary>
+            Gets or sets the job payload containing the data to be processed by the job handler.
+            </summary>
+            <value>An instance of type T containing the job's data payload.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1.Metadata">
+            <summary>
+            Gets or sets additional metadata associated with the job.
+            Common metadata includes domain, flow name, and instance ID information.
+            </summary>
+            <value>A dictionary containing key-value pairs of metadata, or null if no metadata is present.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1.IsTriggered">
+            <summary>
+            Gets or sets a value indicating whether this job has been triggered for execution.
+            This flag helps track job execution state and prevent duplicate processing.
+            </summary>
+            <value>True if the job has been triggered; otherwise, false.</value>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1.GetDomain">
+            <summary>
+            Retrieves the domain value from the job's metadata.
+            </summary>
+            <returns>
+            The domain string if found in metadata; otherwise, an empty string.
+            Returns an empty string if metadata is null or the domain key is not found.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1.GetFlowName">
+            <summary>
+            Retrieves the flow name value from the job's metadata.
+            </summary>
+            <returns>
+            The flow name string if found in metadata; otherwise, an empty string.
+            Returns an empty string if metadata is null or the flowName key is not found.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.BackgroundJobInfo`1.GetInstanceId">
+            <summary>
+            Retrieves and parses the instance ID value from the job's metadata.
+            </summary>
+            <returns>
+            A valid Guid representing the instance ID if found and parseable; otherwise, Guid.Empty.
+            Returns Guid.Empty if metadata is null, the instanceId key is not found, or parsing fails.
+            </returns>
+        </member>
+        <member name="T:BBT.Workflow.BackgroundJobs.IBackgroundJobService">
+            <summary>
+            Provides functionality for enqueueing background jobs with scheduling capabilities.
+            This service integrates with Dapr's job scheduling infrastructure to manage
+            workflow-related background tasks.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.IBackgroundJobService.EnqueueAsync``1(System.String,System.String,Dapr.Jobs.Models.DaprJobSchedule,``0,System.Collections.Generic.Dictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>
+            Enqueues a background job with the specified parameters and schedule.
+            </summary>
+            <typeparam name="T">The type of the job payload. Must be a reference type.</typeparam>
+            <param name="jobName">The unique name identifying the type of job to be executed.</param>
+            <param name="jobId">A unique identifier for this specific job instance.</param>
+            <param name="schedule">The Dapr job schedule defining when the job should be executed.</param>
+            <param name="payload">The data payload to be passed to the job handler when executed.</param>
+            <param name="metadata">Common metadata includes domain, flow name, and instance ID information.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>A task representing the asynchronous enqueue operation.</returns>
+            <exception cref="T:System.ArgumentNullException">Thrown when any required parameter is null.</exception>
+            <exception cref="T:System.InvalidOperationException">Thrown when the job scheduling service is unavailable.</exception>
+        </member>
+        <member name="T:BBT.Workflow.BackgroundJobs.IJobHandler">
+            <summary>
+            Defines the contract for background job handlers that process specific types of scheduled jobs.
+            Implementations of this interface are responsible for handling the execution logic
+            for different types of background jobs within the workflow system.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.IJobHandler.JobName">
+            <summary>
+            Gets the unique name of the job type that this handler can process.
+            This name is used by the job dispatcher to route jobs to the appropriate handler.
+            </summary>
+            <value>A string representing the job name that this handler supports.</value>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.IJobHandler.HandleAsync(System.ReadOnlyMemory{System.Byte},System.Threading.CancellationToken)">
+            <summary>
+            Handles the execution of a background job with the specified payload data.
+            This method contains the core business logic for processing the job.
+            </summary>
+            <param name="jobPayload">The serialized job payload data containing all necessary information for job execution.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests during job processing.</param>
+            <returns>A task representing the asynchronous job processing operation.</returns>
+            <exception cref="T:System.ArgumentException">Thrown when the job payload cannot be deserialized or is invalid.</exception>
+            <exception cref="T:System.InvalidOperationException">Thrown when the job cannot be processed due to system state issues.</exception>
+        </member>
+        <member name="T:BBT.Workflow.BackgroundJobs.IJobStore">
+            <summary>
+            Defines the contract for persisting and retrieving background job information.
+            This interface provides data access operations for managing job state,
+            scheduling information, and execution tracking within the workflow system.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.IJobStore.SaveAsync``1(System.String,BBT.Workflow.BackgroundJobs.BackgroundJobInfo{``0},System.Threading.CancellationToken)">
+            <summary>
+            Saves or updates background job information in the persistent store.
+            If a job with the same ID already exists, it will be updated; otherwise, a new record is created.
+            </summary>
+            <typeparam name="T">The type of the job payload. Must be a reference type.</typeparam>
+            <param name="jobId">The unique identifier for the job instance.</param>
+            <param name="job">The complete job information including payload, metadata, and scheduling details.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>A task representing the asynchronous save operation.</returns>
+            <exception cref="T:System.ArgumentNullException">Thrown when jobId or job is null.</exception>
+            <exception cref="T:System.InvalidOperationException">Thrown when the job cannot be saved due to storage issues.</exception>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.IJobStore.GetAsync``1(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves background job information for the specified job ID.
+            </summary>
+            <typeparam name="T">The type of the job payload. Must be a reference type.</typeparam>
+            <param name="jobId">The unique identifier of the job to retrieve.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A task representing the asynchronous retrieval operation.
+            The result contains the job information if found; otherwise, null.
+            </returns>
+            <exception cref="T:System.ArgumentNullException">Thrown when jobId is null or empty.</exception>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.IJobStore.GetListByActiveAsync``1(System.Threading.CancellationToken)">
+            <summary>
+            Retrieves a collection of all active (non-triggered) background jobs.
+            This method is typically used for job recovery scenarios or monitoring purposes.
+            </summary>
+            <typeparam name="T">The type of the job payload. Must be a reference type.</typeparam>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A task representing the asynchronous retrieval operation.
+            The result contains a collection of active job information.
+            </returns>
+            <remarks>
+            Active jobs are those that have been scheduled but not yet triggered for execution.
+            This method excludes jobs that have already been processed or completed.
+            </remarks>
+        </member>
+        <member name="T:BBT.Workflow.BackgroundJobs.JobDispatcher">
+            <summary>
+            Provides centralized job dispatching functionality by routing background jobs to their appropriate handlers.
+            This class acts as a mediator between the job scheduling system and the specific job handlers,
+            ensuring that each job is processed by the correct handler based on the job name.
+            </summary>
+            <param name="handlers">Collection of available job handlers that can process different types of jobs.</param>
+            <param name="logger">Logger instance for recording job dispatching activities and errors.</param>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.JobDispatcher.#ctor(System.Collections.Generic.IEnumerable{BBT.Workflow.BackgroundJobs.IJobHandler},Microsoft.Extensions.Logging.ILogger{BBT.Workflow.BackgroundJobs.JobDispatcher})">
+            <summary>
+            Provides centralized job dispatching functionality by routing background jobs to their appropriate handlers.
+            This class acts as a mediator between the job scheduling system and the specific job handlers,
+            ensuring that each job is processed by the correct handler based on the job name.
+            </summary>
+            <param name="handlers">Collection of available job handlers that can process different types of jobs.</param>
+            <param name="logger">Logger instance for recording job dispatching activities and errors.</param>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.JobDispatcher.DispatchAsync(System.String,System.ReadOnlyMemory{System.Byte},System.Threading.CancellationToken)">
+            <summary>
+            Dispatches a background job to the appropriate handler based on the job name.
+            If no matching handler is found, the operation is logged and gracefully ignored.
+            </summary>
+            <param name="jobName">The name of the job that determines which handler should process it.</param>
+            <param name="jobPayload">The serialized job payload data to be processed by the handler.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests during job processing.</param>
+            <returns>A task representing the asynchronous job dispatching and processing operation.</returns>
+            <remarks>
+            This method performs a linear search through the available handlers to find a match.
+            If multiple handlers exist for the same job name, only the first one found will be used.
+            </remarks>
+        </member>
+        <member name="T:BBT.Workflow.BackgroundJobs.WorkflowTimeoutJobExtensions">
+            <summary>
+            Provides extension methods for the IBackgroundJobService interface to simplify
+            the creation and scheduling of workflow-specific background jobs.
+            These methods encapsulate the common patterns for workflow timeout handling,
+            auto-transitions, and timer-based transitions.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.WorkflowTimeoutJobExtensions.EnqueueFlowTimeoutAsync(BBT.Workflow.BackgroundJobs.IBackgroundJobService,System.Guid,System.String,System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Enqueues a workflow timeout job that will be triggered when the specified timeout duration elapses.
+            This job is responsible for handling workflow instances that exceed their configured timeout.
+            </summary>
+            <param name="jobService">The background job service instance to enqueue the job with.</param>
+            <param name="instanceId">The unique identifier of the workflow instance.</param>
+            <param name="flowName">The name of the workflow definition.</param>
+            <param name="domain">The domain context for the workflow.</param>
+            <param name="version">The version of the workflow definition.</param>
+            <param name="timeout">The timeout duration in XML duration format (e.g., "PT5M" for 5 minutes).</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>A task representing the asynchronous job enqueue operation.</returns>
+            <exception cref="T:System.ArgumentException">Thrown when the timeout format is invalid.</exception>
+            <exception cref="T:System.ArgumentNullException">Thrown when any required parameter is null.</exception>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.WorkflowTimeoutJobExtensions.EnqueueAutoTransitionAsync(BBT.Workflow.BackgroundJobs.IBackgroundJobService,System.Guid,System.String,System.String,System.String,System.String,System.String[],System.Threading.CancellationToken)">
+            <summary>
+            Enqueues an auto-transition job that will be executed immediately to process
+            automatic state transitions that don't require user intervention.
+            </summary>
+            <param name="jobService">The background job service instance to enqueue the job with.</param>
+            <param name="instanceId">The unique identifier of the workflow instance.</param>
+            <param name="flowName">The name of the workflow definition.</param>
+            <param name="domain">The domain context for the workflow.</param>
+            <param name="version">The version of the workflow definition.</param>
+            <param name="currentState">The current state of the workflow instance, or null if not applicable.</param>
+            <param name="transitionKeys">Array of transition keys that can be automatically processed.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>A task representing the asynchronous job enqueue operation.</returns>
+            <exception cref="T:System.ArgumentNullException">Thrown when any required parameter is null.</exception>
+        </member>
+        <member name="M:BBT.Workflow.BackgroundJobs.WorkflowTimeoutJobExtensions.EnqueueTransitionTimerAsync(BBT.Workflow.BackgroundJobs.IBackgroundJobService,System.Guid,System.String,System.String,System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Enqueues a transition timer job that will be triggered after the specified duration
+            to execute a time-based workflow transition.
+            </summary>
+            <param name="jobService">The background job service instance to enqueue the job with.</param>
+            <param name="instanceId">The unique identifier of the workflow instance.</param>
+            <param name="flowName">The name of the workflow definition.</param>
+            <param name="domain">The domain context for the workflow.</param>
+            <param name="version">The version of the workflow definition.</param>
+            <param name="transitionKey">The key identifying the specific transition to execute.</param>
+            <param name="timerDuration">The duration to wait before triggering the transition in XML duration format.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>A task representing the asynchronous job enqueue operation.</returns>
+            <exception cref="T:System.ArgumentException">Thrown when the timer duration format is invalid.</exception>
+            <exception cref="T:System.ArgumentNullException">Thrown when any required parameter is null.</exception>
+        </member>
+        <member name="T:BBT.Workflow.BackgroundJobs.WorkflowTimeoutPayload">
+            <summary>
+            Represents the payload data for workflow timeout jobs.
+            This class contains all necessary information to identify and process
+            a workflow instance that has exceeded its timeout duration.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.WorkflowTimeoutPayload.Domain">
+            <summary>
+            Gets or sets the domain context for the workflow instance.
+            </summary>
+            <value>A string representing the workflow domain.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.WorkflowTimeoutPayload.InstanceId">
+            <summary>
+            Gets or sets the unique identifier of the workflow instance that has timed out.
+            </summary>
+            <value>A Guid representing the workflow instance ID.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.WorkflowTimeoutPayload.FlowName">
+            <summary>
+            Gets or sets the name of the workflow definition.
+            </summary>
+            <value>A string representing the workflow name.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.WorkflowTimeoutPayload.Version">
+            <summary>
+            Gets or sets the version of the workflow definition.
+            </summary>
+            <value>A string representing the workflow version.</value>
+        </member>
+        <member name="T:BBT.Workflow.BackgroundJobs.AutoTransitionPayload">
+            <summary>
+            Represents the payload data for auto-transition jobs.
+            This class contains information needed to process automatic workflow transitions
+            that don't require user intervention.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.AutoTransitionPayload.Domain">
+            <summary>
+            Gets or sets the domain context for the workflow instance.
+            </summary>
+            <value>A string representing the workflow domain.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.AutoTransitionPayload.InstanceId">
+            <summary>
+            Gets or sets the unique identifier of the workflow instance.
+            </summary>
+            <value>A Guid representing the workflow instance ID.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.AutoTransitionPayload.FlowName">
+            <summary>
+            Gets or sets the name of the workflow definition.
+            </summary>
+            <value>A string representing the workflow name.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.AutoTransitionPayload.Version">
+            <summary>
+            Gets or sets the version of the workflow definition.
+            </summary>
+            <value>A string representing the workflow version.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.AutoTransitionPayload.TransitionKeys">
+            <summary>
+            Gets or sets the array of transition keys that can be automatically processed.
+            </summary>
+            <value>An array of strings representing the available transition keys.</value>
+        </member>
+        <member name="T:BBT.Workflow.BackgroundJobs.TransitionTimerPayload">
+            <summary>
+            Represents the payload data for transition timer jobs.
+            This class contains information needed to execute a specific workflow transition
+            after a configured time delay.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.TransitionTimerPayload.Domain">
+            <summary>
+            Gets or sets the domain context for the workflow instance.
+            </summary>
+            <value>A string representing the workflow domain.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.TransitionTimerPayload.InstanceId">
+            <summary>
+            Gets or sets the unique identifier of the workflow instance.
+            </summary>
+            <value>A Guid representing the workflow instance ID.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.TransitionTimerPayload.FlowName">
+            <summary>
+            Gets or sets the name of the workflow definition.
+            </summary>
+            <value>A string representing the workflow name.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.TransitionTimerPayload.Version">
+            <summary>
+            Gets or sets the version of the workflow definition.
+            </summary>
+            <value>A string representing the workflow version.</value>
+        </member>
+        <member name="P:BBT.Workflow.BackgroundJobs.TransitionTimerPayload.TransitionKey">
+            <summary>
+            Gets or sets the key identifying the specific transition to execute.
+            </summary>
+            <value>A string representing the transition key.</value>
+        </member>
+        <member name="T:BBT.Workflow.Caching.IComponentCacheStore">
+            <summary>
+            Provides caching operations for workflow components including flows, tasks, schemas, functions, views, and extensions.
+            Supports domain-specific caching with versioning capabilities.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Caching.IComponentCacheStore.GetFlowAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves a workflow definition from the cache.
+            </summary>
+            <param name="domain">The domain identifier where the workflow belongs.</param>
+            <param name="key">The unique key/name identifier of the workflow.</param>
+            <param name="version">The specific version of the workflow. If null, returns the latest version.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A <see cref="T:System.Threading.Tasks.Task`1"/> representing the asynchronous operation.
+            The task result contains the <see cref="T:BBT.Workflow.Definitions.Workflow"/> if found.
+            </returns>
+            <exception cref="T:BBT.Aether.Domain.Entities.EntityNotFoundException">Thrown when the workflow is not found in cache.</exception>
+        </member>
+        <member name="M:BBT.Workflow.Caching.IComponentCacheStore.GetTaskAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves a workflow task definition from the cache.
+            </summary>
+            <param name="domain">The domain identifier where the task belongs.</param>
+            <param name="key">The unique key/name identifier of the task.</param>
+            <param name="version">The specific version of the task. If null, returns the latest version.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A <see cref="T:System.Threading.Tasks.Task`1"/> representing the asynchronous operation.
+            The task result contains the <see cref="T:BBT.Workflow.Definitions.WorkflowTask"/> if found.
+            </returns>
+            <exception cref="T:BBT.Aether.Domain.Entities.EntityNotFoundException">Thrown when the task is not found in cache.</exception>
+        </member>
+        <member name="M:BBT.Workflow.Caching.IComponentCacheStore.GetSchemaAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves a schema definition from the cache.
+            </summary>
+            <param name="domain">The domain identifier where the schema belongs.</param>
+            <param name="key">The unique key/name identifier of the schema.</param>
+            <param name="version">The specific version of the schema. If null, returns the latest version.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A <see cref="T:System.Threading.Tasks.Task`1"/> representing the asynchronous operation.
+            The task result contains the <see cref="T:BBT.Workflow.Definitions.SchemaDefinition"/> if found.
+            </returns>
+            <exception cref="T:BBT.Aether.Domain.Entities.EntityNotFoundException">Thrown when the schema is not found in cache.</exception>
+        </member>
+        <member name="M:BBT.Workflow.Caching.IComponentCacheStore.GetFunctionAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves a function definition from the cache.
+            </summary>
+            <param name="domain">The domain identifier where the function belongs.</param>
+            <param name="key">The unique key/name identifier of the function.</param>
+            <param name="version">The specific version of the function. If null, returns the latest version.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A <see cref="T:System.Threading.Tasks.Task`1"/> representing the asynchronous operation.
+            The task result contains the <see cref="T:BBT.Workflow.Definitions.Function"/> if found.
+            </returns>
+            <exception cref="T:BBT.Aether.Domain.Entities.EntityNotFoundException">Thrown when the function is not found in cache.</exception>
+        </member>
+        <member name="M:BBT.Workflow.Caching.IComponentCacheStore.GetViewAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves a view definition from the cache.
+            </summary>
+            <param name="domain">The domain identifier where the view belongs.</param>
+            <param name="key">The unique key/name identifier of the view.</param>
+            <param name="version">The specific version of the view. If null, returns the latest version.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A <see cref="T:System.Threading.Tasks.Task`1"/> representing the asynchronous operation.
+            The task result contains the <see cref="T:BBT.Workflow.Definitions.View"/> if found.
+            </returns>
+            <exception cref="T:BBT.Aether.Domain.Entities.EntityNotFoundException">Thrown when the view is not found in cache.</exception>
+        </member>
+        <member name="M:BBT.Workflow.Caching.IComponentCacheStore.GetExtensionAsync(System.String,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves an extension definition from the cache.
+            </summary>
+            <param name="domain">The domain identifier where the extension belongs.</param>
+            <param name="key">The unique key/name identifier of the extension.</param>
+            <param name="version">The specific version of the extension. If null, returns the latest version.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A <see cref="T:System.Threading.Tasks.Task`1"/> representing the asynchronous operation.
+            The task result contains the <see cref="T:BBT.Workflow.Definitions.Extension"/> if found.
+            </returns>
+            <exception cref="T:BBT.Aether.Domain.Entities.EntityNotFoundException">Thrown when the extension is not found in cache.</exception>
+        </member>
+        <member name="M:BBT.Workflow.Caching.IComponentCacheStore.GetAllExtensionsAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves all extension definitions for the specified domain from the cache.
+            This method is used to get core extensions that should be executed runtime-wide.
+            </summary>
+            <param name="domain">The domain identifier to retrieve extensions for.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A <see cref="T:System.Threading.Tasks.Task`1"/> representing the asynchronous operation.
+            The task result contains a collection of all <see cref="T:BBT.Workflow.Definitions.Extension"/> definitions for the domain.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.Caching.IComponentCacheStore.SetAsync``1(``0,System.Threading.CancellationToken)">
+            <summary>
+            Stores an entity in the cache.
+            </summary>
+            <typeparam name="T">The type of entity to store. Must implement <see cref="T:BBT.Workflow.IDomainEntity"/>.</typeparam>
+            <param name="entity">The entity instance to be cached.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A <see cref="T:System.Threading.Tasks.Task"/> representing the asynchronous cache operation.
+            </returns>
+            <exception cref="T:System.ArgumentNullException">Thrown when entity is null.</exception>
+            <exception cref="T:System.NotSupportedException">Thrown when the entity type is not supported for caching.</exception>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.Extension">
+            <summary>
+            Extension definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Extension.Type">
+            <summary>
+            It is defined to determine under which conditions the relevant extension will work.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Extension.Scope">
+            <summary>
+            It is defined to determine which services the relevant extension will run on.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Extension.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Extension.Flow">
+            <summary>
+            It is the information on which stream the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Extension.Domain">
+            <summary>
+            Information about which domain the flow is working on and which domain it belongs to.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Extension.Version">
+            <summary>
+            This is the version information at the time the record is assigned.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.ExtensionType">
+            <summary>
+            Extension types
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ExtensionType.Global">
+            <summary>
+            Extension that will work while recording samples are rotating in all streams.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ExtensionType.GlobalAndRequested">
+            <summary>
+            Extension that will work on all streams and when requesting recording samples.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ExtensionType.DefinedFlows">
+            <summary>
+            Extension that will only work on the streams for which it is defined.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ExtensionType.DefinedFlowAndRequested">
+            <summary>
+            An extension that will only work on the streams it is defined for and when requested.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.ExtensionScope">
+            <summary>
+            Extension scopes
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ExtensionScope.GetInstance">
+            <summary>
+            The entension works on {domain}/workflows/{workflow}/instances/{instance} endpoint
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ExtensionScope.GetAllInstances">
+            <summary>
+            The entension works on  {domain}/workflows/{workflow}/instances endpoint
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ExtensionScope.GetHistoryTransition">
+            <summary>
+            The entension works on  {domain}/workflows/{workflow}/instances/{instance}/transitions endpoint
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ExtensionScope.Everywhere">
+            <summary>
+            The entension works on  all get endpoints
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.Function">
+            <summary>
+            These are function definitions that will be distributed with the flow.
+            In general, BFF and calculation methods are defined as functions.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Function.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Function.Domain">
+            <summary>
+            This is information about the domain on which the stream where the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Function.Flow">
+            <summary>
+            It is the information on which stream the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Function.Version">
+            <summary>
+            This is the version information at the time the record is assigned.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.SchemaDefinition.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.SchemaDefinition.Flow">
+            <summary>
+            It is the information on which stream the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.SchemaDefinition.Domain">
+            <summary>
+            This is information about the domain on which the stream where the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.SchemaDefinition.Version">
+            <summary>
+            This is the version information at the time the record is assigned.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.SchemaDefinition.Schema">
+            <summary>
+            Schema Definition
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.State">
+            <summary>
+            It is in the possible statuses found in the flow.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.State.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.State.VersionStrategy">
+            <summary>
+            Version strategy
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.State.StateType">
+            <summary>
+            <see cref="P:BBT.Workflow.Definitions.State.StateType"/>
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.State.Labels">
+            <summary>
+            Languages
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.State.View">
+            <summary>
+            State view
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.State.Transitions">
+            <summary>
+            Transitions
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.State.OnEntries">
+            <summary>
+            On entries
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.State.OnExits">
+            <summary>
+            On exits
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.StateType">
+            <summary>
+            Main state types
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.StateType.Initial">
+            <summary>
+            Starting state of the workflow
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.StateType.Intermediate">
+            <summary>
+            Middle states where work is being done
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.StateType.Finish">
+            <summary>
+            End states of the workflow
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.StateType.SubFlow">
+            <summary>
+            State that executes another workflow
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.StateSubType">
+            <summary>
+            Subtypes
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.StateSubType.None">
+            <summary>
+            No specific subtype
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.StateSubType.Success">
+            <summary>
+            Successful completion
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.StateSubType.Error">
+            <summary>
+            Error condition
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.StateSubType.Terminated">
+            <summary>
+            Manually terminated
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.StateSubType.Suspended">
+            <summary>
+            Temporarily suspended
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.Tasks.ConditionTask.CloneTyped">
+            <summary>
+            Creates a typed deep copy of the current ConditionTask instance.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.Tasks.ConditionTask.CopyFromInternal(BBT.Workflow.Definitions.Tasks.ConditionTask)">
+            <summary>
+            Internal method for object pooling - copies all properties efficiently
+            </summary>
+            <param name="source">Source task to copy from</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.Tasks.ConditionTask.CreateEmpty">
+            <summary>
+            Creates a new instance for object pooling - internal use only
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.DaprBindingTask">
+            <summary>
+            Dapr Binding Task Definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprBindingTask.BindingName">
+            <summary>
+            Binding name
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprBindingTask.Operation">
+            <summary>
+            Operation
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprBindingTask.Metadata">
+            <summary>
+            Mete data
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprBindingTask.Data">
+            <summary>
+            Data
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprBindingTask.SetBindingNameInternal(System.String)">
+            <summary>
+            Internal property setters for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprBindingTask.CloneTyped">
+            <summary>
+            Creates a typed deep copy of the current DaprBindingTask instance.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprBindingTask.CopyFromInternal(BBT.Workflow.Definitions.DaprBindingTask)">
+            <summary>
+            Internal method for object pooling - copies all properties efficiently
+            </summary>
+            <param name="source">Source task to copy from</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprBindingTask.Reset">
+            <summary>
+            Resets the task instance to a clean state for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprBindingTask.CreateEmpty">
+            <summary>
+            Creates a new instance for object pooling - internal use only
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.DaprHttpEndpointTask">
+            <summary>
+            Dapr Http Endpoint Task Definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprHttpEndpointTask.EndpointName">
+            <summary>
+            References the HTTPEndpoint component name
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprHttpEndpointTask.Path">
+            <summary>
+            Path to append to baseUrl
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprHttpEndpointTask.Method">
+            <summary>
+            HTTP method to use
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprHttpEndpointTask.Headers">
+            <summary>
+            Additional headers as JSON
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprHttpEndpointTask.SetEndpointNameInternal(System.String)">
+            <summary>
+            Internal property setters for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprHttpEndpointTask.CloneTyped">
+            <summary>
+            Creates a typed deep copy of the current DaprHttpEndpointTask instance.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprHttpEndpointTask.CopyFromInternal(BBT.Workflow.Definitions.DaprHttpEndpointTask)">
+            <summary>
+            Internal method for object pooling - copies all properties efficiently
+            </summary>
+            <param name="source">Source task to copy from</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprHttpEndpointTask.Reset">
+            <summary>
+            Resets the task instance to a clean state for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprHttpEndpointTask.CreateEmpty">
+            <summary>
+            Creates a new instance for object pooling - internal use only
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.DaprPubSubTask">
+            <summary>
+            Dapr PubSub Task Definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprPubSubTask.PubSubName">
+            <summary>
+            PubSup name
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprPubSubTask.Topic">
+            <summary>
+            Topic
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprPubSubTask.Data">
+            <summary>
+            Data
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprPubSubTask.Metadata">
+            <summary>
+            Mete data
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprPubSubTask.SetPubSubNameInternal(System.String)">
+            <summary>
+            Internal property setters for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprPubSubTask.CloneTyped">
+            <summary>
+            Creates a typed deep copy of the current DaprPubSubTask instance.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprPubSubTask.CopyFromInternal(BBT.Workflow.Definitions.DaprPubSubTask)">
+            <summary>
+            Internal method for object pooling - copies all properties efficiently
+            </summary>
+            <param name="source">Source task to copy from</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprPubSubTask.Reset">
+            <summary>
+            Resets the task instance to a clean state for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprPubSubTask.CreateEmpty">
+            <summary>
+            Creates a new instance for object pooling - internal use only
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.DaprServiceTask">
+            <summary>
+            Dapr Service Task Definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprServiceTask.AppId">
+            <summary>
+            App ID
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprServiceTask.MethodName">
+            <summary>
+            Method Name
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprServiceTask.HttpVerb">
+            <summary>
+            Http Verb
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprServiceTask.Data">
+            <summary>
+            Data
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprServiceTask.QueryString">
+            <summary>
+            Query String
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.DaprServiceTask.TimeoutSeconds">
+            <summary>
+            Timeout seconds
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprServiceTask.SetAppIdInternal(System.String)">
+            <summary>
+            Internal property setters for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprServiceTask.Clone">
+            <summary>
+            Creates a deep copy of the current DaprServiceTask instance.
+            This implementation uses direct property copying for optimal performance.
+            </summary>
+            <returns>A new DaprServiceTask instance with identical configuration.</returns>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprServiceTask.CloneTyped">
+            <summary>
+            Creates a typed deep copy of the current DaprServiceTask instance.
+            </summary>
+            <returns>A new DaprServiceTask instance with identical configuration.</returns>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprServiceTask.CopyFromInternal(BBT.Workflow.Definitions.DaprServiceTask)">
+            <summary>
+            Internal method for object pooling - copies all properties efficiently
+            </summary>
+            <param name="source">Source task to copy from</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprServiceTask.Reset">
+            <summary>
+            Resets the task instance to a clean state for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.DaprServiceTask.CreateEmpty">
+            <summary>
+            Creates a new instance for object pooling - internal use only
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.HttpTask">
+            <summary>
+            Http Task Definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HttpTask.Url">
+            <summary>
+            Url
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HttpTask.Method">
+            <summary>
+            Method
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HttpTask.Headers">
+            <summary>
+            Headers
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HttpTask.Body">
+            <summary>
+            Body
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HttpTask.TimeoutSeconds">
+            <summary>
+            Timeout seconds
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HttpTask.ValidateSSL">
+            <summary>
+            Validate ssl
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HttpTask.SetHeadersInternal(System.Nullable{System.Text.Json.JsonElement})">
+            <summary>
+            Internal property setters for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HttpTask.Clone">
+            <summary>
+            Creates a deep copy of the current HttpTask instance.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HttpTask.CloneTyped">
+            <summary>
+            Creates a typed deep copy of the current HttpTask instance.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HttpTask.CopyFromInternal(BBT.Workflow.Definitions.HttpTask)">
+            <summary>
+            Internal method for object pooling - copies all properties efficiently
+            </summary>
+            <param name="source">Source task to copy from</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HttpTask.Reset">
+            <summary>
+            Resets the task instance to a clean state for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HttpTask.CreateEmpty">
+            <summary>
+            Creates a new instance for object pooling - internal use only
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.HumanTask">
+            <summary>
+            Human Task Definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HumanTask.Title">
+            <summary>
+            Title
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HumanTask.Instructions">
+            <summary>
+            Instructions
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HumanTask.AssignedTo">
+            <summary>
+            AssignedTo
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HumanTask.DueDate">
+            <summary>
+            DueDate
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HumanTask.Form">
+            <summary>
+            Form
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HumanTask.ReminderIntervalMinutes">
+            <summary>
+            ReminderIntervalMinutes
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HumanTask.EscalationTimeoutMinutes">
+            <summary>
+            EscalationTimeoutMinutes
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.HumanTask.EscalationAssignee">
+            <summary>
+            EscalationAssignee
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HumanTask.SetTitleInternal(System.String)">
+            <summary>
+            Internal property setters for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HumanTask.CloneTyped">
+            <summary>
+            Creates a typed deep copy of the current HumanTask instance.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HumanTask.CopyFromInternal(BBT.Workflow.Definitions.HumanTask)">
+            <summary>
+            Internal method for object pooling - copies all properties efficiently
+            </summary>
+            <param name="source">Source task to copy from</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HumanTask.Reset">
+            <summary>
+            Resets the task instance to a clean state for object pooling
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.HumanTask.CreateEmpty">
+            <summary>
+            Creates a new instance for object pooling - internal use only
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.ITaskClonable`1">
+            <summary>
+            Defines a contract for creating deep copies of workflow tasks.
+            This interface ensures that tasks can be safely cloned without affecting cached instances.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.ITaskClonable`1.Clone">
+            <summary>
+            Creates a deep copy of the current task instance.
+            </summary>
+            <returns>A new instance of the task with identical configuration but separate state.</returns>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.ITaskClonable">
+            <summary>
+            Non-generic interface for runtime cloning operations.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.ITaskClonable.Clone">
+            <summary>
+            Creates a deep copy of the current task instance.
+            </summary>
+            <returns>A new instance of the task with identical configuration but separate state.</returns>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.ScriptTask.CloneTyped">
+            <summary>
+            Creates a typed deep copy of the current ScriptTask instance.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.ScriptTask.CopyFromInternal(BBT.Workflow.Definitions.ScriptTask)">
+            <summary>
+            Internal method for object pooling - copies all properties efficiently
+            </summary>
+            <param name="source">Source task to copy from</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.ScriptTask.CreateEmpty">
+            <summary>
+            Creates a new instance for object pooling - internal use only
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.TaskType">
+            <summary>
+            Task types
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.TaskTrigger">
+            <summary>
+            Task triggers
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.TaskStatus">
+            <summary>
+            Task statuses
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.WorkflowTask">
+            <summary>
+            Base Task
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.WorkflowTask.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.WorkflowTask.Flow">
+            <summary>
+            It is the information on which stream the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.WorkflowTask.Domain">
+            <summary>
+            Information about which domain the flow is working on and which domain it belongs to.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.WorkflowTask.Version">
+            <summary>
+            This is the version information at the time the record is assigned.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.WorkflowTask.Type">
+            <summary>
+            <see cref="T:BBT.Workflow.Definitions.TaskType"/>
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.WorkflowTask.Config">
+            <summary>
+            Configuration
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.WorkflowTask.SetKeyInternal(System.String)">
+            <summary>
+            Internal method for object pooling - sets properties directly without validation
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.WorkflowTask.SetDomainInternal(System.String)">
+            <summary>
+            Internal method for object pooling - sets properties directly without validation
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.WorkflowTask.SetVersionInternal(System.String)">
+            <summary>
+            Internal method for object pooling - sets properties directly without validation
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.WorkflowTask.SetConfigInternal(System.Text.Json.JsonElement)">
+            <summary>
+            Internal method for object pooling - sets properties directly without validation
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.WorkflowTask.Clone">
+            <summary>
+            Creates a deep copy of the current task instance.
+            Each derived class must implement its own cloning logic for optimal performance.
+            </summary>
+            <returns>A new instance of the task with identical configuration but separate state.</returns>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.WorkflowTask.CopyBaseTo(BBT.Workflow.Definitions.WorkflowTask)">
+            <summary>
+            Helper method for derived classes to copy base properties.
+            </summary>
+            <param name="target">The target task instance to copy properties to.</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.WorkflowTask.CopyBaseToInternal(BBT.Workflow.Definitions.WorkflowTask)">
+            <summary>
+            Internal method for object pooling - copies base properties directly for better performance
+            </summary>
+            <param name="target">The target task instance to copy properties to.</param>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.WorkflowTask.Reset">
+            <summary>
+            Resets the task instance to a clean state for object pooling.
+            Derived classes should override this to reset their specific properties.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.TimerConfig.Duration">
+            <summary>
+            Duration ISO 8601
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.Transition">
+            <summary>
+            Transition definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Transition.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Transition.From">
+            <summary>
+            From state information.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Transition.Target">
+            <summary>
+            Specifies the targeted state information.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Transition.VersionStrategy">
+            <summary>
+            Version Strategy
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Transition.TriggerType">
+            <summary>
+            <see cref="P:BBT.Workflow.Definitions.Transition.TriggerType"/>
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Transition.Labels">
+            <summary>
+            Language
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Transition.View">
+            <summary>
+            Transition View
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Transition.OnExecutionTasks">
+            <summary>
+            On Execution Tasks
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.TriggerType">
+            <summary>
+            Trigger types
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.TriggerType.Manual">
+            <summary>
+            Manuel
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.TriggerType.Automatic">
+            <summary>
+            Automatic
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.TriggerType.Scheduled">
+            <summary>
+            Scheduled
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.TriggerType.Event">
+            <summary>
+            Event
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.Validators.WorkflowValidator">
+            <summary>
+            This class aims to provide consistent validation for the workflow domain.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.View">
+            <summary>
+            View definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.View.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.View.Flow">
+            <summary>
+            It is the information on which stream the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.View.Domain">
+            <summary>
+            Information about which domain the flow is working on and which domain it belongs to.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.View.Version">
+            <summary>
+            This is the version information at the time the record is assigned.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.View.Type">
+            <summary>
+            <see cref="T:BBT.Workflow.Definitions.ViewType"/>
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.View.Target">
+            <summary>
+            <see cref="T:BBT.Workflow.Definitions.ViewTarget"/>
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.View.SemanticVersion">
+            <summary>
+            Semantic Version
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.View.Content">
+            <summary>
+            Content
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.View.JsonContent">
+            <summary>
+            Json Content
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.ViewType">
+            <summary>
+            View types
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ViewType.Json">
+            <summary>
+            Json
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ViewType.Html">
+            <summary>
+            Html
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ViewType.Markdown">
+            <summary>
+            Markdown
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.ViewTarget">
+            <summary>
+            View targets
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ViewTarget.State">
+            <summary>
+            State
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ViewTarget.Transition">
+            <summary>
+            Transition
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Definitions.ViewTarget.Task">
+            <summary>
+            Task
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.Workflow">
+            <summary>
+            Workflow definition
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Key">
+            <summary>
+            It is the key value for the heat flow.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Domain">
+            <summary>
+            Information about which domain the flow is working on and which domain it belongs to.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Flow">
+            <summary>
+            It is the information on which stream the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Version">
+            <summary>
+            Semantic version number. There may be more than one version on the runtime.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Type">
+            <summary>
+            Determines the course of the flow.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.CreatedAt">
+            <summary>
+            Created at
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.SemanticVersion">
+            <summary>
+            Semantic version
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Timeout">
+            <summary>
+            When the workflow starts, a timer counts down.
+            If the workflow is not completed within this time,
+            it is automatically pulled to the targeted status.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Labels">
+            <summary>
+            It is a content set with multiple language options for the content to be displayed to the user.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Functions">
+            <summary>
+            These are function definitions that will be distributed with the flow.
+            In general, BFF and calculation methods are defined as functions.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Features">
+            <summary>
+            Definitions that include transition and interface components
+            that can be used in common in all flows such as adding documents and adding notes.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.SharedTransitions">
+            <summary>
+            It is used for common transition definitions such as Cancel in the flow.
+            It is to prevent redefinition in each state that passes.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.Extensions">
+            <summary>
+            Specifies additional functions to be run when a recording of a flow sample is requested.
+            It is generally used to enrich the recording.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.StartTransition">
+            <summary>
+            All flows are started with a fixed transition named start.
+            There is no interface component in the transition but it can receive a dataset.
+            It contains the basic definitions related to this transition.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.Workflow.States">
+            <summary>
+            It is in the possible statuses found in the flow.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.WorkflowTimeout">
+            <summary>
+            When the workflow starts, a timer counts down.
+            If the workflow is not completed within this time,
+            it is automatically pulled to the targeted status.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.WorkflowTimeout.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.WorkflowTimeout.Target">
+            <summary>
+            The name of the status to which the flow will be drawn.
+            This status is expected to be of the finish State type.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Definitions.WorkflowTimeout.VersionStrategy">
+            <summary>
+            Version Strategy
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Definitions.PostgreSqlJsonFilterService">
+            <summary>
+            PostgreSQL native JSONB filter service using FromSqlRaw for optimal performance
+            Supports all numeric operations without range limitations
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.PostgreSqlJsonFilterService.ApplyJsonFilters``1(Microsoft.EntityFrameworkCore.DbSet{``0},System.String[],System.String,System.String,System.String)">
+            <summary>
+            Apply JSON filters using PostgreSQL native JSONB operators with CTE approach
+            </summary>
+            <typeparam name="T">Entity type</typeparam>
+            <param name="dbSet">Entity DbSet</param>
+            <param name="filters">Array of filter strings in format: "field=operator:value"</param>
+            <param name="jsonColumnName">Name of the JSON column (e.g., "Data", "Json")</param>
+            <param name="tableName">Name of the database table</param>
+            <param name="schema">Database schema name</param>
+            <returns>Filtered queryable</returns>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.PostgreSqlJsonFilterService.ApplyJsonFilter``1(Microsoft.EntityFrameworkCore.DbSet{``0},System.String,System.String,System.String,System.String,System.String)">
+            <summary>
+            Apply single JSON filter using PostgreSQL native JSONB operators
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Definitions.PostgreSqlJsonFilterService.BuildFilteredQuery``1(System.String[],System.String,System.String)">
+            <summary>
+            Create filtered SQL query string with parameters (for manual execution)
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Instances.GetInstanceOutput">
+            <summary>
+            Output for single instance retrieval with extensions
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Instances.GetInstanceListOutput">
+            <summary>
+            Paginated result for instance list retrieval
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Instances.GetInstanceHistoryOutput">
+            <summary>
+            Output for instance history (all data transitions)
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Instances.IInstanceCorrelationRepository">
+            <summary>
+            Repository interface for managing workflow instance correlations.
+            This interface provides data access methods for handling parent-child relationships
+            between workflow instances, particularly for SubFlow and SubProcess scenarios.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Instances.IInstanceCorrelationRepository.FindActiveByParentInstanceIdAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Finds active correlations where the specified instance ID is the parent instance.
+            This method is used to identify all active child flows for a given parent workflow.
+            </summary>
+            <param name="parentInstanceId">The unique identifier of the parent workflow instance.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A task representing the asynchronous operation.
+            The result contains a collection of active correlations where the instance is a parent.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.Instances.IInstanceCorrelationRepository.FindBySubFlowInstanceIdAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Finds the parent correlation for the specified sub-flow instance.
+            This method is used to identify the parent workflow when a sub-flow needs to signal completion.
+            </summary>
+            <param name="subFlowInstanceId">The unique identifier of the sub-flow instance.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A task representing the asynchronous operation.
+            The result contains the correlation record if found; otherwise, null.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.Instances.IInstanceCorrelationRepository.FindIncompleteByParentAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Finds all incomplete correlations for the specified parent instance and state.
+            This method is used to check if there are any pending sub-flows that block the parent workflow.
+            </summary>
+            <param name="parentInstanceId">The unique identifier of the parent workflow instance.</param>
+            <param name="parentState">The state key where the sub-flows were initiated.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A task representing the asynchronous operation.
+            The result contains a collection of incomplete correlations for the specified criteria.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.Instances.IInstanceCorrelationRepository.HasIncompleteCorrelationsAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Checks if there are any incomplete correlations for the specified parent instance.
+            This method provides a quick way to determine if a parent workflow has pending sub-flows.
+            </summary>
+            <param name="parentInstanceId">The unique identifier of the parent workflow instance.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A task representing the asynchronous operation.
+            The result is true if there are incomplete correlations; otherwise, false.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.Instances.IInstanceCorrelationRepository.HasActiveBlockingSubFlowsAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Checks if there are any active blocking SubFlow instances for the specified parent instance.
+            This method performs a database-level join query to check for SubFlow type "S" instances
+            without fetching individual instance records for better performance.
+            </summary>
+            <param name="parentInstanceId">The unique identifier of the parent workflow instance.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A task representing the asynchronous operation.
+            The result is true if there are active blocking SubFlow instances; otherwise, false.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.Instances.IInstanceCorrelationRepository.FindActiveBlockingSubFlowAsync(System.Guid,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Finds the first active blocking SubFlow correlation for the specified parent instance and state.
+            This method is optimized to directly return blocking SubFlow (Type "S") correlations without additional filtering.
+            </summary>
+            <param name="parentInstanceId">The unique identifier of the parent workflow instance.</param>
+            <param name="parentState">The state key where the sub-flow was initiated.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>
+            A task representing the asynchronous operation.
+            The result contains the first active blocking SubFlow correlation if found; otherwise, null.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.Instances.IInstanceRepository.GetFilteredQueryWithPostgreSqlAsync(System.String[],System.Boolean,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Get filtered instances using PostgreSQL native JSON operators with advanced options
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Instances.IInstanceRepository.GetFilteredInstanceDataAsync(System.String[],System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Get filtered InstanceData directly using PostgreSQL native JSON operators
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Instances.Instance">
+            <summary>
+            Instance
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.Key">
+            <summary>
+            It is the key value for the heat flow.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.Flow">
+            <summary>
+            Flow key.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.CurrentState">
+            <summary>
+            Current state key
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.Status">
+            <summary>
+            Status
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.CompletedAt">
+            <summary>
+            Completed at
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.CreatedAt">
+            <summary>
+            Created at
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.ModifiedAt">
+            <summary>
+            Modified at
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.DataList">
+            <summary>
+            Child Correlations
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.Data">
+            <summary>
+            Latest data
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.Instance.ChildCorrelations">
+            <summary>
+            Child Correlations
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Instances.Instance.Busy">
+            <summary>
+            Sets the instance status to Busy.
+            This is typically called when a transition is being processed to prevent concurrent modifications.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Instances.Instance.Active">
+            <summary>
+            Sets the instance status to Active.
+            This is typically called when a transition processing is completed successfully.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceAction.TaskId">
+            <summary>
+            Instance Task ID
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Instances.InstanceCorrelation">
+            <summary>
+            Instance Correlation
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceCorrelation.ParentInstanceId">
+            <summary>
+            <see cref="T:BBT.Workflow.Instances.Instance"/> Parent Instance ID
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceCorrelation.ParentState">
+            <summary>
+            <see cref="T:BBT.Workflow.Definitions.State"/> Parent State ID
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceCorrelation.SubFlowInstanceId">
+            <summary>
+            <see cref="T:BBT.Workflow.Instances.Instance"/> SubFlow Instance ID
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceCorrelation.SubFlowDomain">
+            <summary>
+            Sub Flow Domain
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceCorrelation.SubFlowName">
+            <summary>
+            Sub Flow Name
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceCorrelation.SubFlowVersion">
+            <summary>
+            Sub Flow Version
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceCorrelation.SubFlowType">
+            <summary>
+            SubFlow Type: "S" (SubFlow - blocking) or "P" (SubProcess - non-blocking)
+            This field enables performant querying without joining to Instance table.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceCorrelation.IsCompleted">
+            <summary>
+            Is completed
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceCorrelation.CompletedAt">
+            <summary>
+            Completed at
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Instances.InstanceData">
+            <summary>
+            Instance Data
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceData.InstanceId">
+            <summary>
+            Instance ID
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceData.Version">
+            <summary>
+            Semantic version number. There may be more than one version on the runtime.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceData.IsLatest">
+            <summary>
+            IsLatest
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceData.ETag">
+            <summary>
+            ETag
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceData.Data">
+            <summary>
+            <see cref="T:BBT.Workflow.JsonData"/>
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceData.EnteredAt">
+            <summary>
+            Entered at
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Instances.InstanceTask">
+            <summary>
+            Instance Task
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceTask.TransitionId">
+            <summary>
+            Instance Transition ID
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceTask.Request">
+            <summary>
+            Request
+            <see cref="T:BBT.Workflow.JsonData"/>
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceTask.Response">
+            <summary>
+            Response
+            <see cref="T:BBT.Workflow.JsonData"/>
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceTransition.Body">
+            <summary>
+            Body
+            <see cref="T:BBT.Workflow.JsonData"/>
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Instances.InstanceTransition.Header">
+            <summary>
+            Header
+            <see cref="T:BBT.Workflow.JsonData"/>
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.States.IRuleExecutionService">
+            <summary>
+            Provides rule execution functionality by delegating script execution to the task execution service.
+            This service acts as a specialized wrapper around <see cref="!:TaskExecutionService"/> for rule-based conditions.
+            </summary>
+            <remarks>
+            The <see cref="!:RuleExecutionService"/> is designed to execute conditional logic defined in scripts
+            within the context of workflow state transitions. It leverages the underlying task execution 
+            infrastructure to evaluate business rules and return boolean results that determine workflow flow.
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.States.IRuleExecutionService.ExecuteRuleAsync(BBT.Workflow.Definitions.ScriptCode,BBT.Workflow.Scripting.ScriptContext,System.Threading.CancellationToken)">
+            <summary>
+            Executes a rule script and returns the result
+            </summary>
+            <param name="script">The script code to execute</param>
+            <param name="context">The script execution context</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>True if the rule passes, false otherwise</returns>
+        </member>
+        <member name="T:BBT.Workflow.States.IStateMachineService">
+            <summary>
+            Interface for state machine operations for workflow transitions and state management.
+            This interface defines the contract for handling transition validation, rule execution, schema validation, and state navigation.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.States.IStateMachineService.GetTransitionAsync(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance,System.String,BBT.Workflow.Scripting.ScriptContext,System.Nullable{System.Text.Json.JsonElement},System.Threading.CancellationToken)">
+            <summary>
+            Retrieves and validates a transition for a workflow instance based on the specified transition key.
+            </summary>
+            <param name="workflow">The workflow definition containing states and transitions</param>
+            <param name="instance">The current workflow instance</param>
+            <param name="transitionKey">The unique identifier of the transition to execute</param>
+            <param name="scriptContext">The script execution context for rule evaluation</param>
+            <param name="data">Optional JSON data to validate against the transition's schema</param>
+            <param name="cancellationToken">Cancellation token to cancel the operation</param>
+            <returns>
+            A <see cref="T:BBT.Workflow.Definitions.Transition"/> object representing the validated transition that can be executed.
+            </returns>
+            <exception cref="!:NotFoundTransitionException">
+            Thrown when the specified transition key is not found in the current state or shared transitions.
+            </exception>
+            <exception cref="!:TransitionRuleFailedException">
+            Thrown when the transition rule evaluation fails or returns false.
+            </exception>
+            <exception cref="!:ValidationException">
+            Thrown when the provided data does not conform to the transition's JSON schema.
+            </exception>
+            <remarks>
+            This method performs several validation steps:
+            1. Verifies the transition exists for the current state
+            2. Checks if the instance can execute the transition based on policies
+            3. Evaluates any business rules associated with the transition
+            4. Validates input data against the transition's schema if present
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.States.IStateMachineService.AvailableTransitionKeys(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance)">
+            <summary>
+            Gets all available transition keys that can be executed from the current state of a workflow instance.
+            </summary>
+            <param name="workflow">The workflow definition to query for available transitions</param>
+            <param name="instance">The workflow instance to check the current state</param>
+            <returns>
+            A list of strings representing the keys of all transitions available from the current state,
+            including both state-specific and shared transitions.
+            </returns>
+            <remarks>
+            This method combines:
+            - Direct transitions from the current state
+            - Shared transitions that are available for the current state
+            The returned keys can be used with <see cref="M:BBT.Workflow.States.IStateMachineService.GetTransitionAsync(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance,System.String,BBT.Workflow.Scripting.ScriptContext,System.Nullable{System.Text.Json.JsonElement},System.Threading.CancellationToken)"/> to execute specific transitions.
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.States.IStateMachineService.AvailableUserTransitionKeys(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance)">
+            <summary>
+            Gets all available user-triggered transition keys that can be executed from the current state of a workflow instance.
+            This method filters out automatic and scheduled transitions, returning only manual transitions that users can trigger.
+            </summary>
+            <param name="workflow">The workflow definition to query for available transitions</param>
+            <param name="instance">The workflow instance to check the current state</param>
+            <returns>
+            A list of strings representing the keys of manual transitions available from the current state,
+            including both state-specific and shared manual transitions.
+            </returns>
+            <remarks>
+            This method filters out:
+            - Automatic transitions (TriggerType.Automatic)
+            - Scheduled transitions (TriggerType.Scheduled)
+            And only returns Manual and Event transitions that can be triggered by users.
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.States.IStateMachineService.GetAutomaticTransitions(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance)">
+            <summary>
+            Retrieves all automatic transitions that can be executed from the current state without user intervention.
+            </summary>
+            <param name="workflow">The workflow definition containing the states and transitions</param>
+            <param name="instance">The workflow instance to check for automatic transitions</param>
+            <returns>
+            An enumerable collection of <see cref="T:BBT.Workflow.Definitions.Transition"/> objects representing automatic transitions
+            that are eligible for execution from the current state.
+            </returns>
+            <remarks>
+            Automatic transitions are executed by the workflow engine without external triggers.
+            These transitions typically represent system-driven state changes or background processes.
+            The workflow engine may execute these transitions based on configured intervals or events.
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.States.IStateMachineService.GetScheduledTransitions(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance)">
+            <summary>
+            Retrieves all scheduled transitions that are configured to execute at specific times from the current state.
+            </summary>
+            <param name="workflow">The workflow definition containing the states and transitions</param>
+            <param name="instance">The workflow instance to check for scheduled transitions</param>
+            <returns>
+            An enumerable collection of <see cref="T:BBT.Workflow.Definitions.Transition"/> objects representing scheduled transitions
+            that are configured to execute at predetermined times from the current state.
+            </returns>
+            <remarks>
+            Scheduled transitions are time-based transitions that execute according to a defined schedule.
+            These might include timeout transitions, deadline-driven state changes, or periodic workflows.
+            The workflow scheduler uses this information to determine when to trigger these transitions.
+            </remarks>
+        </member>
+        <member name="T:BBT.Workflow.States.StateMachineService">
+            <summary>
+            Provides state machine operations for workflow transitions and state management.
+            This service handles transition validation, rule execution, schema validation, and state navigation.
+            </summary>
+            <param name="stateTransitionPolicy">Policy for controlling state transition permissions and validation</param>
+            <param name="schemaValidator">Validator for JSON schema validation against transition data</param>
+            <param name="componentCacheStore">Cache store for retrieving workflow components like schemas</param>
+            <param name="ruleExecutionService">Service for executing business rules associated with transitions</param>
+        </member>
+        <member name="M:BBT.Workflow.States.StateMachineService.#ctor(BBT.Workflow.Instances.Policies.StateTransitionPolicy,BBT.Workflow.Validation.IJsonSchemaValidator,BBT.Workflow.Caching.IComponentCacheStore,BBT.Workflow.States.IRuleExecutionService)">
+            <summary>
+            Provides state machine operations for workflow transitions and state management.
+            This service handles transition validation, rule execution, schema validation, and state navigation.
+            </summary>
+            <param name="stateTransitionPolicy">Policy for controlling state transition permissions and validation</param>
+            <param name="schemaValidator">Validator for JSON schema validation against transition data</param>
+            <param name="componentCacheStore">Cache store for retrieving workflow components like schemas</param>
+            <param name="ruleExecutionService">Service for executing business rules associated with transitions</param>
+        </member>
+        <member name="M:BBT.Workflow.States.StateMachineService.GetTransitionAsync(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance,System.String,BBT.Workflow.Scripting.ScriptContext,System.Nullable{System.Text.Json.JsonElement},System.Threading.CancellationToken)">
+            <summary>
+            Retrieves and validates a transition for a workflow instance based on the specified transition key.
+            </summary>
+            <param name="workflow">The workflow definition containing states and transitions</param>
+            <param name="instance">The current workflow instance</param>
+            <param name="transitionKey">The unique identifier of the transition to execute</param>
+            <param name="scriptContext">The script execution context for rule evaluation</param>
+            <param name="data">Optional JSON data to validate against the transition's schema</param>
+            <param name="cancellationToken">Cancellation token to cancel the operation</param>
+            <returns>
+            A <see cref="T:BBT.Workflow.Definitions.Transition"/> object representing the validated transition that can be executed.
+            </returns>
+            <exception cref="T:BBT.Workflow.ExceptionHandling.NotFoundTransitionException">
+            Thrown when the specified transition key is not found in the current state or shared transitions.
+            </exception>
+            <exception cref="T:BBT.Workflow.ExceptionHandling.TransitionRuleFailedException">
+            Thrown when the transition rule evaluation fails or returns false.
+            </exception>
+            <exception cref="T:System.ComponentModel.DataAnnotations.ValidationException">
+            Thrown when the provided data does not conform to the transition's JSON schema.
+            </exception>
+            <remarks>
+            This method performs several validation steps:
+            1. Verifies the transition exists for the current state
+            2. Checks if the instance can execute the transition based on policies
+            3. Evaluates any business rules associated with the transition
+            4. Validates input data against the transition's schema if present
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.States.StateMachineService.ValidateAndProcessTransitionAsync(BBT.Workflow.Instances.Instance,BBT.Workflow.Definitions.State,BBT.Workflow.Definitions.Transition,BBT.Workflow.Scripting.ScriptContext,System.Nullable{System.Text.Json.JsonElement},System.Threading.CancellationToken)">
+            <summary>
+            Validates and processes a transition by checking permissions, rules, and schema validation.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.States.StateMachineService.AvailableTransitionKeys(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance)">
+            <summary>
+            Gets all available transition keys that can be executed from the current state of a workflow instance.
+            </summary>
+            <param name="workflow">The workflow definition to query for available transitions</param>
+            <param name="instance">The workflow instance to check the current state</param>
+            <returns>
+            A list of strings representing the keys of all transitions available from the current state,
+            including both state-specific and shared transitions.
+            </returns>
+            <remarks>
+            This method combines:
+            - Direct transitions from the current state
+            - Shared transitions that are available for the current state
+            The returned keys can be used with <see cref="M:BBT.Workflow.States.StateMachineService.GetTransitionAsync(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance,System.String,BBT.Workflow.Scripting.ScriptContext,System.Nullable{System.Text.Json.JsonElement},System.Threading.CancellationToken)"/> to execute specific transitions.
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.States.StateMachineService.GetAutomaticTransitions(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance)">
+            <summary>
+            Retrieves all automatic transitions that can be executed from the current state without user intervention.
+            </summary>
+            <param name="workflow">The workflow definition containing the states and transitions</param>
+            <param name="instance">The workflow instance to check for automatic transitions</param>
+            <returns>
+            An enumerable collection of <see cref="T:BBT.Workflow.Definitions.Transition"/> objects representing automatic transitions
+            that are eligible for execution from the current state.
+            </returns>
+            <remarks>
+            Automatic transitions are executed by the workflow engine without external triggers.
+            These transitions typically represent system-driven state changes or background processes.
+            The workflow engine may execute these transitions based on configured intervals or events.
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.States.StateMachineService.GetScheduledTransitions(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance)">
+            <summary>
+            Retrieves all scheduled transitions that are configured to execute at specific times from the current state.
+            </summary>
+            <param name="workflow">The workflow definition containing the states and transitions</param>
+            <param name="instance">The workflow instance to check for scheduled transitions</param>
+            <returns>
+            An enumerable collection of <see cref="T:BBT.Workflow.Definitions.Transition"/> objects representing scheduled transitions
+            that are configured to execute at predetermined times from the current state.
+            </returns>
+            <remarks>
+            Scheduled transitions are time-based transitions that execute according to a defined schedule.
+            These might include timeout transitions, deadline-driven state changes, or periodic workflows.
+            The workflow scheduler uses this information to determine when to trigger these transitions.
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.States.StateMachineService.AvailableUserTransitionKeys(BBT.Workflow.Definitions.Workflow,BBT.Workflow.Instances.Instance)">
+            <summary>
+            Gets all available user-triggered transition keys that can be executed from the current state of a workflow instance.
+            This method filters out automatic and scheduled transitions, returning only manual transitions that users can trigger.
+            </summary>
+            <param name="workflow">The workflow definition to query for available transitions</param>
+            <param name="instance">The workflow instance to check the current state</param>
+            <returns>
+            A list of strings representing the keys of manual transitions available from the current state,
+            including both state-specific and shared manual transitions.
+            </returns>
+            <remarks>
+            This method filters out:
+            - Automatic transitions (TriggerType.Automatic)
+            - Scheduled transitions (TriggerType.Scheduled)
+            And only returns Manual and Event transitions that can be triggered by users.
+            </remarks>
+        </member>
+        <member name="T:BBT.Workflow.ExceptionHandling.SubFlowBlockedException">
+            <summary>
+            Exception thrown when a workflow instance transition is blocked by active SubFlow instances.
+            This exception is raised when attempting to execute a transition while there are incomplete
+            blocking SubFlow (Type "S") instances that must complete before the parent workflow can continue.
+            </summary>
+            <param name="instanceId">The unique identifier of the parent workflow instance</param>
+            <param name="transitionKey">The key of the transition that was attempted</param>
+            <param name="activeSubFlowCount">The number of active blocking SubFlow instances (may be estimated)</param>
+        </member>
+        <member name="M:BBT.Workflow.ExceptionHandling.SubFlowBlockedException.#ctor(System.Guid,System.String,System.Int32)">
+            <summary>
+            Exception thrown when a workflow instance transition is blocked by active SubFlow instances.
+            This exception is raised when attempting to execute a transition while there are incomplete
+            blocking SubFlow (Type "S") instances that must complete before the parent workflow can continue.
+            </summary>
+            <param name="instanceId">The unique identifier of the parent workflow instance</param>
+            <param name="transitionKey">The key of the transition that was attempted</param>
+            <param name="activeSubFlowCount">The number of active blocking SubFlow instances (may be estimated)</param>
+        </member>
+        <member name="P:BBT.Workflow.ExceptionHandling.SubFlowBlockedException.InstanceId">
+            <summary>
+            Gets the unique identifier of the parent workflow instance that is blocked.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.ExceptionHandling.SubFlowBlockedException.TransitionKey">
+            <summary>
+            Gets the key of the transition that was attempted to be executed.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.ExceptionHandling.SubFlowBlockedException.ActiveSubFlowCount">
+            <summary>
+            Gets the number of active blocking SubFlow instances that are preventing the transition.
+            Note: This value may be estimated when exact count is not available for performance reasons.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.ExceptionHandling.InstanceNotFoundException">
+            <summary>
+            Exception thrown when a workflow instance is not found or is in an invalid state for the requested operation.
+            </summary>
+            <param name="instanceId">The unique identifier of the workflow instance</param>
+            <param name="reason">The reason why the instance is invalid or not found</param>
+        </member>
+        <member name="M:BBT.Workflow.ExceptionHandling.InstanceNotFoundException.#ctor(System.Guid,System.String)">
+            <summary>
+            Exception thrown when a workflow instance is not found or is in an invalid state for the requested operation.
+            </summary>
+            <param name="instanceId">The unique identifier of the workflow instance</param>
+            <param name="reason">The reason why the instance is invalid or not found</param>
+        </member>
+        <member name="P:BBT.Workflow.ExceptionHandling.InstanceNotFoundException.InstanceId">
+            <summary>
+            Gets the unique identifier of the workflow instance that was not found.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.ExceptionHandling.InstanceNotFoundException.Reason">
+            <summary>
+            Gets the reason why the instance was not found or is invalid.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.ExceptionHandling.TransitionLockedException">
+            <summary>
+            Exception thrown when a transition is already in progress for a workflow instance.
+            This exception prevents concurrent transition execution on the same instance.
+            </summary>
+            <param name="instanceId">The unique identifier of the workflow instance</param>
+            <param name="transitionKey">The key of the transition that was attempted</param>
+        </member>
+        <member name="M:BBT.Workflow.ExceptionHandling.TransitionLockedException.#ctor(System.Guid,System.String)">
+            <summary>
+            Exception thrown when a transition is already in progress for a workflow instance.
+            This exception prevents concurrent transition execution on the same instance.
+            </summary>
+            <param name="instanceId">The unique identifier of the workflow instance</param>
+            <param name="transitionKey">The key of the transition that was attempted</param>
+        </member>
+        <member name="P:BBT.Workflow.ExceptionHandling.TransitionLockedException.InstanceId">
+            <summary>
+            Gets the unique identifier of the workflow instance that has a transition in progress.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.ExceptionHandling.TransitionLockedException.TransitionKey">
+            <summary>
+            Gets the key of the transition that was attempted to be executed.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Rules.BaseRule`1">
+            <summary>
+            Provides a base implementation for business rules that operate on a specific context type.
+            This abstract class implements the IRule interface and serves as a foundation for concrete rule implementations.
+            Derived classes must implement the IsApplicable and Execute methods to define their specific business logic.
+            </summary>
+            <typeparam name="T">The type of context that this rule operates on</typeparam>
+        </member>
+        <member name="M:BBT.Workflow.Rules.BaseRule`1.IsApplicable(`0)">
+            <summary>
+            Determines whether this rule should be applied to the given context.
+            Derived classes must implement this method to define their specific applicability criteria.
+            </summary>
+            <param name="context">The context to evaluate for rule applicability</param>
+            <returns>True if the rule should be executed for this context; otherwise, false</returns>
+        </member>
+        <member name="M:BBT.Workflow.Rules.BaseRule`1.Execute(`0)">
+            <summary>
+            Executes the business logic of this rule on the provided context.
+            Derived classes must implement this method to define their specific execution behavior.
+            </summary>
+            <param name="context">The context on which to execute the rule</param>
+        </member>
+        <member name="T:BBT.Workflow.Rules.IRule`1">
+            <summary>
+            Defines a contract for implementing business rules that can be applied to a specific context.
+            This interface provides a standardized way to create reusable and testable business logic components.
+            </summary>
+            <typeparam name="T">The type of context that this rule operates on</typeparam>
+        </member>
+        <member name="M:BBT.Workflow.Rules.IRule`1.IsApplicable(`0)">
+            <summary>
+            Determines whether this rule should be applied to the given context.
+            This method allows for conditional rule execution based on the context state.
+            </summary>
+            <param name="context">The context to evaluate for rule applicability</param>
+            <returns>True if the rule should be executed for this context; otherwise, false</returns>
+        </member>
+        <member name="M:BBT.Workflow.Rules.IRule`1.Execute(`0)">
+            <summary>
+            Executes the business logic of this rule on the provided context.
+            This method should only be called after confirming that the rule is applicable via IsApplicable method.
+            </summary>
+            <param name="context">The context on which to execute the rule</param>
+        </member>
+        <member name="T:BBT.Workflow.Rules.IRuleEngine`1">
+            <summary>
+            Defines a contract for a rule engine that can process business rules against a specific context.
+            The rule engine evaluates applicable rules and executes them in sequence.
+            </summary>
+            <typeparam name="T">The type of context that the rules operate on</typeparam>
+        </member>
+        <member name="M:BBT.Workflow.Rules.IRuleEngine`1.Process(`0)">
+            <summary>
+            Processes all applicable rules against the provided context.
+            The engine will evaluate each rule's applicability and execute those that match.
+            </summary>
+            <param name="context">The context to process rules against</param>
+        </member>
+        <member name="M:BBT.Workflow.Rules.IRuleEngine`1.SetRules(System.Collections.Generic.IEnumerable{BBT.Workflow.Rules.IRule{`0}})">
+            <summary>
+            Sets the collection of rules that this engine will use for processing.
+            This method replaces any previously configured rules.
+            </summary>
+            <param name="rules">The collection of rules to be used by the engine</param>
+        </member>
+        <member name="T:BBT.Workflow.Rules.RuleEngine`1">
+            <summary>
+            Implements a rule engine that processes business rules against a specific context type.
+            This engine evaluates rules in the order they are provided and executes all applicable rules.
+            Rules are considered applicable based on their IsApplicable method implementation.
+            </summary>
+            <typeparam name="T">The type of context that the rules operate on</typeparam>
+            <param name="rules">Initial collection of rules to be managed by this engine</param>
+        </member>
+        <member name="M:BBT.Workflow.Rules.RuleEngine`1.#ctor(System.Collections.Generic.IEnumerable{BBT.Workflow.Rules.IRule{`0}})">
+            <summary>
+            Implements a rule engine that processes business rules against a specific context type.
+            This engine evaluates rules in the order they are provided and executes all applicable rules.
+            Rules are considered applicable based on their IsApplicable method implementation.
+            </summary>
+            <typeparam name="T">The type of context that the rules operate on</typeparam>
+            <param name="rules">Initial collection of rules to be managed by this engine</param>
+        </member>
+        <member name="F:BBT.Workflow.Rules.RuleEngine`1._rules">
+            <summary>
+            Internal collection of rules managed by this engine.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Rules.RuleEngine`1.SetRules(System.Collections.Generic.IEnumerable{BBT.Workflow.Rules.IRule{`0}})">
+            <summary>
+            Sets the collection of rules that this engine will use for processing.
+            This method replaces any previously configured rules with the new collection.
+            </summary>
+            <param name="rules">The new collection of rules to be used by the engine</param>
+        </member>
+        <member name="M:BBT.Workflow.Rules.RuleEngine`1.Process(`0)">
+            <summary>
+            Processes all applicable rules against the provided context.
+            The engine iterates through all configured rules, checks their applicability,
+            and executes those that return true from their IsApplicable method.
+            Rules are executed in the order they appear in the collection.
+            </summary>
+            <param name="context">The context to process rules against</param>
+        </member>
+        <member name="T:BBT.Workflow.Runtime.IRuntimeInfoProvider">
+            <summary>
+            Provides access to runtime information for the workflow system.
+            This interface defines the contract for retrieving runtime version and domain information,
+            as well as validating domain access permissions.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Runtime.IRuntimeInfoProvider.Version">
+            <summary>
+            Gets the current version of the workflow runtime system.
+            </summary>
+            <value>
+            A string representing the runtime version, typically in semantic versioning format (e.g., "1.0.0").
+            </value>
+        </member>
+        <member name="P:BBT.Workflow.Runtime.IRuntimeInfoProvider.Domain">
+            <summary>
+            Gets the domain name that this runtime instance is configured to serve.
+            </summary>
+            <value>
+            A string representing the domain name that defines the scope of this runtime instance.
+            </value>
+        </member>
+        <member name="M:BBT.Workflow.Runtime.IRuntimeInfoProvider.Check(System.String)">
+            <summary>
+            Validates that the requested domain matches the configured runtime domain.
+            This method ensures that clients can only access workflows within their authorized domain.
+            </summary>
+            <param name="requestDomain">The domain name being requested for access.</param>
+            <exception cref="T:BBT.Workflow.ExceptionHandling.NotFoundDomainException">
+            Thrown when the <paramref name="requestDomain"/> does not match the configured runtime domain.
+            This indicates an unauthorized access attempt to a different domain.
+            </exception>
+            <exception cref="T:System.ArgumentNullException">Thrown when <paramref name="requestDomain"/> is null.</exception>
+        </member>
+        <member name="T:BBT.Workflow.Runtime.RuntimeInfoProvider">
+            <summary>
+            Provides implementation for runtime information access and domain validation.
+            This class retrieves runtime configuration from environment variables and assembly metadata,
+            ensuring secure domain-based access control for the workflow system.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Runtime.RuntimeInfoProvider.Version">
+            <summary>
+            Gets the current version of the workflow runtime system.
+            </summary>
+            <value>
+            The runtime version obtained from the APP_VERSION environment variable or assembly metadata.
+            </value>
+        </member>
+        <member name="P:BBT.Workflow.Runtime.RuntimeInfoProvider.Domain">
+            <summary>
+            Gets the domain name that this runtime instance is configured to serve.
+            </summary>
+            <value>
+            The domain name obtained from the APP_DOMAIN environment variable.
+            </value>
+        </member>
+        <member name="M:BBT.Workflow.Runtime.RuntimeInfoProvider.Check(System.String)">
+            <summary>
+            Validates that the requested domain matches the configured runtime domain.
+            This method provides domain-based security by ensuring clients can only access
+            workflows within their authorized domain scope.
+            </summary>
+            <param name="requestDomain">The domain name being requested for access.</param>
+            <exception cref="T:BBT.Workflow.ExceptionHandling.NotFoundDomainException">
+            Thrown when the requested domain does not match the configured runtime domain,
+            indicating an unauthorized cross-domain access attempt.
+            </exception>
+        </member>
+        <member name="M:BBT.Workflow.Runtime.RuntimeInfoProvider.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BBT.Workflow.Runtime.RuntimeInfoProvider"/> class.
+            This constructor reads configuration from environment variables and validates that
+            all required runtime parameters are properly configured.
+            </summary>
+            <exception cref="T:BBT.Aether.AetherException">
+            Thrown when required environment variables (APP_VERSION or APP_DOMAIN) are not set
+            or when they contain invalid values like "unknown".
+            </exception>
+            <remarks>
+            The constructor attempts to read:
+            - Version from APP_VERSION environment variable, falling back to assembly version information
+            - Domain from APP_DOMAIN environment variable, falling back to "unknown"
+            
+            Both values must be properly configured (not "unknown") for the runtime to initialize successfully.
+            </remarks>
+        </member>
+        <member name="M:BBT.Workflow.Runtime.RuntimeInfoProvider.GetAssemblyVersion">
+            <summary>
+            Retrieves the version information from the executing assembly's metadata.
+            This method serves as a fallback when the APP_VERSION environment variable is not set.
+            </summary>
+            <returns>
+            The assembly version string obtained from <see cref="T:System.Reflection.AssemblyInformationalVersionAttribute"/>,
+            assembly version, or "unknown" if no version information is available.
+            </returns>
+            <remarks>
+            The method prioritizes version information in the following order:
+            1. AssemblyInformationalVersionAttribute.InformationalVersion
+            2. Assembly.GetName().Version
+            3. "unknown" as a last resort
+            </remarks>
+        </member>
+        <member name="T:BBT.Workflow.Runtime.RuntimeOptions">
+            <summary>
+            Provides configuration options and schema management for the workflow runtime environment.
+            This class maintains a collection of system schemas and provides access to their types.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Runtime.RuntimeOptions.SectionName">
+            <summary>
+            Configuration section name for runtime options
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Runtime.RuntimeOptions.Schemas">
+            <summary>
+            Gets the collection of system schemas used by the workflow runtime.
+            This dictionary contains mappings between schema names and their corresponding information.
+            </summary>
+            <value>
+            A <see cref="T:BBT.Workflow.Runtime.RuntimeSysSchemaDictionary"/> containing all registered system schemas.
+            </value>
+        </member>
+        <member name="P:BBT.Workflow.Runtime.RuntimeOptions.EnableSchemaMigration">
+            <summary>
+            Gets or sets a value indicating whether schema migrations should be automatically executed.
+            When set to false, the runtime service will operate in read-only mode and will not attempt
+            to create or migrate database schemas. This is useful for execution applications that should
+            not perform schema operations, leaving that responsibility to orchestration applications.
+            </summary>
+            <value>
+            <c>true</c> if schema migrations should be executed automatically; otherwise, <c>false</c>.
+            Default value is <c>true</c> for backward compatibility.
+            </value>
+        </member>
+        <member name="M:BBT.Workflow.Runtime.RuntimeOptions.GetSchemaType(System.String)">
+            <summary>
+            Retrieves the .NET type associated with the specified schema name.
+            </summary>
+            <param name="name">The name of the schema to get the type for.</param>
+            <returns>The <see cref="T:System.Type"/> associated with the specified schema name.</returns>
+            <exception cref="T:System.Collections.Generic.KeyNotFoundException">Thrown when the specified schema name is not found in the collection.</exception>
+            <exception cref="T:System.ArgumentNullException">Thrown when <paramref name="name"/> is null.</exception>
+        </member>
+        <member name="T:BBT.Workflow.Runtime.RuntimeSysSchemaInfo">
+            <summary>
+            Represents information about a system schema in the workflow runtime.
+            This class encapsulates the name, database schema, and .NET type for a system schema.
+            </summary>
+            <param name="name">The logical name of the schema used for identification.</param>
+            <param name="schema">The database schema name where the tables are located.</param>
+            <param name="type">The .NET type that represents this schema's data structure.</param>
+        </member>
+        <member name="M:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.#ctor(System.String,System.String,System.Type)">
+            <summary>
+            Represents information about a system schema in the workflow runtime.
+            This class encapsulates the name, database schema, and .NET type for a system schema.
+            </summary>
+            <param name="name">The logical name of the schema used for identification.</param>
+            <param name="schema">The database schema name where the tables are located.</param>
+            <param name="type">The .NET type that represents this schema's data structure.</param>
+        </member>
+        <member name="P:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Name">
+            <summary>
+            Gets the logical name of the schema.
+            </summary>
+            <value>
+            The name used to identify this schema within the workflow system.
+            </value>
+        </member>
+        <member name="P:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Schema">
+            <summary>
+            Gets the database schema name where the tables for this schema are located.
+            </summary>
+            <value>
+            The database schema name used for table organization.
+            </value>
+        </member>
+        <member name="P:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Type">
+            <summary>
+            Gets the .NET type that represents the data structure for this schema.
+            </summary>
+            <value>
+            The <see cref="P:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Type"/> that defines the structure and behavior of entities in this schema.
+            </value>
+        </member>
+        <member name="F:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Flows">
+            <summary>
+            Constant representing the system flows schema identifier.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Functions">
+            <summary>
+            Constant representing the system functions schema identifier.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Schemas">
+            <summary>
+            Constant representing the system schemas schema identifier.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Tasks">
+            <summary>
+            Constant representing the system tasks schema identifier.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Views">
+            <summary>
+            Constant representing the system views schema identifier.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Runtime.RuntimeSysSchemaInfo.Extensions">
+            <summary>
+            Constant representing the system extensions schema identifier.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Runtime.RuntimeSysSchemaDictionary">
+            <summary>
+            A specialized dictionary for managing system schema information.
+            Extends <see cref="T:System.Collections.Generic.Dictionary`2"/> to provide convenient methods for adding schema entries.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Runtime.RuntimeSysSchemaDictionary.Add(System.String,System.String,System.Type)">
+            <summary>
+            Adds a new system schema entry to the dictionary with the specified parameters.
+            This method creates a new <see cref="T:BBT.Workflow.Runtime.RuntimeSysSchemaInfo"/> instance and adds it to the collection.
+            </summary>
+            <param name="name">The logical name of the schema for identification purposes.</param>
+            <param name="schema">The database schema name where tables are located.</param>
+            <param name="type">The .NET type that represents the schema's data structure.</param>
+            <remarks>
+            If a schema with the same name already exists, it will be replaced with the new entry.
+            </remarks>
+        </member>
+        <member name="T:BBT.Workflow.Schemas.AsyncLocalSchemaAccessor">
+            <summary>
+            Provides thread-safe access to the current database schema using AsyncLocal storage.
+            This implementation ensures that schema context is maintained across async operations within the same logical thread.
+            Uses the singleton pattern to provide a global instance for schema context management.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Schemas.AsyncLocalSchemaAccessor.Instance">
+            <summary>
+            Gets the singleton instance of the <see cref="T:BBT.Workflow.Schemas.AsyncLocalSchemaAccessor"/>.
+            This instance provides global access to the schema context within the application.
+            </summary>
+            <value>
+            The singleton instance that can be used throughout the application to access and modify schema context.
+            </value>
+        </member>
+        <member name="P:BBT.Workflow.Schemas.AsyncLocalSchemaAccessor.Current">
+            <summary>
+            Gets or sets the current schema name for the current async execution context.
+            This property uses <see cref="T:System.Threading.AsyncLocal`1"/> to maintain schema context across async operations.
+            </summary>
+            <value>
+            The name of the current database schema for this execution context, or <c>null</c> if no schema is set.
+            Setting this value will only affect the current logical thread and its child async operations.
+            </value>
+        </member>
+        <member name="F:BBT.Workflow.Schemas.AsyncLocalSchemaAccessor._currentScope">
+            <summary>
+            The AsyncLocal storage that maintains the schema context across async operations.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Schemas.AsyncLocalSchemaAccessor.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BBT.Workflow.Schemas.AsyncLocalSchemaAccessor"/> class.
+            This constructor is private to enforce the singleton pattern.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Schemas.CurrentSchema">
+            <summary>
+            Provides implementation for managing the current database schema context.
+            This class uses an <see cref="T:BBT.Workflow.Schemas.ISchemaAccessor"/> to maintain schema state and allows temporary schema changes.
+            </summary>
+            <param name="schemaAccessor">The schema accessor used to get and set the current schema context.</param>
+        </member>
+        <member name="M:BBT.Workflow.Schemas.CurrentSchema.#ctor(BBT.Workflow.Schemas.ISchemaAccessor)">
+            <summary>
+            Provides implementation for managing the current database schema context.
+            This class uses an <see cref="T:BBT.Workflow.Schemas.ISchemaAccessor"/> to maintain schema state and allows temporary schema changes.
+            </summary>
+            <param name="schemaAccessor">The schema accessor used to get and set the current schema context.</param>
+        </member>
+        <member name="P:BBT.Workflow.Schemas.CurrentSchema.Name">
+            <summary>
+            Gets the name of the current database schema.
+            </summary>
+            <value>
+            Returns the current schema name from the accessor, or "public" if no schema is set.
+            </value>
+        </member>
+        <member name="M:BBT.Workflow.Schemas.CurrentSchema.Change(System.String)">
+            <summary>
+            Temporarily changes the current schema to the specified name within a disposable scope.
+            The schema name is sanitized to ensure it contains only valid characters (letters, digits, underscores).
+            </summary>
+            <param name="name">The name of the schema to temporarily set as current.</param>
+            <returns>
+            An <see cref="T:System.IDisposable"/> that restores the previous schema context when disposed.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.Schemas.CurrentSchema.SetCurrent(System.String)">
+            <summary>
+            Sets the current schema and returns a disposable object that will restore the previous schema when disposed.
+            This method sanitizes the schema name by replacing invalid characters with underscores.
+            </summary>
+            <param name="name">The schema name to set. Can be null, in which case the schema will be cleared.</param>
+            <returns>
+            An <see cref="T:System.IDisposable"/> that will restore the previous schema context when disposed.
+            </returns>
+        </member>
+        <member name="T:BBT.Workflow.Schemas.ICurrentSchema">
+            <summary>
+            Provides functionality for managing the current database schema context.
+            This interface allows retrieving the current schema name and temporarily changing it within a scope.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Schemas.ICurrentSchema.Name">
+            <summary>
+            Gets the name of the current database schema.
+            </summary>
+            <value>
+            The name of the current schema. Returns "public" as the default schema name 
+            if no schema is currently set in the context.
+            </value>
+        </member>
+        <member name="M:BBT.Workflow.Schemas.ICurrentSchema.Change(System.String)">
+            <summary>
+            Temporarily changes the current schema to the specified name within a disposable scope.
+            When the returned <see cref="T:System.IDisposable"/> is disposed, the schema context is restored to its previous state.
+            </summary>
+            <param name="name">The name of the schema to temporarily set as current. The name will be sanitized to contain only letters, digits, and underscores.</param>
+            <returns>
+            An <see cref="T:System.IDisposable"/> object that, when disposed, restores the previous schema context.
+            This enables using the method with the 'using' statement for automatic cleanup.
+            </returns>
+            <example>
+            <code>
+            using (currentSchema.Change("tenant_schema"))
+            {
+                // Operations here will use "tenant_schema"
+            }
+            // Schema is automatically restored to previous value
+            </code>
+            </example>
+        </member>
+        <member name="T:BBT.Workflow.Schemas.ISchemaAccessor">
+            <summary>
+            Provides access to the current database schema context.
+            This interface abstracts the mechanism for getting and setting the current schema name.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Schemas.ISchemaAccessor.Current">
+            <summary>
+            Gets or sets the current schema name for the current execution context.
+            </summary>
+            <value>
+            The name of the current database schema, or <c>null</c> if no schema is set.
+            When set to <c>null</c>, the default schema will be used.
+            </value>
+        </member>
+        <member name="T:BBT.Workflow.Schemas.ISchemaManager">
+            <summary>
+            Defines operations for managing database schemas in the workflow system.
+            Provides functionality to ensure schema existence and table creation.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Schemas.ISchemaManager.EnsureSchemaAndTablesAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Ensures that the specified database schema exists and creates necessary tables if they don't exist.
+            This method is typically used for database initialization and migration purposes.
+            </summary>
+            <param name="schemaName">The name of the database schema to ensure exists. Must be a valid schema name.</param>
+            <param name="cancellationToken">A cancellation token that can be used to cancel the operation. Default is <see cref="P:System.Threading.CancellationToken.None"/>.</param>
+            <returns>A task that represents the asynchronous operation of ensuring schema and tables existence.</returns>
+            <exception cref="T:System.ArgumentNullException">Thrown when <paramref name="schemaName"/> is null or empty.</exception>
+            <exception cref="T:System.InvalidOperationException">Thrown when the schema cannot be created or accessed.</exception>
+        </member>
+        <member name="M:BBT.Workflow.Schemas.ISchemaManager.SchemaExistsAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Checks whether the specified database schema exists without attempting to create it.
+            This method is used for read-only operations to verify schema availability.
+            </summary>
+            <param name="schemaName">The name of the database schema to check for existence.</param>
+            <param name="cancellationToken">A cancellation token that can be used to cancel the operation. Default is <see cref="P:System.Threading.CancellationToken.None"/>.</param>
+            <returns>A task that represents the asynchronous operation, containing true if the schema exists; otherwise, false.</returns>
+            <exception cref="T:System.ArgumentNullException">Thrown when <paramref name="schemaName"/> is null or empty.</exception>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.IScriptEngine">
+            <summary>
+            Represents a script engine that combines script running and compilation capabilities.
+            Provides a unified interface for executing C# scripts and compiling them to instances.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.IScriptRunner">
+            <summary>
+            Provides capabilities for executing C# scripts dynamically at runtime.
+            Supports both generic and non-generic evaluation with customizable script options and global variables.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptRunner.EvaluateAsync(System.String,System.Func{Microsoft.CodeAnalysis.Scripting.ScriptOptions,Microsoft.CodeAnalysis.Scripting.ScriptOptions},System.Type,System.Object,System.Threading.CancellationToken)">
+            <summary>
+            Evaluates a C# script asynchronously and returns the result as an object.
+            </summary>
+            <param name="code">The C# code to evaluate</param>
+            <param name="configureScriptOptions">Optional function to configure script compilation options</param>
+            <param name="returnType">Optional expected return type for the script evaluation</param>
+            <param name="globals">Optional global variables accessible within the script</param>
+            <param name="cancellationToken">Token to cancel the operation</param>
+            <returns>A task containing the evaluation result as an object, or null if no result</returns>
+            <exception cref="T:Microsoft.CodeAnalysis.Scripting.CompilationErrorException">Thrown when the script contains compilation errors</exception>
+            <exception cref="T:System.OperationCanceledException">Thrown when the operation is cancelled</exception>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptRunner.EvaluateAsync``1(System.String,System.Func{Microsoft.CodeAnalysis.Scripting.ScriptOptions,Microsoft.CodeAnalysis.Scripting.ScriptOptions},System.Type,System.Object,System.Threading.CancellationToken)">
+            <summary>
+            Evaluates a C# script asynchronously and returns the result as a strongly-typed value.
+            </summary>
+            <typeparam name="T">The expected return type of the script evaluation</typeparam>
+            <param name="code">The C# code to evaluate</param>
+            <param name="configureScriptOptions">Optional function to configure script compilation options</param>
+            <param name="returnType">Optional expected return type for the script evaluation</param>
+            <param name="globals">Optional global variables accessible within the script</param>
+            <param name="cancellationToken">Token to cancel the operation</param>
+            <returns>A task containing the evaluation result cast to type T</returns>
+            <exception cref="T:Microsoft.CodeAnalysis.Scripting.CompilationErrorException">Thrown when the script contains compilation errors</exception>
+            <exception cref="T:System.InvalidCastException">Thrown when the result cannot be cast to type T</exception>
+            <exception cref="T:System.OperationCanceledException">Thrown when the operation is cancelled</exception>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.IScriptCompiler">
+            <summary>
+            Provides capabilities for compiling C# code into executable instances.
+            Supports compilation with custom metadata references and using directives.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptCompiler.CompileToInstanceAsync``1(System.String,System.Collections.Generic.IEnumerable{Microsoft.CodeAnalysis.MetadataReference},System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Compiles C# code into an instance of the specified type asynchronously.
+            </summary>
+            <typeparam name="T">The target type to compile the code into</typeparam>
+            <param name="code">The C# code to compile</param>
+            <param name="extraReferences">Optional additional metadata references for compilation</param>
+            <param name="usingDirectives">Optional additional using directives to include</param>
+            <param name="cancellationToken">Token to cancel the operation</param>
+            <returns>A task containing the compiled instance of type T</returns>
+            <exception cref="T:Microsoft.CodeAnalysis.Scripting.CompilationErrorException">Thrown when the code contains compilation errors</exception>
+            <exception cref="T:System.InvalidOperationException">Thrown when the code cannot be compiled to the target type</exception>
+            <exception cref="T:System.OperationCanceledException">Thrown when the operation is cancelled</exception>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.IScriptContextBuilder">
+            <summary>
+            Fluent builder interface for constructing ScriptContext instances with various configuration options.
+            This interface provides a clean, discoverable API for setting up ScriptContext with different data sources.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithRuntime(BBT.Workflow.Runtime.IRuntimeInfoProvider)">
+            <summary>
+            Sets the runtime information provider for the ScriptContext.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithWorkflow(System.String,System.String,System.String)">
+            <summary>
+            Sets the workflow by retrieving it from cache using domain, workflow key, and version.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithWorkflow(BBT.Workflow.Definitions.Workflow)">
+            <summary>
+            Sets the workflow directly from an existing Workflow instance.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithWorkflow(BBT.Workflow.IReference)">
+            <summary>
+            Sets the workflow by retrieving it from cache using a reference input.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithInstance(System.Guid,System.Boolean,System.Boolean)">
+            <summary>
+            Sets the instance by retrieving it from repository using instance ID.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithInstance(BBT.Workflow.Instances.Instance)">
+            <summary>
+            Sets the instance directly from an existing Instance object.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithTransition(System.String)">
+            <summary>
+            Sets the transition by finding it in the workflow using transition key.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithTransition(BBT.Workflow.Definitions.Transition)">
+            <summary>
+            Sets the transition directly from an existing Transition object.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithBody(System.Object)">
+            <summary>
+            Sets the request body data for the ScriptContext.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithHeaders(System.Collections.Generic.Dictionary{System.String,System.String})">
+            <summary>
+            Sets the request headers for the ScriptContext.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithRouteValues(System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Sets the route values for the ScriptContext.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithRouteValues(System.Collections.Generic.Dictionary{System.String,System.String})">
+            <summary>
+            Sets the route values for the ScriptContext.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithTaskResponse(System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Sets the task response data for the ScriptContext.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithMetadata(System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Sets the metadata for the ScriptContext.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.WithDefinitions(System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Sets the definitions for the ScriptContext.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextBuilder.BuildAsync(System.Threading.CancellationToken)">
+            <summary>
+            Builds the ScriptContext asynchronously with all configured properties.
+            This method retrieves any data that needs to be fetched asynchronously and constructs the final ScriptContext.
+            </summary>
+            <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+            <returns>A fully configured ScriptContext instance.</returns>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.IScriptContextFactory">
+            <summary>
+            Generic factory responsible for creating ScriptContext instances from various input sources.
+            This factory provides a fluent builder interface that can be used across different application services.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.IScriptContextFactory.NewBuilder">
+            <summary>
+            Creates a new fluent builder for constructing ScriptContext instances.
+            This builder can be configured with various data sources and then built into a ScriptContext.
+            </summary>
+            <returns>A new ScriptContextBuilder instance for fluent configuration.</returns>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.ScriptContextBuilder">
+            <summary>
+            Implementation of the fluent builder for constructing ScriptContext instances.
+            This builder handles both synchronous data and asynchronous data retrieval operations.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.ScriptContextBuilder.#ctor(BBT.Workflow.Caching.IComponentCacheStore,BBT.Workflow.Instances.IInstanceRepository)">
+            <summary>
+            Implementation of the fluent builder for constructing ScriptContext instances.
+            This builder handles both synchronous data and asynchronous data retrieval operations.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.ScriptContextFactory">
+            <summary>
+            Default implementation of IScriptContextFactory that provides fluent builder capabilities
+            and handles ScriptContext creation with various data sources.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.ScriptContextFactory.#ctor(BBT.Workflow.Caching.IComponentCacheStore,BBT.Workflow.Instances.IInstanceRepository)">
+            <summary>
+            Default implementation of IScriptContextFactory that provides fluent builder capabilities
+            and handles ScriptContext creation with various data sources.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.ScriptContextFactory.NewBuilder">
+            <summary>
+            Creates a new fluent builder for constructing ScriptContext instances.
+            </summary>
+            <returns>A new ScriptContextBuilder instance for fluent configuration.</returns>
+        </member>
+        <member name="T:BBT.Workflow.Scripting.StandardTaskResponse">
+            <summary>
+            Standardized task execution response that provides consistent structure for all task types.
+            This model includes execution status, data, metadata, and error information.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Scripting.StandardTaskResponse.Data">
+            <summary>
+            The actual response data from the task execution.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Scripting.StandardTaskResponse.StatusCode">
+            <summary>
+            HTTP status code for HTTP-based tasks (HttpTask, DaprServiceTask).
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Scripting.StandardTaskResponse.IsSuccess">
+            <summary>
+            Indicates whether the task execution was successful.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Scripting.StandardTaskResponse.ErrorMessage">
+            <summary>
+            Error message if task execution failed.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Scripting.StandardTaskResponse.Headers">
+            <summary>
+            Response headers for HTTP-based tasks.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Scripting.StandardTaskResponse.Metadata">
+            <summary>
+            Additional metadata about the task execution.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Scripting.StandardTaskResponse.ExecutionDurationMs">
+            <summary>
+            Task execution duration in milliseconds.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Scripting.StandardTaskResponse.TaskType">
+            <summary>
+            Task type identifier.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.ScriptContext.SetBody(System.Object)">
+            <summary>
+            Sets the body of the script context. This method is thread-safe and can be used
+            for context synchronization in distributed scenarios.
+            </summary>
+            <param name="body">The new body content.</param>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.ScriptContext.SetStandardResponse(BBT.Workflow.Scripting.StandardTaskResponse)">
+            <summary>
+            Sets the standardized response body for the script context.
+            </summary>
+            <param name="response">The standardized task response.</param>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.ScriptContext.MergeToBody(System.Object,System.Text.Json.JsonSerializerOptions)">
+            <summary>
+            Merges the provided object into the existing Body using the specified JSON options.
+            If Body is null, it initializes it with the new content.
+            </summary>
+            <param name="content">The content to merge into Body.</param>
+            <param name="jsonOptions">The JSON serialization options to use.</param>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.ScriptContext.MergeExpandoObjects(System.Dynamic.ExpandoObject,System.Dynamic.ExpandoObject)">
+            <summary>
+            Merges two ExpandoObject instances, with properties from the source taking precedence.
+            Handles all nested structures including JsonElement objects and arrays.
+            </summary>
+            <param name="target">The target ExpandoObject to merge into.</param>
+            <param name="source">The source ExpandoObject to merge from.</param>
+            <returns>The merged ExpandoObject.</returns>
+        </member>
+        <member name="M:BBT.Workflow.Scripting.ScriptContext.MergeValues(System.Object,System.Object)">
+            <summary>
+            Recursively merges two values of any type, handling ExpandoObjects, JsonElements, arrays, and other complex types.
+            </summary>
+            <param name="targetValue">The target value to merge into.</param>
+            <param name="sourceValue">The source value to merge from.</param>
+            <returns>The merged value.</returns>
+        </member>
+        <member name="P:BBT.Workflow.IHasKey.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.IHasDomain.Domain">
+            <summary>
+            This is information about the domain on which the stream where the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.IHasVersion.Version">
+            <summary>
+            This is the version information at the time the record is assigned.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.IHasLabel.Label">
+            <summary>
+            The text content to be displayed to the user.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.IHasLabel.Language">
+            <summary>
+            The language code of the text in ISO 639 format.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.LanguageLabel">
+            <summary>
+            It is a content set with multiple language options for the content to be displayed to the user.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.LanguageLabel.Label">
+            <summary>
+            The text content to be displayed to the user.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.LanguageLabel.Language">
+            <summary>
+            The language code of the text in ISO 639 format.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.IReference.Flow">
+            <summary>
+            It is the information on which stream the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Reference.Key">
+            <summary>
+            If present, it is the more readable key value of the record.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Reference.Flow">
+            <summary>
+            It is the information on which stream the record is located.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Reference.Domain">
+            <summary>
+            Information about which domain the flow is working on and which domain it belongs to.
+            </summary>
+        </member>
+        <member name="P:BBT.Workflow.Reference.Version">
+            <summary>
+            This is the version information at the time the record is assigned.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.JsonData">
+            <summary>
+            Json Data
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Domain.Shared.SortDirection">
+            <summary>
+            Represents sort direction constants for domain operations.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Domain.Shared.SortDirection.Ascending">
+            <summary>
+            Ascending sort direction.
+            </summary>
+        </member>
+        <member name="F:BBT.Workflow.Domain.Shared.SortDirection.Descending">
+            <summary>
+            Descending sort direction.
+            </summary>
+        </member>
+        <member name="T:BBT.Workflow.Tasks.ITaskExecutor">
+            <summary>
+            Defines a contract for executing workflow tasks with script code and context.
+            Implementations handle different types of tasks including HTTP calls, DAPR operations, 
+            script execution, and other workflow activities.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Tasks.ITaskExecutor.ExecuteAsync(BBT.Workflow.Definitions.WorkflowTask,System.String,BBT.Workflow.Scripting.ScriptContext,System.Threading.CancellationToken)">
+            <summary>
+            Executes a workflow task asynchronously using the provided script code and context.
+            </summary>
+            <param name="task">The workflow task to execute. The actual task type determines the execution behavior.</param>
+            <param name="scriptCode">The script code to compile and execute as part of the task processing.</param>
+            <param name="context">The script context containing variables, data, and execution state for the workflow.</param>
+            <param name="cancellationToken">Token to monitor for cancellation requests during the execution.</param>
+            <returns>
+            A task that represents the asynchronous operation. The task result contains the output data 
+            from the task execution, or null if no output is produced.
+            </returns>
+            <exception cref="T:System.ArgumentException">Thrown when the task type is not supported by this executor.</exception>
+            <exception cref="T:System.InvalidOperationException">Thrown when the script compilation or execution fails.</exception>
+            <exception cref="T:System.OperationCanceledException">Thrown when the operation is cancelled via the cancellation token.</exception>
+        </member>
+        <member name="M:BBT.Workflow.Validation.IJsonSchemaValidator.Validate(System.Text.Json.JsonElement,System.Nullable{System.Text.Json.JsonElement})">
+            <summary>
+            Validates the given JSON data against the specified JSON schema.
+            </summary>
+            <param name="jsonSchema">JSON schema to be used for validation.</param>
+            <param name="data">JSON data to be validated. In case of null, an empty JSON object is used..</param>
+            <exception cref="T:BBT.Aether.Validation.AetherValidationException">
+            If the JSON data does not conform to the schema, an exception is thrown containing validation errors.
+            </exception>
+        </member>
+        <member name="T:BBT.Workflow.Validation.JsonSchemaValidationMapper">
+            <summary>
+            Provides extension methods and mapping functionality to convert JSON schema validation results 
+            into standardized ValidationResult objects. This static class facilitates the transformation 
+            of Json.Schema evaluation results into formats compatible with .NET validation frameworks.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Validation.JsonSchemaValidationMapper.ToValidationResults(Json.Schema.EvaluationResults)">
+            <summary>
+            Converts JSON schema evaluation results into a collection of ValidationResult objects.
+            This extension method flattens the hierarchical validation errors and maps them to 
+            standard .NET validation results with appropriate member names and error messages.
+            </summary>
+            <param name="evaluation">The evaluation results from JSON schema validation</param>
+            <returns>
+            A list of ValidationResult objects representing all validation errors found.
+            Returns an empty list if the evaluation is valid.
+            </returns>
+        </member>
+        <member name="M:BBT.Workflow.Validation.JsonSchemaValidationMapper.FlattenErrors(Json.Schema.EvaluationResults)">
+            <summary>
+            Recursively flattens hierarchical validation errors from JSON schema evaluation results.
+            This private method traverses the nested structure of evaluation details and collects 
+            all failed validation nodes into a flat list for easier processing.
+            </summary>
+            <param name="result">The evaluation result to flatten</param>
+            <returns>
+            A flat list of EvaluationResults containing only the failed validation nodes
+            </returns>
+        </member>
+        <member name="T:BBT.Workflow.Validation.JsonSchemaValidator">
+            <summary>
+            Provides JSON schema validation functionality using the Json.Schema library.
+            This sealed class implements IJsonSchemaValidator and validates JSON data against JSON Schema specifications.
+            Validation errors are converted to AetherValidationException with detailed error information.
+            </summary>
+        </member>
+        <member name="M:BBT.Workflow.Validation.JsonSchemaValidator.Validate(System.Text.Json.JsonElement,System.Nullable{System.Text.Json.JsonElement})">
+            <summary>
+            Validates the given JSON data against the specified JSON schema.
+            Uses hierarchical output format and requires format validation for comprehensive validation.
+            If validation fails, detailed error information is collected and thrown as an exception.
+            </summary>
+            <param name="jsonSchema">JSON schema to be used for validation</param>
+            <param name="data">JSON data to be validated. If null, an empty JSON object "{}" is used for validation</param>
+            <exception cref="T:BBT.Aether.Validation.AetherValidationException">
+            Thrown when the JSON data does not conform to the schema, containing detailed validation errors
+            </exception>
+        </member>
+        <member name="T:Microsoft.Extensions.DependencyInjection.WorkflowDomainModuleServiceCollectionExtensions">
+            <summary>
+            Extension methods for setting up domain services in an <see cref="T:Microsoft.Extensions.DependencyInjection.IServiceCollection" />.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Extensions.DependencyInjection.WorkflowDomainModuleServiceCollectionExtensions.AddDomainModule(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Adds the domain module services to the specified <see cref="T:Microsoft.Extensions.DependencyInjection.IServiceCollection" />.
+            </summary>
+            <param name="services">The <see cref="T:Microsoft.Extensions.DependencyInjection.IServiceCollection" /> to add services to.</param>
+            <returns>The <see cref="T:Microsoft.Extensions.DependencyInjection.IServiceCollection" /> so that additional calls can be chained.</returns>
+        </member>
+        <member name="M:System.Collections.Generic.SemVersionComparer.ParseSemVer(System.String)">
+            <summary>
+            A simple semver parse method
+            Exp: "1.2.3-alpha.1+build.99"
+            </summary>
+        </member>
+        <member name="T:System.ETagExtensions">
+            <summary>
+            Extension methods for ETag operations
+            </summary>
+        </member>
+        <member name="M:System.ETagExtensions.MatchesIfNoneMatch(System.String,System.String)">
+            <summary>
+            Determines if the provided ETag matches the current ETag value.
+            This is typically used for conditional HTTP requests (If-None-Match header).
+            </summary>
+            <param name="currentETag">The current ETag value to compare against</param>
+            <param name="ifNoneMatch">The ETag value from the If-None-Match header</param>
+            <returns>True if the ETags match, false otherwise</returns>
+        </member>
+        <member name="T:System.Extensions.ExtensionExecutionExtensions">
+            <summary>
+            Extension methods for Extension execution logic
+            </summary>
+        </member>
+        <member name="M:System.Extensions.ExtensionExecutionExtensions.ShouldExecute(BBT.Workflow.Definitions.Extension,System.String[],BBT.Workflow.Definitions.ExtensionScope)">
+            <summary>
+            Determines if an extension should be executed based on its type, requested extensions, and current scope.
+            </summary>
+            <param name="extension">The extension to evaluate</param>
+            <param name="extensionRequested">Array of specifically requested extensions for performance optimization</param>
+            <param name="currentScope">Current execution scope (GetInstance, GetInstances, or Everywhere)</param>
+            <returns>True if the extension should be executed, false otherwise</returns>
+        </member>
+        <member name="M:System.Text.Json.JsonElementExtensions.ToDictionary(System.Text.Json.JsonElement)">
+            <summary>
+            Converts a JsonElement (must be an object) to Dictionary&lt;string, string&gt;
+            </summary>
+        </member>
+        <member name="T:System.Text.Json.ScriptContextExtensions">
+            <summary>
+            Extension methods for ScriptContext to provide safe serialization and conversion operations.
+            </summary>
+        </member>
+        <member name="M:System.Text.Json.ScriptContextExtensions.GetBodyAsJsonElement(BBT.Workflow.Scripting.ScriptContext)">
+            <summary>
+            Safely converts the script context body to JsonElement for use in remote instance creation.
+            </summary>
+            <param name="context">The script context.</param>
+            <returns>A JsonElement representation of the body, or empty JsonElement if conversion fails.</returns>
+        </member>
+        <member name="M:System.Text.Json.ScriptContextExtensions.GetHeadersAsDictionary(BBT.Workflow.Scripting.ScriptContext)">
+            <summary>
+            Safely converts the script context headers to Dictionary for use in remote instance creation.
+            </summary>
+            <param name="context">The script context.</param>
+            <returns>A Dictionary representation of the headers, or empty dictionary if conversion fails.</returns>
+        </member>
+        <member name="M:System.Text.Json.ScriptContextExtensions.GetRouteValuesAsDictionary(BBT.Workflow.Scripting.ScriptContext)">
+            <summary>
+            Safely converts the script context route values to Dictionary for use in remote instance creation.
+            </summary>
+            <param name="context">The script context.</param>
+            <returns>A Dictionary representation of the route values, or empty dictionary if conversion fails.</returns>
+        </member>
+        <member name="M:System.Text.Json.ScriptContextExtensions.GetSafeProperties(BBT.Workflow.Scripting.ScriptContext)">
+            <summary>
+            Creates a safe copy of ScriptContext with properly serialized properties for remote instance calls.
+            </summary>
+            <param name="context">The original script context.</param>
+            <returns>A new ScriptContext with safely converted properties.</returns>
+        </member>
+        <member name="M:System.Text.Json.ScriptContextExtensions.CreateEmptyJsonObject">
+            <summary>
+            Creates an empty JsonObject that can be safely serialized.
+            </summary>
+            <returns>A JsonElement representing an empty JSON object.</returns>
+        </member>
+        <member name="T:System.Text.StringExtensions">
+            <summary>
+            Extension methods for string operations in Instance Extensions
+            </summary>
+        </member>
+        <member name="M:System.Text.StringExtensions.ToVariableName(System.String)">
+            <summary>
+            Converts a string with hyphens and other special characters to a valid variable name format.
+            Examples: "user-info" -> "userInfo", "create-user-task" -> "createUserTask"
+            </summary>
+            <param name="key">The key string to convert</param>
+            <returns>Variable name formatted string</returns>
+        </member>
+    </members>
+</doc>

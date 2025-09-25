@@ -4,6 +4,8 @@
   "publisher": "your-org",
   "version": "0.3.0",
   "description": "Visual editor for Amorphie Workflow Projects",
+  "license": "MIT",
+  "author": "Amorphie Flow Studio",
   "repository": {
     "type": "git",
     "url": "https://github.com/amorphie/amorphie-flow-studio.git"
@@ -11,9 +13,20 @@
   "engines": {
     "vscode": "^1.92.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "workflow",
+    "visual-editor",
+    "amorphie",
+    "typescript",
+    "react",
+    "monaco-editor"
+  ],
   "activationEvents": [
-    "onLanguage:json"
+    "onLanguage:json",
+    "onCommand:flowEditor.open"
   ],
   "main": "./dist/extension.js",
   "files": [
@@ -37,14 +50,14 @@
     "menus": {
       "explorer/context": [
         {
-          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceDirname =~ /(^|\\\\|\/)workflows(\\\\|\/|$)/)",
+          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceFilename =~ /-subflow\\.json$/ || resourceFilename =~ /-workflow\\.json$/ || resourceDirname =~ /(^|\\\\|\\/)workflows(\\\\|\\/|$)/ || resourceDirname =~ /(^|\\\\|\\/)Workflows(\\\\|\\/|$)/)",
           "command": "flowEditor.open",
           "group": "navigation"
         }
       ],
       "editor/title": [
         {
-          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceDirname =~ /(^|\\\\|\/)workflows(\\\\|\/|$)/)",
+          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceFilename =~ /-subflow\\.json$/ || resourceFilename =~ /-workflow\\.json$/ || resourceDirname =~ /(^|\\\\|\\/)workflows(\\\\|\\/|$)/ || resourceDirname =~ /(^|\\\\|\\/)Workflows(\\\\|\\/|$)/)",
           "command": "flowEditor.open",
           "group": "navigation"
         }
@@ -59,7 +72,16 @@
             "filenamePattern": "*.flow.json"
           },
           {
+            "filenamePattern": "*-subflow.json"
+          },
+          {
+            "filenamePattern": "*-workflow.json"
+          },
+          {
             "filenamePattern": "**/workflows/**/*.json"
+          },
+          {
+            "filenamePattern": "**/Workflows/**/*.json"
           }
         ],
         "priority": "option"
@@ -67,7 +89,13 @@
     ],
     "jsonValidation": [
       {
-        "fileMatch": ["**/*.flow.json", "**/workflows/**/*.json"],
+        "fileMatch": [
+          "**/*.flow.json",
+          "**/*-subflow.json",
+          "**/*-workflow.json",
+          "**/workflows/**/*.json",
+          "**/Workflows/**/*.json"
+        ],
         "url": "./schemas/workflow-definition.schema.json"
       }
     ]
@@ -78,7 +106,7 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
-    "@nextcredit/core": "*"
+    "@amorphie-flow-studio/core": "*"
   },
   "devDependencies": {
     "esbuild": "^0.23.0",

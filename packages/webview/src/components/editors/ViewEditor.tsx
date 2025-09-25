@@ -38,18 +38,33 @@ export const ViewEditor: React.FC<ViewEditorProps> = ({
 
   return (
     <div className="property-panel__group">
-      <div className="property-panel__group-header">
-        <span>{title}</span>
-        <select
-          value={currentMode}
-          onChange={(e) => onModeChange(e.target.value as ViewMode)}
-          className="property-panel__select property-panel__select--small"
-        >
-          <option value="none">None</option>
-          <option value="ref">Reference (by path)</option>
-          <option value="full">Full Reference</option>
-        </select>
-      </div>
+      {title ? (
+        <div className="property-panel__group-header">
+          <span>{title}</span>
+          <select
+            value={currentMode}
+            onChange={(e) => onModeChange(e.target.value as ViewMode)}
+            className="property-panel__select property-panel__select--small"
+          >
+            <option value="none">None</option>
+            <option value="ref">Reference (by path)</option>
+            <option value="full">Full Reference</option>
+          </select>
+        </div>
+      ) : (
+        <div className="property-panel__field">
+          <label>View Mode:</label>
+          <select
+            value={currentMode}
+            onChange={(e) => onModeChange(e.target.value as ViewMode)}
+            className="property-panel__select"
+          >
+            <option value="none">None</option>
+            <option value="ref">Reference (by path)</option>
+            <option value="full">Full Reference</option>
+          </select>
+        </div>
+      )}
 
       {currentMode === 'ref' && (
         <div className="property-panel__field">

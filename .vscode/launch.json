@@ -9,7 +9,7 @@
       "outFiles": [
         "${workspaceFolder}/packages/extension/dist/**/*.js"
       ],
-      "preLaunchTask": "build"
+      "preLaunchTask": "Build Extension"
     }
   ]
 }

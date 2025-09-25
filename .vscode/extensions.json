@@ -1,0 +1,33 @@
+{
+  "recommendations": [
+    // Code spell checker
+    "streetsidesoftware.code-spell-checker",
+
+    // Language support
+    "ms-vscode.vscode-typescript-next",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+
+    // JSON and schema support
+    "ms-vscode.vscode-json",
+
+    // Git integration
+    "mhutchie.git-graph",
+    "eamodio.gitlens",
+
+    // Development utilities
+    "ms-vscode.extension-test-runner",
+    "ms-vscode.vscode-webpack-dev-toolkit",
+
+    // Markdown support (for documentation)
+    "yzhang.markdown-all-in-one",
+    "davidanson.vscode-markdownlint"
+  ],
+
+  "unwantedRecommendations": [
+    // Avoid conflicting spell checkers
+    "ban.spellright",
+    "swyphcosmo.spellchecker"
+  ]
+}

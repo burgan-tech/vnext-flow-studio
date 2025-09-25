@@ -1,0 +1,142 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "caseSensitive": false,
+  "checkLimit": 500,
+  "maxNumberOfProblems": 10,
+  "maxDuplicateProblems": 3,
+
+  // Files to ignore completely
+  "ignorePaths": [
+    "node_modules/**",
+    "dist/**",
+    "dist-web/**",
+    "packages/*/dist/**",
+    "**/*.min.js",
+    "**/*.map",
+    "**/coverage/**",
+    "**/.git/**",
+    "**/*.log"
+  ],
+
+  // Patterns to ignore within files
+  "ignoreRegExpList": [
+    // Base64 encoded strings (common in workflow mappings)
+    "\"[A-Za-z0-9+/]{50,}={0,2}\"",
+
+    // Long strings without spaces (Base64, hashes, etc.)
+    "\"[A-Za-z0-9+/=]{100,}\"",
+
+    // URLs and paths
+    "https?://[^\\s\"']*",
+    "file://[^\\s\"']*",
+    "/[^\\s\"']*",
+
+    // UUIDs and GUIDs
+    "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+
+    // Version numbers
+    "\\d+\\.\\d+\\.\\d+",
+
+    // Hex colors
+    "#[0-9a-fA-F]{3,8}"
+  ],
+
+  // Custom words for workflow domain
+  "words": [
+    // Core workflow terms
+    "workflow", "workflows", "subflow", "subflows",
+    "amorphie", "burgan", "vnext", "sys",
+    "triggerType", "stateType", "versionStrategy",
+    "onEntries", "onExits", "onExecutionTasks",
+    "executionTasks", "mappings", "schemas",
+    "taskRef", "schemaRef", "viewRef",
+
+    // Programming terms
+    "async", "await", "csx", "dll", "json",
+    "IntelliSense", "intellisense", "TypeScript",
+    "React", "Monaco", "Vite", "ESLint",
+
+    // BBT Workflow interfaces
+    "IMapping", "IConditionMapping", "ISubFlowMapping",
+    "ScriptContext", "ScriptResponse", "ScriptBase",
+    "WorkflowTask", "HttpTask", "DaprTask",
+    "GlobalScriptFunctions",
+
+    // Business domain terms
+    "auth", "oauth", "mfa", "otp", "sms",
+    "payments", "ecommerce", "checkout",
+    "userId", "sessionId", "correlationId",
+    "metadata", "configs", "schemas",
+
+    // Technical terms
+    "datetime", "timestamp", "statusCode",
+    "req", "res", "ctx", "params",
+    "middleware", "validator", "serializer",
+
+    // File extensions and formats
+    "vsix", "pdb", "xml", "md", "yaml", "yml",
+    "gitignore", "npmrc", "tsconfig",
+
+    // Common abbreviations
+    "utils", "libs", "deps", "env", "config",
+    "temp", "tmp", "dist", "src", "pkg"
+  ],
+
+  // Language-specific settings
+  "languageSettings": [
+    {
+      "languageId": "json",
+      "ignoreRegExpList": [
+        // Large encoded strings in JSON
+        "\"code\":\\s*\"[A-Za-z0-9+/=]{100,}\"",
+        "\"location\":\\s*\"[^\"]*\"",
+
+        // Property keys in camelCase or kebab-case
+        "\"[a-z][a-zA-Z0-9]*\":",
+        "\"[a-z][a-z0-9-]*\":"
+      ]
+    },
+    {
+      "languageId": "typescript",
+      "ignoreRegExpList": [
+        // Import paths
+        "from\\s+['\"][^'\"]*['\"]",
+        "import\\(['\"][^'\"]*['\"]\\"
+      ]
+    },
+    {
+      "languageId": "javascript",
+      "ignoreRegExpList": [
+        // Similar to TypeScript
+        "from\\s+['\"][^'\"]*['\"]",
+        "import\\(['\"][^'\"]*['\"]\\"
+      ]
+    }
+  ],
+
+  // File-specific overrides
+  "overrides": [
+    {
+      "filename": "**/workflows/**/*.json",
+      "checkLimit": 100,
+      "ignoreRegExpList": [
+        "\"code\":\\s*\"[A-Za-z0-9+/=]{50,}\""
+      ]
+    },
+    {
+      "filename": "**/*.flow.json",
+      "checkLimit": 100,
+      "ignoreRegExpList": [
+        "\"code\":\\s*\"[A-Za-z0-9+/=]{50,}\""
+      ]
+    },
+    {
+      "filename": "**/package*.json",
+      "words": [
+        "devDependencies", "peerDependencies",
+        "bundleDependencies", "optionalDependencies"
+      ]
+    }
+  ]
+}

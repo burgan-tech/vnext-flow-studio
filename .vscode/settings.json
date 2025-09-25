@@ -1,0 +1,108 @@
+{
+  // Spell checker configuration for workflow files
+  "cSpell.ignorePaths": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/dist-web/**",
+    "**/*.flow.json",
+    "**/workflows/**/*.json",
+    "**/Workflows/**/*.json"
+  ],
+
+  // Configure spell checker for Base64 encoded content
+  "cSpell.languageSettings": [
+    {
+      "languageId": "json",
+      "patterns": [
+        {
+          "name": "base64-encoded-mapping",
+          "pattern": "\"code\":\\s*\"[A-Za-z0-9+/=]{100,}\"",
+          "description": "Base64 encoded C# mapping code in workflow files"
+        }
+      ],
+      "ignoreRegExpList": [
+        "base64-encoded-mapping"
+      ]
+    }
+  ],
+
+  // File associations for workflow files
+  "files.associations": {
+    "*.flow.json": "json",
+    "**/workflows/**/*.json": "json",
+    "**/Workflows/**/*.json": "json",
+    "*.diagram.json": "json"
+  },
+
+  // JSON schema validation
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "**/*.flow.json",
+        "**/workflows/**/*.json",
+        "**/Workflows/**/*.json"
+      ],
+      "url": "./schemas/workflow-definition.schema.json"
+    }
+  ],
+
+  // Disable spell check for large text blocks in JSON
+  "cSpell.maxNumberOfProblems": 10,
+  "cSpell.maxDuplicateProblems": 3,
+  "cSpell.checkLimit": 500,
+
+  // Workflow-specific spell check words
+  "cSpell.words": [
+    "workflow",
+    "workflows",
+    "amorphie",
+    "burgan",
+    "vnext",
+    "triggerType",
+    "stateType",
+    "versionStrategy",
+    "onEntries",
+    "onExits",
+    "executionTasks",
+    "mappings",
+    "subFlow",
+    "taskRef",
+    "schemaRef",
+    "Dapr",
+    "csx",
+    "IntelliSense",
+    "IMapping",
+    "IConditionMapping",
+    "ScriptContext",
+    "ScriptResponse",
+    "WorkflowTask",
+    "HttpTask"
+  ],
+
+  // Editor settings for workflow files
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.wordWrap": "on",
+    "editor.tabSize": 2
+  },
+
+  // Enable JSON validation
+  "json.validate.enable": true,
+
+  // File exclusions for performance
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/dist-web": true,
+    "**/.git": true
+  },
+
+  // Search exclusions
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/dist-web": true,
+    "**/*.log": true
+  }
+}
