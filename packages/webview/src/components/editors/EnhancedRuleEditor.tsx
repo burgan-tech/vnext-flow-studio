@@ -4,8 +4,7 @@ import type {
   Rule,
   State,
   Workflow,
-  TaskDefinition,
-  TriggerTypeInfo
+  TaskDefinition
 } from '../../types/workflow-types';
 
 interface EnhancedRuleEditorProps {
@@ -341,7 +340,7 @@ export const EnhancedRuleEditor: React.FC<EnhancedRuleEditorProps> = ({
             <h4>💡 Rule Tips:</h4>
             <ul>
               <li><strong>Return boolean:</strong> Rules must return true/false</li>
-              <li><strong>Use 'input':</strong> Access input data with input.PropertyName</li>
+              <li><strong>Use &apos;input&apos;:</strong> Access input data with input.PropertyName</li>
               <li><strong>Context available:</strong> Use Context.UserId, Context.WorkflowId</li>
               {currentState && <li><strong>State info:</strong> Use State.Key for current state: {currentState.key}</li>}
             </ul>
