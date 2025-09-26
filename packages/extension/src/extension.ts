@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { toReactFlow, lint, autoLayout } from '@nextcredit/core';
-import type { Workflow, Diagram, MsgFromWebview, TaskDefinition, SharedTransition, Transition } from '@nextcredit/core';
+import { toReactFlow, lint, autoLayout } from '@amorphie-flow-studio/core';
+import type { Workflow, Diagram, MsgFromWebview, TaskDefinition, SharedTransition, Transition } from '@amorphie-flow-studio/core';
 import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics';
 import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { Workflow, StateType } from '@nextcredit/core';
+import type { Workflow, StateType } from '@amorphie-flow-studio/core';
 
 export async function createMissingState(
   uri: vscode.Uri,

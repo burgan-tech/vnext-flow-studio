@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { lint, type Workflow, type TaskDefinition } from '@nextcredit/core';
+import { lint, type Workflow, type TaskDefinition } from '@amorphie-flow-studio/core';
 
 export class FlowDiagnosticsProvider {
   private diagnosticsCollection: vscode.DiagnosticCollection;
