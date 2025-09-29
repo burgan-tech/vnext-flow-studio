@@ -11,7 +11,7 @@ import {
   type TaskDefinition,
   type SchemaRef,
   type SharedTransition,
-} from '@nextcredit/core';
+} from '@amorphie-flow-studio/core';
 import { useBridge } from '../hooks/useBridge';
 import { decodeBase64, encodeBase64 } from '../utils/base64Utils';
 import {

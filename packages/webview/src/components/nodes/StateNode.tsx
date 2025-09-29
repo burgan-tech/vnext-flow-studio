@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import type { State, StateType } from '@nextcredit/core';
+import type { State, StateType } from '@amorphie-flow-studio/core';
 
 interface StateNodeProps {
   data: {

@@ -34,7 +34,7 @@ import type {
   StateType,
   StateSubType,
   TaskDefinition
-} from '@nextcredit/core';
+} from '@amorphie-flow-studio/core';
 
 const nodeTypes = {
   default: StateNode,
