@@ -3,6 +3,7 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getBezierPath,
+  getSmoothStepPath,
   Position,
   useNodes
 } from '@xyflow/react';
@@ -13,28 +14,45 @@ type FloatingEdgeProps = {
   id: string;
   source: string;
   target: string;
-  markerEnd?: string | React.ReactNode;
+  markerEnd?: string;
   style?: React.CSSProperties;
   className?: string;
   selected?: boolean;
   label?: React.ReactNode;
   labelStyle?: React.CSSProperties;
+  labelBgStyle?: React.CSSProperties;
+  labelBgPadding?: [number, number];
+  labelBgBorderRadius?: number;
 };
 
 type Point = { x: number; y: number };
 
 const fallbackSizeForNode = (n: RFNode): { width: number; height: number } => {
-  const isEvent = n.type === 'event' || n.data?.stateType === 1 || n.data?.stateType === 3;
-  return isEvent ? { width: 96, height: 96 } : { width: 260, height: 160 };
+  // Try to get size from node data first (pre-calculated in adapter)
+  if (typeof n.data?.width === 'number' && typeof n.data?.height === 'number') {
+    return { width: n.data.width, height: n.data.height };
+  }
+  // All nodes now use the same rectangular size - natural sizing with minimum
+  return { width: 180, height: 80 };
 };
 
 const getNodeRect = (node: RFNode) => {
   const pos = node.internals?.positionAbsolute ?? (node as any).positionAbsolute ?? node.position;
-  const measuredW = node.measured?.width;
-  const measuredH = node.measured?.height;
-  const fallback = fallbackSizeForNode(node);
-  const width = measuredW ?? (node as any).width ?? fallback.width;
-  const height = measuredH ?? (node as any).height ?? fallback.height;
+
+  // Prioritize pre-calculated dimensions from data, then measured, then fallback
+  let width: number;
+  let height: number;
+
+  if (typeof node.data?.width === 'number' && typeof node.data?.height === 'number') {
+    width = node.data.width;
+    height = node.data.height;
+  } else {
+    const measuredW = node.measured?.width;
+    const measuredH = node.measured?.height;
+    const fallback = fallbackSizeForNode(node);
+    width = measuredW ?? (node as any).width ?? fallback.width;
+    height = measuredH ?? (node as any).height ?? fallback.height;
+  }
 
   return {
     x: pos.x,
@@ -91,46 +109,7 @@ const intersectLineRect = (lineStart: Point, lineEnd: Point, rect: { x: number; 
   return { x: (rect.x + rect.x + rect.width) / 2, y: (rect.y + rect.y + rect.height) / 2 };
 };
 
-const intersectLineCircle = (lineStart: Point, lineEnd: Point, center: Point, radius: number): Point => {
-  const dx = lineEnd.x - lineStart.x;
-  const dy = lineEnd.y - lineStart.y;
-  const fx = lineStart.x - center.x;
-  const fy = lineStart.y - center.y;
-
-  const a = dx * dx + dy * dy;
-  const b = 2 * (fx * dx + fy * dy);
-  const c = fx * fx + fy * fy - radius * radius;
-
-  const discriminant = b * b - 4 * a * c;
-  if (discriminant < 0) {
-    return { x: center.x, y: center.y };
-  }
-
-  const disc = Math.sqrt(discriminant);
-  const t1 = (-b - disc) / (2 * a);
-  const t2 = (-b + disc) / (2 * a);
-
-  const candidates: Point[] = [];
-  if (t1 >= 0 && t1 <= 1) candidates.push({ x: lineStart.x + t1 * dx, y: lineStart.y + t1 * dy });
-  if (t2 >= 0 && t2 <= 1) candidates.push({ x: lineStart.x + t2 * dx, y: lineStart.y + t2 * dy });
-
-  if (candidates.length === 0) {
-    // fall back to projecting onto circle in the line direction
-    const lx = lineEnd.x - center.x;
-    const ly = lineEnd.y - center.y;
-    const len = Math.hypot(lx, ly) || 1;
-    return { x: center.x + (lx / len) * radius, y: center.y + (ly / len) * radius };
-  }
-
-  // pick intersection closest to the line end
-  candidates.sort((p1, p2) => {
-    const d1 = Math.hypot(p1.x - lineEnd.x, p1.y - lineEnd.y);
-    const d2 = Math.hypot(p2.x - lineEnd.x, p2.y - lineEnd.y);
-    return d1 - d2;
-  });
-
-  return candidates[0];
-};
+// Circle intersection removed - all nodes are now rectangles
 
 const getSideForPoint = (pt: Point, rect: { x: number; y: number; width: number; height: number }): Position => {
   const left = Math.abs(pt.x - rect.x);
@@ -151,17 +130,10 @@ const getSideForPoint = (pt: Point, rect: { x: number; y: number; width: number;
   }
 };
 
-const getSideForCircle = (from: Point, to: Point): Position => {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    return dx > 0 ? Position.Right : Position.Left;
-  }
-  return dy > 0 ? Position.Bottom : Position.Top;
-};
+// getSideForCircle removed - all nodes are now rectangles
 
 export function FloatingEdge(props: FloatingEdgeProps) {
-  const { id, source, target, markerEnd, style, className, label, labelStyle } = props;
+  const { id, source, target, markerEnd, style, className, label, labelStyle, labelBgStyle, labelBgPadding = [10, 8], labelBgBorderRadius = 6 } = props;
   const nodes = useNodes();
 
   const sourceNode = useMemo(() => nodes.find((n) => n.id === source), [nodes, source]);
@@ -171,97 +143,75 @@ export function FloatingEdge(props: FloatingEdgeProps) {
 
   const srcRect = getNodeRect(sourceNode);
   const tgtRect = getNodeRect(targetNode);
-  // Compute centers based on actual visuals
-  const isSrcEventNode = sourceNode.type === 'event';
-  const isTgtEventNode = targetNode.type === 'event';
 
-  const sourceCenter: Point = (() => {
-    if (isSrcEventNode) {
-      // event-node: paddingTop 6px, circle 68px => centerY = y + 6 + 34 = y + 40
-      return { x: srcRect.x + srcRect.width / 2, y: srcRect.y + 40 };
-    }
-    if (sourceNode.data?.stateType === 1 || sourceNode.data?.stateType === 3) {
-      // state-node event variant: paddingTop 6px, circle 74px => y + 6 + 37 = y + 43
-      return { x: srcRect.x + srcRect.width / 2, y: srcRect.y + 43 };
-    }
-    return srcRect.center;
-  })();
+  // Handle self-connections (loops)
+  const isSelfConnection = source === target;
 
-  const targetCenter: Point = (() => {
-    if (isTgtEventNode) {
-      return { x: tgtRect.x + tgtRect.width / 2, y: tgtRect.y + 40 };
-    }
-    if (targetNode.data?.stateType === 1 || targetNode.data?.stateType === 3) {
-      return { x: tgtRect.x + tgtRect.width / 2, y: tgtRect.y + 43 };
-    }
-    return tgtRect.center;
-  })();
+  let sourceX: number, sourceY: number, targetX: number, targetY: number;
+  let sourcePosition: Position, targetPosition: Position;
 
-  // Determine shapes
-  const isSrcCircle = isSrcEventNode || sourceNode.data?.stateType === 1 || sourceNode.data?.stateType === 3;
-  const isTgtCircle = isTgtEventNode || targetNode.data?.stateType === 1 || targetNode.data?.stateType === 3;
+  if (isSelfConnection) {
+    // Self-loop: exit from right, enter from bottom (creates a larger visible loop)
+    sourceX = srcRect.x + srcRect.width;
+    sourceY = srcRect.y + srcRect.height * 0.3; // Exit from upper-right
+    sourcePosition = Position.Right;
 
-  // Insets to approximate the visible state-node__shape border inside the node container
-  // Tuned to rf-theme.css: padding-top 6, padding-x 10, gap 8, meta height ~16-18, padding-bottom 12
-  const RECT_INSETS = { left: 6, right: 6, top: 6, bottom: 34 } as const;
-  const circlePadding = 10; // accounts for event-node padding around the circle
+    targetX = srcRect.x + srcRect.width;
+    targetY = srcRect.y + srcRect.height * 0.7; // Enter at lower-right
+    targetPosition = Position.Right;
+  } else {
+    // Normal connection between different nodes
+    const sourceCenter: Point = srcRect.center;
+    const targetCenter: Point = tgtRect.center;
 
-  // Compute intersections
-  const srcIntersection = isSrcCircle
-    ? (() => {
-        const r = Math.max(
-          4,
-          isSrcEventNode ? 34 : 37 // based on CSS circle sizes
-        );
-        return intersectLineCircle(targetCenter, sourceCenter, sourceCenter, r);
-      })()
-    : intersectLineRect(targetCenter, sourceCenter, {
-        x: srcRect.x + RECT_INSETS.left,
-        y: srcRect.y + RECT_INSETS.top,
-        width: Math.max(2, srcRect.width - (RECT_INSETS.left + RECT_INSETS.right)),
-        height: Math.max(2, srcRect.height - (RECT_INSETS.top + RECT_INSETS.bottom))
-      });
+    // Calculate intersection points where the center-to-center line meets the rectangles
+    const sourceIntersection = intersectLineRect(targetCenter, sourceCenter, srcRect);
+    const targetIntersection = intersectLineRect(sourceCenter, targetCenter, tgtRect);
 
-  const tgtIntersection = isTgtCircle
-    ? (() => {
-        const r = Math.max(
-          4,
-          isTgtEventNode ? 34 : 37
-        );
-        return intersectLineCircle(sourceCenter, targetCenter, targetCenter, r);
-      })()
-    : intersectLineRect(sourceCenter, targetCenter, {
-        x: tgtRect.x + RECT_INSETS.left,
-        y: tgtRect.y + RECT_INSETS.top,
-        width: Math.max(2, tgtRect.width - (RECT_INSETS.left + RECT_INSETS.right)),
-        height: Math.max(2, tgtRect.height - (RECT_INSETS.top + RECT_INSETS.bottom))
-      });
+    // Determine which side of each rectangle we're connecting from/to
+    sourcePosition = getSideForPoint(sourceIntersection, srcRect);
+    targetPosition = getSideForPoint(targetIntersection, tgtRect);
 
-  const sourcePosition = isSrcCircle
-    ? getSideForCircle(sourceCenter, targetCenter)
-    : getSideForPoint(srcIntersection, {
-        x: srcRect.x + RECT_INSETS.left,
-        y: srcRect.y + RECT_INSETS.top,
-        width: Math.max(2, srcRect.width - (RECT_INSETS.left + RECT_INSETS.right)),
-        height: Math.max(2, srcRect.height - (RECT_INSETS.top + RECT_INSETS.bottom))
-      });
-  const targetPosition = isTgtCircle
-    ? getSideForCircle(targetCenter, sourceCenter)
-    : getSideForPoint(tgtIntersection, {
-        x: tgtRect.x + RECT_INSETS.left,
-        y: tgtRect.y + RECT_INSETS.top,
-        width: Math.max(2, tgtRect.width - (RECT_INSETS.left + RECT_INSETS.right)),
-        height: Math.max(2, tgtRect.height - (RECT_INSETS.top + RECT_INSETS.bottom))
-      });
+    sourceX = sourceIntersection.x;
+    sourceY = sourceIntersection.y;
+    targetX = targetIntersection.x;
+    targetY = targetIntersection.y;
+  }
 
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX: srcIntersection.x,
-    sourceY: srcIntersection.y,
-    targetX: tgtIntersection.x,
-    targetY: tgtIntersection.y,
-    sourcePosition,
-    targetPosition
-  });
+  // Use smooth step path for self-loops, bezier for normal connections
+  let edgePath: string, labelX: number, labelY: number;
+
+  if (isSelfConnection) {
+    const [path, defaultLabelX, defaultLabelY] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition,
+      targetPosition,
+      borderRadius: 20,
+      offset: 40 // Push the loop out 40px from the node
+    });
+    edgePath = path;
+    // Position label to the right of the loop (at the rightmost point of the loop path)
+    // Use measured position relative to the viewport
+    const measuredWidth = sourceNode.measured?.width ?? srcRect.width;
+    const posAbsolute = (sourceNode as any).internals?.positionAbsolute ?? (sourceNode as any).positionAbsolute ?? { x: srcRect.x, y: srcRect.y };
+    labelX = posAbsolute.x + measuredWidth + 80;
+    labelY = posAbsolute.y + srcRect.height / 2;
+  } else {
+    const [path, defaultLabelX, defaultLabelY] = getBezierPath({
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition,
+      targetPosition
+    });
+    edgePath = path;
+    labelX = defaultLabelX;
+    labelY = defaultLabelY;
+  }
 
   return (
     <>
@@ -273,6 +223,9 @@ export function FloatingEdge(props: FloatingEdgeProps) {
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               pointerEvents: 'all',
+              padding: `${labelBgPadding[1]}px ${labelBgPadding[0]}px`,
+              borderRadius: `${labelBgBorderRadius}px`,
+              ...labelBgStyle,
               ...labelStyle
             }}
             className="react-flow__edge-text"

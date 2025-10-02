@@ -197,13 +197,15 @@ export async function autoLayout(
     // Correct ELK property names for layered algorithm spacing
     'elk.layered.spacing.nodeNodeBetweenLayers': String(options.columnSpacing ?? DEFAULT_COLUMN_SPACING),
     'elk.spacing.nodeNode': String(options.rowSpacing ?? DEFAULT_ROW_SPACING),
-    // Edge routing improvements to reduce overlap
-    'elk.spacing.edgeNode': '25',
-    'elk.spacing.edgeEdge': '15', // Minimum spacing between edges
-    'elk.spacing.portPort': '15',
+    // Edge routing improvements to reduce overlap and accommodate labels
+    'elk.spacing.edgeNode': '40', // More space between edges and nodes for labels
+    'elk.spacing.edgeEdge': '25', // More spacing between parallel edges for labels
+    'elk.spacing.portPort': '20',
     'elk.layered.thoroughness': '100', // Maximum thoroughness for better layout
-    'elk.layered.spacing.edgeSpacingFactor': '1.5', // More space between parallel edges
-    'elk.layered.edgeRouting.selfLoopSpacing': '20' // Space for self-loops if any
+    'elk.layered.spacing.edgeSpacingFactor': '2.0', // More space between parallel edges for labels
+    'elk.layered.edgeRouting.selfLoopSpacing': '30', // Space for self-loops if any
+    'elk.edgeLabels.inline': 'false', // Keep labels separate from edge path
+    'elk.spacing.edgeLabel': '10' // Space around edge labels
   };
 
   const graph: any = {

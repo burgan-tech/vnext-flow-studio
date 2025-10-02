@@ -22,10 +22,10 @@ import {
   OnSelectionChangeParams
 } from '@xyflow/react';
 import { StateNode } from './nodes/StateNode';
-import { EventNode } from './nodes/EventNode';
 import { PropertyPanel, type PropertySelection } from './PropertyPanel';
 import { TriggerTypeLegend } from './TriggerTypeLegend';
 import { useBridge } from '../hooks/useBridge';
+import { FloatingEdge } from '../edges/FloatingEdge';
 import type {
   Workflow,
   Diagram,
@@ -38,7 +38,11 @@ import type {
 
 const nodeTypes = {
   default: StateNode,
-  event: EventNode
+  event: StateNode
+};
+
+const edgeTypes = {
+  floating: FloatingEdge
 };
 
 interface StateTemplate {
@@ -67,7 +71,10 @@ const decorateEdges = (edges: Edge[]): Edge[] =>
     const sharedClass = dash === '4 4' ? 'shared-transition' : undefined;
     const className = [edge.className, triggerClass, sharedClass].filter(Boolean).join(' ');
 
-    return className ? { ...edge, className } : edge;
+    // Force our floating edge renderer for consistent visuals
+    const type = 'floating' as const;
+
+    return className ? { ...edge, className, type } : { ...edge, type };
   });
 
 interface CanvasProps {
@@ -88,6 +95,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [taskCatalog, setTaskCatalog] = useState<TaskDefinition[]>([]);
   const [catalogs, setCatalogs] = useState<Record<string, any[]>>({});
   const pendingMeasuredAutoLayout = useRef(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const stateTemplates = useMemo<StateTemplate[]>(() => ([
     {
@@ -122,28 +130,29 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   ]), []);
 
   const defaultEdgeOptions = useMemo(() => ({
-    type: 'default' as const, // Back to bezier curves as requested
+    type: 'floating' as const,
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      width: 22,
-      height: 22,
-      color: '#94a3b8'
+      width: 18,
+      height: 18,
+      color: '#64748b'
     },
     style: {
-      stroke: '#94a3b8',
       strokeWidth: 2.5
     },
     labelStyle: {
-      fill: '#64748b',
-      fontSize: 14,
-      fontWeight: 600
+      fill: '#0f172a',
+      fontSize: 13,
+      fontWeight: 700
     },
     labelBgStyle: {
       fill: '#ffffff',
-      fillOpacity: 0.9
+      fillOpacity: 1,
+      stroke: '#e2e8f0',
+      strokeWidth: 1
     },
-    labelBgPadding: [8, 4] as [number, number],
-    labelBgBorderRadius: 4,
+    labelBgPadding: [10, 8] as [number, number],
+    labelBgBorderRadius: 6,
     interactionWidth: 20 // Larger area for edge interaction
   }), []);
 
@@ -250,6 +259,16 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     setEdges((eds) => applyEdgeChanges(changes, eds));
   }, []);
 
+  // Handle connection start
+  const onConnectStart = useCallback(() => {
+    setIsConnecting(true);
+  }, []);
+
+  // Handle connection end
+  const onConnectEnd = useCallback(() => {
+    setIsConnecting(false);
+  }, []);
+
   // Handle new connections
   const onConnect: OnConnect = useCallback((connection: Connection) => {
     if (!connection.source || !connection.target) return;
@@ -267,6 +286,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
         triggerType: 1 // Default to auto trigger
       });
     }
+    setIsConnecting(false);
   }, [postMessage]);
 
   // Validate connections
@@ -274,10 +294,10 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     const connection = 'sourceHandle' in edge ? edge as Connection : edge as Connection;
     if (!connection.source || !connection.target || !workflow) return true;
 
-    // Prevent self-connections
-    if (connection.source === connection.target) {
-      return false;
-    }
+    // Allow self-connections (self-loops)
+    // if (connection.source === connection.target) {
+    //   return false;
+    // }
 
     // Find source node
     const sourceNode = nodes.find(n => n.id === connection.source);
@@ -629,9 +649,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     // Collect measured node sizes from React Flow v12
     const sizeMap: Record<string, { width: number; height: number }> = {};
     for (const n of nodes) {
-      // Fallback sizes align with core defaults
-      const isEvent = n.type === 'event' || n.data?.stateType === 1 || n.data?.stateType === 3;
-      const fallback = isEvent ? { width: 96, height: 96 } : { width: 260, height: 160 };
+      // All nodes now use the same rectangular size - natural sizing with minimum
+      const fallback = { width: 180, height: 80 };
       const width = n.measured?.width ?? fallback.width;
       const height = n.measured?.height ?? fallback.height;
       if (Number.isFinite(width) && Number.isFinite(height)) {
@@ -720,9 +739,17 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           <div className="flow-canvas__toolbar" role="toolbar" aria-label="Add new state">
             {stateTemplates.map((template) => {
               const stateClass = getToolbarStateClass(template.type);
-              const isEvent = template.type === 1 || template.type === 3;
-              const isFinal = template.type === 3;
-              const isSubflow = template.type === 4;
+
+              // Get icon for this state type
+              const getIcon = () => {
+                switch (template.type) {
+                  case 1: return '▶'; // Initial
+                  case 2: return '▢'; // Intermediate
+                  case 3: return '◉'; // Final
+                  case 4: return '⊕'; // Subflow
+                  default: return '●';
+                }
+              };
 
               return (
                 <button
@@ -734,16 +761,14 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
                   draggable
                   title={template.description}
                 >
-                  <span
-                    className={`flow-canvas__palette-preview ${stateClass} ${
-                      isEvent ? 'flow-canvas__palette-preview--event' : 'flow-canvas__palette-preview--activity'
-                    }`}
-                  >
-                    <span className="flow-canvas__palette-shape" aria-hidden="true" />
-                    {isFinal && <span className="flow-canvas__palette-ring" aria-hidden="true" />}
-                    {isSubflow && <span className="flow-canvas__palette-marker" aria-hidden="true" />}
+                  <span className={`flow-canvas__palette-preview ${stateClass}`}>
+                    <span className="flow-canvas__palette-icon-column">
+                      <span className="flow-canvas__palette-type-icon">{getIcon()}</span>
+                    </span>
+                    <span className="flow-canvas__palette-content">
+                      {template.label}
+                    </span>
                   </span>
-                  <span className="flow-canvas__palette-label">{template.label}</span>
                 </button>
               );
             })}
@@ -754,11 +779,14 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onConnectStart={onConnectStart}
+            onConnectEnd={onConnectEnd}
             onReconnect={onReconnect}
             onEdgesDelete={onEdgesDelete}
             onNodesDelete={onNodesDelete}
             onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             isValidConnection={isValidConnection}
             edgesReconnectable={true}
             edgesFocusable={true}
@@ -769,6 +797,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             fitView
             defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             onInit={setReactFlowInstance}
+            className={isConnecting ? 'connecting' : ''}
             onDrop={onDropCanvas}
             onDragOver={onDragOverCanvas}
             onPaneContextMenu={handlePaneContextMenu}

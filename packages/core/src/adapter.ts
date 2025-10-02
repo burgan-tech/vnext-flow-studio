@@ -3,22 +3,6 @@ import type { Workflow, Diagram } from './types.js';
 export const START_NODE_ID = '__start__';
 export const TIMEOUT_NODE_ID = '__timeout__';
 
-// Color scheme for different trigger types
-const TRIGGER_TYPE_COLORS = {
-  0: '#3b82f6', // Manual - Blue
-  1: '#10b981', // Auto - Green
-  2: '#f59e0b', // Timeout - Orange
-  3: '#8b5cf6', // Event - Purple
-} as const;
-
-function getEdgeStyle(triggerType: number): Record<string, any> {
-  const color = TRIGGER_TYPE_COLORS[triggerType as keyof typeof TRIGGER_TYPE_COLORS] || '#6b7280';
-  return {
-    stroke: color,
-    strokeWidth: 2,
-  };
-}
-
 export interface ReactFlowNode {
   id: string;
   type?: string;
@@ -28,6 +12,7 @@ export interface ReactFlowNode {
   selectable?: boolean;
   sourcePosition?: 'left' | 'right' | 'top' | 'bottom';
   targetPosition?: 'left' | 'right' | 'top' | 'bottom';
+  style?: Record<string, any>;
 }
 
 export interface ReactFlowEdge {
@@ -49,28 +34,34 @@ export function toReactFlow(
 
   // Add pseudo nodes
   if (workflow.attributes.startTransition) {
+    const eventWidth = 180;
+    const eventHeight = 80;
     nodes.push({
       id: START_NODE_ID,
       type: 'event',
       position: diagram.nodePos[START_NODE_ID] ?? { x: 0, y: 0 },
-      data: { label: 'Start', variant: 'start' as const },
+      data: { label: 'Start', variant: 'start' as const, width: eventWidth, height: eventHeight },
       draggable: true,
       selectable: false,
       sourcePosition: 'right',
-      targetPosition: 'left'
+      targetPosition: 'left',
+      style: { width: eventWidth, height: eventHeight }
     });
   }
 
   if (workflow.attributes.timeout) {
+    const eventWidth = 180;
+    const eventHeight = 80;
     nodes.push({
       id: TIMEOUT_NODE_ID,
       type: 'event',
       position: diagram.nodePos[TIMEOUT_NODE_ID] ?? { x: -120, y: 0 },
-      data: { label: 'Timeout', variant: 'timeout' as const },
+      data: { label: 'Timeout', variant: 'timeout' as const, width: eventWidth, height: eventHeight },
       draggable: true,
       selectable: false,
       sourcePosition: 'right',
-      targetPosition: 'left'
+      targetPosition: 'left',
+      style: { width: eventWidth, height: eventHeight }
     });
   }
 
@@ -81,6 +72,19 @@ export function toReactFlow(
                   state.labels[0]?.label ||
                   state.key;
 
+    // Calculate node width based on content (matching StateNode.tsx logic)
+    const iconColumnWidth = 40;
+    const contentPadding = 40;
+    const approxCharWidth = 9;
+    const minContentWidth = 130;
+    const stateSubTypeIcon = state.stateSubType ? true : false;
+    const badgeWidth = stateSubTypeIcon ? 30 : 0;
+
+    const titleWidth = label.length * approxCharWidth;
+    const stateKeyWidth = state.key.length * 7;
+    const contentWidth = Math.max(minContentWidth, titleWidth, stateKeyWidth);
+    const calculatedWidth = iconColumnWidth + contentPadding + contentWidth + badgeWidth;
+
     nodes.push({
       id: state.key,
       position: pos,
@@ -88,11 +92,14 @@ export function toReactFlow(
         title: label,
         state: state,
         stateType: state.stateType,
-        stateSubType: state.stateSubType
+        stateSubType: state.stateSubType,
+        width: calculatedWidth,
+        height: 80
       },
       type: 'default',
       sourcePosition: 'right',
-      targetPosition: 'left'
+      targetPosition: 'left',
+      style: { width: calculatedWidth, height: 80 }
     });
 
     // Add local transitions
@@ -106,7 +113,6 @@ export function toReactFlow(
         source: state.key,
         target: transition.target,
         label: transitionLabel,
-        style: getEdgeStyle(transition.triggerType),
         data: {
           from: state.key,
           tKey: transition.key,
@@ -128,7 +134,6 @@ export function toReactFlow(
       source: START_NODE_ID,
       target: st.target,
       label: startLabel,
-      style: getEdgeStyle(st.triggerType),
       data: { triggerType: st.triggerType }
     });
   }
@@ -141,8 +146,7 @@ export function toReactFlow(
       source: TIMEOUT_NODE_ID,
       target: tt.target,
       label: `⏱ ${tt.timer.duration}`,
-      data: { triggerType: 2 },
-      style: { ...getEdgeStyle(2), strokeDasharray: '6 4' }
+      data: { triggerType: 2 }
     });
   }
 
@@ -158,7 +162,7 @@ export function toReactFlow(
         source: from,
         target: sharedTransition.target,
         label: sharedLabel,
-        style: { ...getEdgeStyle(sharedTransition.triggerType), strokeDasharray: '4 4' },
+        style: { strokeDasharray: '4 4' },
         data: {
           sharedKey: sharedTransition.key,
           triggerType: sharedTransition.triggerType
