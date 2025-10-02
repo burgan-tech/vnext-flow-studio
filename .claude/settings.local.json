@@ -8,7 +8,9 @@
       "mcp__ide__getDiagnostics",
       "Bash(awk:*)",
       "Bash(npx tsc:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
