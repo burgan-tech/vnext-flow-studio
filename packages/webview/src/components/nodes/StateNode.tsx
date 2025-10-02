@@ -81,8 +81,10 @@ export function StateNode({ data, selected, style: externalStyle }: StateNodePro
   const variantIcon = getVariantIcon(variant);
   const displayTitle = title || label || 'Node';
   const isFinal = stateType === 3;
+  const isStart = variant === 'start';
 
-  const canHaveIncoming = true; // initial can receive if we allow start->initial; adjust later if needed
+  // Start node can only have outgoing connections, not incoming
+  const canHaveIncoming = !isStart;
   const canHaveOutgoing = !isFinal;
 
   // Use width/height from data if provided, otherwise calculate (for event nodes)

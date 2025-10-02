@@ -110,7 +110,19 @@ export function lint(
 
   // Schema validation
   if (!validateWorkflow(workflow)) {
+    // Deduplicate schema errors - AJV can report the same error multiple times
+    // when multiple branches of an anyOf/oneOf fail with the same message
+    const seenErrors = new Set<string>();
+
     for (const error of (validateWorkflow.errors || [])) {
+      const errorKey = `${error.instancePath}::${error.message}`;
+
+      // Skip if we've already seen this exact error
+      if (seenErrors.has(errorKey)) {
+        continue;
+      }
+      seenErrors.add(errorKey);
+
       push('__schema__', {
         id: 'E_SCHEMA',
         severity: 'error',
@@ -149,15 +161,42 @@ export function lint(
     // Check local transitions
     const transitions = state.transitions || [];
 
-    // Check if multiple transitions have rules when needed
+    // Count shared transitions available from this state
+    const sharedTransitionsForState = (workflow.attributes.sharedTransitions || []).filter(
+      st => st.availableIn.includes(state.key)
+    );
+    const sharedAutoTransitions = sharedTransitionsForState.filter(st => st.triggerType === 1);
+
+    // Check that automatic transitions have rules when needed
+    // Consider both local and shared transitions
     const autoTransitions = transitions.filter(t => t.triggerType === 1); // Auto triggers
-    if (autoTransitions.length > 1) {
+    const totalTransitions = transitions.length + sharedTransitionsForState.length;
+    const totalAutoTransitions = autoTransitions.length + sharedAutoTransitions.length;
+
+    // Rules needed if:
+    // - Multiple auto transitions exist (need to decide which one)
+    // - Single auto transition but other transitions exist (need to decide when to auto vs wait for manual)
+    const needsRules = totalAutoTransitions > 1 || (totalAutoTransitions === 1 && totalTransitions > 1);
+
+    if (needsRules) {
+      // Check local auto transitions
       for (const transition of autoTransitions) {
         if (!transition.rule?.location) {
           push(state.key, {
             id: 'E_MISSING_RULE',
             severity: 'error',
-            message: `State has ${autoTransitions.length} auto transitions - transition '${transition.key}' must have a rule to determine which path to take`
+            message: `Automatic transition '${transition.key}' must have a rule configured (state has ${totalTransitions} total transition(s), ${totalAutoTransitions} automatic)`
+          });
+        }
+      }
+
+      // Check shared auto transitions available from this state
+      for (const sharedTransition of sharedAutoTransitions) {
+        if (!sharedTransition.rule?.location) {
+          push(state.key, {
+            id: 'E_MISSING_RULE',
+            severity: 'error',
+            message: `Automatic shared transition '${sharedTransition.key}' must have a rule configured (state has ${totalTransitions} total transition(s), ${totalAutoTransitions} automatic)`
           });
         }
       }
@@ -253,7 +292,8 @@ export function lint(
     }
   }
 
-  // Check shared transitions
+  // Check shared transitions for basic validity
+  // (Rule checking is done per-state above to consider context)
   for (const sharedTransition of (workflow.attributes.sharedTransitions || [])) {
     registerTransitionKey(sharedTransition.key);
 

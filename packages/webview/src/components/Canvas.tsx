@@ -294,6 +294,11 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     const connection = 'sourceHandle' in edge ? edge as Connection : edge as Connection;
     if (!connection.source || !connection.target || !workflow) return true;
 
+    // Prevent connections TO the start node (start node can only have outgoing connections)
+    if (connection.target === '__start__') {
+      return false;
+    }
+
     // Allow self-connections (self-loops)
     // if (connection.source === connection.target) {
     //   return false;

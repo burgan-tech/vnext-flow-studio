@@ -1,6 +1,231 @@
 import * as vscode from 'vscode';
 import { lint, type Workflow, type TaskDefinition } from '@amorphie-flow-studio/core';
 
+/**
+ * Extract the actual owner ID (state key, transition key, etc.) from a JSON path
+ * @param path The JSON path (e.g., "/attributes/states/0/view")
+ * @param jsonText The full JSON text
+ * @returns The owner ID (state key, transition key, or fallback)
+ */
+function extractOwnerFromPath(path: string, jsonText: string): string {
+  try {
+    const json = JSON.parse(jsonText);
+
+    // Parse the path to navigate to the containing entity
+    // Examples:
+    // /attributes/states/0/view -> state at index 0
+    // /attributes/states/0/transitions/1/target -> transition at index 1 in state 0
+    // /attributes/startTransition/key -> __start__
+    // /attributes/timeout/target -> __timeout__
+
+    const parts = path.split('/').filter(p => p.length > 0);
+
+    // Check for special cases
+    if (parts.includes('startTransition')) {
+      return '__start__';
+    }
+    if (parts.includes('timeout')) {
+      return '__timeout__';
+    }
+    if (parts.includes('sharedTransitions')) {
+      // For shared transitions, try to get the key
+      let current: any = json;
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (/^\d+$/.test(part)) {
+          current = current[parseInt(part, 10)];
+        } else {
+          current = current[part];
+        }
+        // If we found the shared transition object, return its key
+        if (current && typeof current === 'object' && current.key) {
+          return current.key;
+        }
+      }
+      return '__shared__';
+    }
+
+    // For states and their children (transitions, etc.)
+    if (parts.includes('states')) {
+      // Find the state index
+      const statesIndex = parts.indexOf('states');
+      if (statesIndex >= 0 && parts.length > statesIndex + 1) {
+        const stateIndexStr = parts[statesIndex + 1];
+        if (/^\d+$/.test(stateIndexStr)) {
+          const stateIndex = parseInt(stateIndexStr, 10);
+          const state = json?.attributes?.states?.[stateIndex];
+          if (state && state.key) {
+            return state.key;
+          }
+        }
+      }
+    }
+
+    // Fallback to __schema__ if we can't determine
+    return '__schema__';
+  } catch (error) {
+    console.error('Error extracting owner from path:', error);
+    return '__schema__';
+  }
+}
+
+/**
+ * Find the position in the document for a given JSON path
+ * @param document The VS Code text document
+ * @param jsonText The full JSON text
+ * @param path The JSON path (e.g., "/attributes/states/0/key")
+ * @returns The range in the document
+ */
+function findPositionForPath(
+  document: vscode.TextDocument,
+  jsonText: string,
+  path: string
+): vscode.Range {
+  // Convert JSON path to property chain
+  // Example: "/attributes/states/0/key" -> ["attributes", "states", "0", "key"]
+  const parts = path.split('/').filter(p => p.length > 0);
+
+  if (parts.length === 0) {
+    return new vscode.Range(0, 0, 0, 0);
+  }
+
+  try {
+    // Navigate through the path to find the position
+    let searchStartIndex = 0;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const isArrayIndex = /^\d+$/.test(part);
+      const isLastPart = i === parts.length - 1;
+
+      if (isArrayIndex) {
+        const arrayIndex = parseInt(part, 10);
+
+        // Find the opening bracket [ of the array
+        // searchStartIndex should be right after the property name and colon
+        let foundArrayStart = false;
+        let inString = false;
+        let escapeNext = false;
+        for (let j = searchStartIndex; j < jsonText.length; j++) {
+          const char = jsonText[j];
+
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+
+          if (inString) continue;
+
+          if (char === '[') {
+            searchStartIndex = j + 1;
+            foundArrayStart = true;
+            break;
+          }
+        }
+
+        if (!foundArrayStart) {
+          console.error(`Could not find array opening bracket`);
+          return new vscode.Range(0, 0, 0, 1);
+        }
+
+        // Find the Nth element in the array
+        let braceDepth = 0;
+        let bracketDepth = 0;
+        let currentElementIndex = 0;
+        inString = false;  // Reuse the variable
+        escapeNext = false;  // Reuse the variable
+        let foundElement = false;
+
+        for (let j = searchStartIndex; j < jsonText.length; j++) {
+          const char = jsonText[j];
+
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+
+          if (inString) continue;
+
+          if (char === '{') {
+            if (braceDepth === 0 && bracketDepth === 0) {
+              if (currentElementIndex === arrayIndex) {
+                searchStartIndex = j;
+                foundElement = true;
+                break;
+              }
+              currentElementIndex++;
+            }
+            braceDepth++;
+          } else if (char === '}') {
+            braceDepth--;
+          } else if (char === '[') {
+            bracketDepth++;
+          } else if (char === ']') {
+            if (bracketDepth === 0) break; // End of array
+            bracketDepth--;
+          }
+        }
+
+        if (!foundElement) {
+          console.error(`Could not find array element at index ${arrayIndex}`);
+          return new vscode.Range(0, 0, 0, 1);
+        }
+      } else {
+        // Regular property lookup
+        const escapedProperty = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const propertyRegex = new RegExp(`"${escapedProperty}"\\s*:`, 'g');
+
+        // Search starting from searchStartIndex
+        let propertyMatch: RegExpExecArray | null = null;
+        while ((propertyMatch = propertyRegex.exec(jsonText)) !== null) {
+          if (propertyMatch.index >= searchStartIndex) {
+            break;
+          }
+        }
+
+        if (propertyMatch && propertyMatch.index >= searchStartIndex) {
+          if (isLastPart) {
+            // This is the property we're looking for
+            const startPos = document.positionAt(propertyMatch.index);
+            const endPos = document.positionAt(propertyMatch.index + propertyMatch[0].length);
+            return new vscode.Range(startPos, endPos);
+          }
+          searchStartIndex = propertyMatch.index + propertyMatch[0].length;
+        } else {
+          console.error(`Could not find property "${part}" after index ${searchStartIndex}`);
+          return new vscode.Range(0, 0, 0, 1);
+        }
+      }
+    }
+  } catch (error) {
+    // If parsing fails, return a default position
+    console.error('Error parsing JSON for diagnostics:', error);
+  }
+
+  // Fallback: return the first line
+  return new vscode.Range(0, 0, 0, 1);
+}
+
 export class FlowDiagnosticsProvider {
   private diagnosticsCollection: vscode.DiagnosticCollection;
 
@@ -29,23 +254,31 @@ export class FlowDiagnosticsProvider {
     // Convert problems to VS Code diagnostics
     for (const [ownerId, problemList] of Object.entries(problems)) {
       for (const problem of problemList) {
-        // Try to find the position of the state in the JSON
+        // Try to find the position in the JSON
         let range = new vscode.Range(0, 0, 0, 0);
+        let actualOwnerId = ownerId;
 
         if (document && jsonText) {
-          // Search for the state key in the JSON
-          const searchPattern = `"key"\\s*:\\s*"${ownerId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`;
-          const regex = new RegExp(searchPattern);
-          const match = regex.exec(jsonText);
-
-          if (match) {
-            const startPos = document.positionAt(match.index);
-            const endPos = document.positionAt(match.index + match[0].length);
-            // Make sure we have a proper range for the diagnostic
-            range = new vscode.Range(startPos, endPos);
+          // For schema errors, use the instancePath to find the exact location
+          if (ownerId === '__schema__' && problem.path) {
+            range = findPositionForPath(document, jsonText, problem.path);
+            // Extract the actual state key from the path for navigation
+            // Example: /attributes/states/0/view -> extract state at index 0
+            actualOwnerId = extractOwnerFromPath(problem.path, jsonText);
           } else {
-            // If we can't find the key, try to at least point to line 1
-            range = new vscode.Range(1, 0, 1, 1);
+            // For other errors, search for the state/entity key
+            const searchPattern = `"key"\\s*:\\s*"${ownerId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`;
+            const regex = new RegExp(searchPattern);
+            const match = regex.exec(jsonText);
+
+            if (match) {
+              const startPos = document.positionAt(match.index);
+              const endPos = document.positionAt(match.index + match[0].length);
+              range = new vscode.Range(startPos, endPos);
+            } else {
+              // If we can't find the key, point to line 1
+              range = new vscode.Range(1, 0, 1, 1);
+            }
           }
         }
 
@@ -58,11 +291,12 @@ export class FlowDiagnosticsProvider {
         diagnostic.code = {
           value: problem.id,
           // Create a command link that can be clicked in Problems panel - include the file URI
-          target: vscode.Uri.parse(`command:flowEditor.openPropertyPanel?${encodeURIComponent(JSON.stringify({ ownerId, fileUri: uri.toString() }))}`),
+          // Use actualOwnerId which might be extracted from the path for schema errors
+          target: vscode.Uri.parse(`command:flowEditor.openPropertyPanel?${encodeURIComponent(JSON.stringify({ ownerId: actualOwnerId, fileUri: uri.toString() }))}`),
         };
         diagnostic.source = 'amorphie-flow';
-        // Store the owner ID in the diagnostic data for use in code actions
-        (diagnostic as any).data = { ownerId };
+        // Store the actual owner ID in the diagnostic data for use in code actions
+        (diagnostic as any).data = { ownerId: actualOwnerId };
         diagnostics.push(diagnostic);
       }
     }
