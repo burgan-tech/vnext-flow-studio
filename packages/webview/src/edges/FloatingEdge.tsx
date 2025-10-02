@@ -38,7 +38,7 @@ const fallbackSizeForNode = (n: RFNode): { width: number; height: number } => {
 
 const getNodeRect = (node: RFNode) => {
   const pos = (node as any).internals?.positionAbsolute ?? (node as any).positionAbsolute ?? node.position;
-
+2
   // Prioritize pre-calculated dimensions from data, then measured, then fallback
   let width: number;
   let height: number;

@@ -592,6 +592,7 @@ return new {
         editorRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
   // Update editor content when editorContent changes

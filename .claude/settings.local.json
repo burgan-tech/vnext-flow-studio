@@ -7,7 +7,8 @@
       "Bash(npm run:*)",
       "mcp__ide__getDiagnostics",
       "Bash(awk:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
