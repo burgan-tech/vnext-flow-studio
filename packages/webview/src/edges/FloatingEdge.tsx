@@ -182,7 +182,7 @@ export function FloatingEdge(props: FloatingEdgeProps) {
   let edgePath: string, labelX: number, labelY: number;
 
   if (isSelfConnection) {
-    const [path, defaultLabelX, defaultLabelY] = getSmoothStepPath({
+    const [path, _defaultLabelX, _defaultLabelY] = getSmoothStepPath({
       sourceX,
       sourceY,
       targetX,
