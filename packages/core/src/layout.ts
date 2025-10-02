@@ -7,6 +7,8 @@ export interface AutoLayoutOptions {
   startY?: number;
   columnSpacing?: number;
   rowSpacing?: number;
+  // Optional measured sizes from the webview (React Flow v12)
+  nodeSizes?: Record<string, { width: number; height: number }>;
 }
 
 const DEFAULT_START_X = 100;
@@ -76,9 +78,10 @@ function createPorts(ownerId: string, state: State | 'event'): ElkPort[] {
   return ports;
 }
 
-function createChildFromState(state: State): ElkChild {
+function createChildFromState(state: State, override?: { width: number; height: number }): ElkChild {
   const isEventLike = state.stateType === 1 || state.stateType === 3;
-  const size = isEventLike ? EVENT_NODE_SIZE : ACTIVITY_NODE_SIZE;
+  const base = isEventLike ? EVENT_NODE_SIZE : ACTIVITY_NODE_SIZE;
+  const size = override ?? base;
 
   return {
     id: state.key,
@@ -91,11 +94,11 @@ function createChildFromState(state: State): ElkChild {
   };
 }
 
-function createEventChild(id: string): ElkChild {
+function createEventChild(id: string, override?: { width: number; height: number }): ElkChild {
   return {
     id,
-    width: EVENT_NODE_SIZE.width,
-    height: EVENT_NODE_SIZE.height,
+    width: (override ?? EVENT_NODE_SIZE).width,
+    height: (override ?? EVENT_NODE_SIZE).height,
     ports: createPorts(id, 'event'),
     properties: {
       'org.eclipse.elk.portConstraints': 'FIXED_ORDER',
@@ -119,7 +122,9 @@ export async function autoLayout(
 
   const stateKeys = new Set(states.map((state) => state.key));
 
-  const children: ElkChild[] = states.map(createChildFromState);
+  const children: ElkChild[] = states.map((s) =>
+    createChildFromState(s, options.nodeSizes?.[s.key])
+  );
   const edges: Array<{
     id: string;
     source: string;
@@ -166,7 +171,7 @@ export async function autoLayout(
   }
 
   if (workflow.attributes.startTransition && stateKeys.has(workflow.attributes.startTransition.target)) {
-    children.push(createEventChild(START_NODE_ID));
+    children.push(createEventChild(START_NODE_ID, options.nodeSizes?.[START_NODE_ID]));
     edges.push({
       id: 'start',
       source: START_NODE_ID,
@@ -177,7 +182,7 @@ export async function autoLayout(
   }
 
   if (workflow.attributes.timeout && stateKeys.has(workflow.attributes.timeout.target)) {
-    children.push(createEventChild(TIMEOUT_NODE_ID));
+    children.push(createEventChild(TIMEOUT_NODE_ID, options.nodeSizes?.[TIMEOUT_NODE_ID]));
     edges.push({
       id: `timeout:${workflow.attributes.timeout.key}`,
       source: TIMEOUT_NODE_ID,

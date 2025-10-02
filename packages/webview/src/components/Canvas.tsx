@@ -87,6 +87,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string; edgeId?: string } | null>(null);
   const [taskCatalog, setTaskCatalog] = useState<TaskDefinition[]>([]);
   const [catalogs, setCatalogs] = useState<Record<string, any[]>>({});
+  const pendingMeasuredAutoLayout = useRef(false);
 
   const stateTemplates = useMemo<StateTemplate[]>(() => ([
     {
@@ -159,6 +160,11 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           if (message.catalogs) {
             setCatalogs(message.catalogs);
           }
+          // If the diagram was generated on the host (no saved diagram),
+          // trigger a measured-size auto layout once the canvas mounts.
+          if ((message as any).generatedDiagram) {
+            pendingMeasuredAutoLayout.current = true;
+          }
           break;
         case 'workflow:update':
           setWorkflow(message.workflow);
@@ -214,6 +220,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
       }
     });
   }, [onMessage, reactFlowInstance, nodes, workflow]);
+
+  // (moved) measured auto layout effect declared after handleAutoLayoutRequest
 
   // Handle node position changes
   const onNodesChange: OnNodesChange = useCallback((changes: NodeChange[]) => {
@@ -618,9 +626,36 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   }, [postMessage]);
 
   const handleAutoLayoutRequest = useCallback(() => {
-    postMessage({ type: 'request:autoLayout' });
+    // Collect measured node sizes from React Flow v12
+    const sizeMap: Record<string, { width: number; height: number }> = {};
+    for (const n of nodes) {
+      // Fallback sizes align with core defaults
+      const isEvent = n.type === 'event' || n.data?.stateType === 1 || n.data?.stateType === 3;
+      const fallback = isEvent ? { width: 96, height: 96 } : { width: 260, height: 160 };
+      const width = n.measured?.width ?? fallback.width;
+      const height = n.measured?.height ?? fallback.height;
+      if (Number.isFinite(width) && Number.isFinite(height)) {
+        sizeMap[n.id] = { width, height };
+      }
+    }
+
+    postMessage({ type: 'request:autoLayout', nodeSizes: sizeMap });
     setContextMenu(null);
-  }, [postMessage]);
+  }, [postMessage, nodes]);
+
+  // After mount and once nodes are measured, run a one-time measured auto layout
+  useEffect(() => {
+    if (pendingMeasuredAutoLayout.current && reactFlowInstance && nodes.length > 0) {
+      // Prevent duplicate triggers
+      pendingMeasuredAutoLayout.current = false;
+      // Defer to ensure measurements are populated by React Flow
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          handleAutoLayoutRequest();
+        });
+      });
+    }
+  }, [reactFlowInstance, nodes, handleAutoLayoutRequest]);
 
   const handleSetStartNode = useCallback((nodeId: string) => {
     postMessage({ type: 'domain:setStart', target: nodeId });

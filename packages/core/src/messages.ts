@@ -9,6 +9,7 @@ export type MsgToWebview =
       problemsById: Record<string, any>;
       tasks: TaskDefinition[];
       catalogs?: Record<string, any[]>;
+      generatedDiagram?: boolean;
     }
   | { type: 'workflow:update'; workflow: Workflow; derived: { nodes: any[]; edges: any[] } }
   | { type: 'diagram:update'; diagram: Diagram }
@@ -31,7 +32,10 @@ export type MsgFromWebview =
   | { type: 'domain:removeFromSharedTransition'; transitionKey: string; stateKey: string }
   | { type: 'domain:addState'; state: State; position: { x: number; y: number } }
   | { type: 'request:lint' }
-  | { type: 'request:autoLayout' }
+  | {
+      type: 'request:autoLayout';
+      nodeSizes?: Record<string, { width: number; height: number }>;
+    }
   | {
       type: 'mapping:loadFromFile';
       stateKey?: string;

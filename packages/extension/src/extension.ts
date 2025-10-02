@@ -200,11 +200,13 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
     let currentDiagram: Diagram;
     let currentTasks: TaskDefinition[] = [];
 
+    let generatedDiagram = false;
     try {
       currentDiagram = await readJson<Diagram>(diagramUri);
     } catch {
       currentDiagram = await autoLayout(currentWorkflow);
       await writeJson(diagramUri, currentDiagram);
+      generatedDiagram = true;
     }
 
     // Load all catalogs
@@ -235,7 +237,8 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
       derived,
       problemsById,
       tasks: currentTasks,
-      catalogs
+      catalogs,
+      generatedDiagram
     });
 
     // Utility function to generate unique transition keys
@@ -1232,7 +1235,9 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
           }
 
           case 'request:autoLayout': {
-            const nextDiagram = await autoLayout(currentWorkflow, currentDiagram);
+            const nextDiagram = await autoLayout(currentWorkflow, currentDiagram, {
+              nodeSizes: message.nodeSizes
+            });
             currentDiagram = nextDiagram;
             currentDiagram = nextDiagram;
             await writeJson(diagramUri, currentDiagram);
