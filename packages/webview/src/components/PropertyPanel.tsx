@@ -608,7 +608,25 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
         {selection?.kind === 'state' && stateDraft ? (
           <form className="property-panel__section" onSubmit={handleStateSubmit}>
-            <h3 className="property-panel__section-title">{stateDraft.key}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <h3 className="property-panel__section-title">{stateDraft.key}</h3>
+              {stateDraft.stateType === 4 && stateDraft.subFlow?.process && (
+                <button
+                  type="button"
+                  className="property-panel__pill-button"
+                  onClick={() => {
+                    postMessage({
+                      type: 'navigate:subflow',
+                      stateKey: stateDraft.key
+                    });
+                  }}
+                  title={`Open subflow: ${stateDraft.subFlow.process.key}`}
+                  style={{ fontSize: '12px', padding: '4px 12px' }}
+                >
+                  → Open Subflow
+                </button>
+              )}
+            </div>
 
             <CollapsibleSection title="Basic Properties" defaultExpanded={true}>
               <label className="property-panel__field">

@@ -87,6 +87,15 @@ export interface State {
   onExits?: ExecutionTask[];
   transitions?: Transition[];
   view?: ViewRef;
+  subFlow?: {
+    type: 'S' | 'P';
+    process: {
+      key: string;
+      domain: string;
+      version: string;
+      flow: string;
+    };
+  } | null;
 }
 
 export interface TimerConfig {

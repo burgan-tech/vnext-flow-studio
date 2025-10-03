@@ -10,7 +10,7 @@ export interface ReferenceDefinition {
   tags?: string[];
 }
 
-export type ReferenceType = 'task' | 'schema' | 'view' | 'function' | 'extension';
+export type ReferenceType = 'task' | 'schema' | 'view' | 'function' | 'extension' | 'workflow';
 
 export const REFERENCE_PATTERNS: Record<ReferenceType, string[]> = {
   task: [
@@ -37,6 +37,13 @@ export const REFERENCE_PATTERNS: Record<ReferenceType, string[]> = {
     '**/Extensions/**/*.json',
     '**/extensions/**/*.json',
     '**/sys-extensions/**/*.json'
+  ],
+  workflow: [
+    '**/*.flow.json',
+    '**/*-subflow.json',
+    '**/*-workflow.json',
+    '**/workflows/**/*.json',
+    '**/Workflows/**/*.json'
   ]
 };
 
@@ -45,7 +52,8 @@ const DEFAULT_FLOWS: Record<ReferenceType, string> = {
   schema: 'sys-schemas',
   view: 'sys-views',
   function: 'sys-functions',
-  extension: 'sys-extensions'
+  extension: 'sys-extensions',
+  workflow: 'sys-flows'
 };
 
 async function readJson<T>(uri: vscode.Uri): Promise<T | null> {
@@ -173,6 +181,45 @@ export async function loadAllCatalogs(): Promise<Record<ReferenceType, Reference
     schema: schemas,
     view: views,
     function: functions,
-    extension: extensions
+    extension: extensions,
+    workflow: [] // Workflows are loaded on-demand for navigation
   };
+}
+
+/**
+ * Find a workflow file by its key, domain, version, and flow reference
+ */
+export async function findWorkflowByReference(
+  key: string,
+  domain?: string,
+  version?: string,
+  flow?: string
+): Promise<vscode.Uri | null> {
+  const workflows = await loadReferenceCatalog('workflow');
+
+  for (const workflow of workflows) {
+    const keyMatches = workflow.key === key;
+    const domainMatches = !domain || workflow.domain === domain;
+    const versionMatches = !version || workflow.version === version;
+    const flowMatches = !flow || workflow.flow === flow;
+
+    if (keyMatches && domainMatches && versionMatches && flowMatches) {
+      // Convert the path back to a URI
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (workspaceFolders) {
+        for (const folder of workspaceFolders) {
+          const uri = vscode.Uri.joinPath(folder.uri, workflow.path);
+          try {
+            await vscode.workspace.fs.stat(uri);
+            return uri;
+          } catch {
+            // Try next workspace folder
+            continue;
+          }
+        }
+      }
+    }
+  }
+
+  return null;
 }

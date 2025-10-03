@@ -11,7 +11,7 @@ import {
   getDiagramUri,
   isFlowDefinitionUri
 } from './flowFileUtils';
-import { loadAllCatalogs, REFERENCE_PATTERNS } from './referenceCatalog';
+import { loadAllCatalogs, REFERENCE_PATTERNS, findWorkflowByReference } from './referenceCatalog';
 
 // Get localized label from workflow attributes
 function getWorkflowLabel(workflow: Workflow, fallback: string = 'Amorphie Flow Studio'): string {
@@ -1252,6 +1252,37 @@ async function openFlowEditor(flowUri: vscode.Uri, context: vscode.ExtensionCont
               type: 'diagram:update',
               diagram: currentDiagram
             });
+            break;
+          }
+
+          case 'navigate:subflow': {
+            const { stateKey } = message;
+            const state = currentWorkflow.attributes.states.find(s => s.key === stateKey);
+
+            if (!state || state.stateType !== 4 || !state.subFlow?.process) {
+              vscode.window.showWarningMessage(`State ${stateKey} is not a valid subflow state`);
+              break;
+            }
+
+            const subflowRef = state.subFlow.process;
+
+            // Use the reference catalog to find the workflow
+            const foundUri = await findWorkflowByReference(
+              subflowRef.key,
+              subflowRef.domain,
+              subflowRef.version,
+              subflowRef.flow
+            );
+
+            if (!foundUri) {
+              vscode.window.showWarningMessage(
+                `Subflow not found with key="${subflowRef.key}", domain="${subflowRef.domain}", flow="${subflowRef.flow}", version="${subflowRef.version}"`
+              );
+              break;
+            }
+
+            // Open the subflow in the editor
+            await openFlowEditor(foundUri, context, diagnosticsProvider, activePanels);
             break;
           }
         }

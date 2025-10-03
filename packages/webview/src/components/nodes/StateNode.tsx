@@ -1,6 +1,7 @@
 import React from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import type { State, StateType } from '@amorphie-flow-studio/core';
+import { useBridge } from '../../hooks/useBridge';
 
 interface StateNodeProps {
   data: {
@@ -73,6 +74,7 @@ const getVariantIcon = (variant?: 'start' | 'timeout'): string => {
 
 export function StateNode({ data, selected, style: externalStyle }: StateNodeProps) {
   const { title, label, state, stateType, stateSubType, variant, width: dataWidth, height: dataHeight } = data;
+  const { postMessage } = useBridge();
   const stateTypeClass = getStateTypeClass(stateType);
   const stateTypeName = getStateTypeName(stateType);
   const stateSubTypeName = getStateSubTypeName(stateSubType);
@@ -82,10 +84,22 @@ export function StateNode({ data, selected, style: externalStyle }: StateNodePro
   const displayTitle = title || label || 'Node';
   const isFinal = stateType === 3;
   const isStart = variant === 'start';
+  const isSubflow = stateType === 4;
+  const hasSubflowReference = isSubflow && state?.subFlow?.process;
 
   // Start node can only have outgoing connections, not incoming
   const canHaveIncoming = !isStart;
   const canHaveOutgoing = !isFinal;
+
+  const handleNavigateToSubflow = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (state?.key) {
+      postMessage({
+        type: 'navigate:subflow',
+        stateKey: state.key
+      });
+    }
+  };
 
   // Use width/height from data if provided, otherwise calculate (for event nodes)
   let calculatedWidth: number;
@@ -167,6 +181,16 @@ export function StateNode({ data, selected, style: externalStyle }: StateNodePro
             <div className="state-node__meta">
               <span className="state-node__key">{state.key}</span>
             </div>
+          )}
+          {hasSubflowReference && (
+            <button
+              className="state-node__navigate-btn"
+              onClick={handleNavigateToSubflow}
+              title={`Open subflow: ${state.subFlow?.process.key}`}
+              aria-label="Navigate to subflow definition"
+            >
+              →
+            </button>
           )}
         </div>
       </div>

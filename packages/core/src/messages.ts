@@ -61,4 +61,8 @@ export type MsgFromWebview =
       type: 'rule:loadFromFile';
       from: string;
       transitionKey: string;
+    }
+  | {
+      type: 'navigate:subflow';
+      stateKey: string;
     };
