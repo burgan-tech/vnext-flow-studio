@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { MsgToWebview, MsgFromWebview } from '@am/core';
+import type { MsgToWebview, MsgFromWebview } from '@amorphie-flow-studio/core';
 
 // VS Code API type
 interface VSCodeAPI {
