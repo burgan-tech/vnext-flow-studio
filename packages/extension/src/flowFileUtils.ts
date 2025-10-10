@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-const FLOW_DEFINITION_SUFFIX = '.flow.json';
+const FLOW_DEFINITION_SUFFIX = '.json';
 const SUBFLOW_DEFINITION_SUFFIX = '-subflow.json';
 const WORKFLOW_DEFINITION_SUFFIX = '-workflow.json';
 const DIAGRAM_SUFFIX = '.diagram.json';

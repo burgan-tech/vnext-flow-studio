@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { lint, type Workflow, type TaskDefinition } from '@amorphie-flow-studio/core';
+import { ModelValidator, type WorkflowModel } from '@amorphie-flow-studio/core';
 
 /**
  * Extract the actual owner ID (state key, transition key, etc.) from a JSON path
@@ -233,6 +234,84 @@ export class FlowDiagnosticsProvider {
     this.diagnosticsCollection = vscode.languages.createDiagnosticCollection('amorphie-flow');
   }
 
+  /**
+   * Update diagnostics using WorkflowModel and ModelValidator
+   */
+  public async updateDiagnosticsFromModel(
+    uri: vscode.Uri,
+    model: WorkflowModel
+  ): Promise<void> {
+    // Use ModelValidator for comprehensive validation (it's a static method)
+    const validationResult = await ModelValidator.validate(model);
+    const diagnostics: vscode.Diagnostic[] = [];
+
+    // Read the document to find actual positions
+    let document: vscode.TextDocument | undefined;
+    try {
+      document = await vscode.workspace.openTextDocument(uri);
+    } catch {
+      // If we can't open the document, use default position
+    }
+
+    const jsonText = document?.getText() || '';
+
+    // Convert validation errors to diagnostics
+    for (const error of validationResult.errors) {
+      let range = new vscode.Range(0, 0, 0, 0);
+      let ownerId = '__schema__';
+
+      if (document && jsonText && error.location) {
+        // Try to find position based on location
+        range = findPositionForPath(document, jsonText, error.path || '/');
+        ownerId = extractOwnerFromPath(error.path || '/', jsonText);
+      }
+
+      const diagnostic = new vscode.Diagnostic(
+        range,
+        error.message,
+        vscode.DiagnosticSeverity.Error
+      );
+
+      diagnostic.code = {
+        value: error.type,
+        target: vscode.Uri.parse(`command:flowEditor.openPropertyPanel?${encodeURIComponent(JSON.stringify({ ownerId, fileUri: uri.toString() }))}`),
+      };
+      diagnostic.source = 'amorphie-flow';
+      (diagnostic as any).data = { ownerId };
+      diagnostics.push(diagnostic);
+    }
+
+    // Convert validation warnings to diagnostics
+    for (const warning of validationResult.warnings) {
+      let range = new vscode.Range(0, 0, 0, 0);
+      let ownerId = '__schema__';
+
+      if (document && jsonText && warning.location) {
+        range = findPositionForPath(document, jsonText, warning.path || '/');
+        ownerId = extractOwnerFromPath(warning.path || '/', jsonText);
+      }
+
+      const diagnostic = new vscode.Diagnostic(
+        range,
+        warning.message,
+        vscode.DiagnosticSeverity.Warning
+      );
+
+      diagnostic.code = {
+        value: warning.type,
+        target: vscode.Uri.parse(`command:flowEditor.openPropertyPanel?${encodeURIComponent(JSON.stringify({ ownerId, fileUri: uri.toString() }))}`),
+      };
+      diagnostic.source = 'amorphie-flow';
+      (diagnostic as any).data = { ownerId };
+      diagnostics.push(diagnostic);
+    }
+
+    this.diagnosticsCollection.set(uri, diagnostics);
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
   public async updateDiagnostics(
     uri: vscode.Uri,
     workflow: Workflow,

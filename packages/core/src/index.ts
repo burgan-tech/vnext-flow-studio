@@ -1,6 +1,9 @@
 // Types
 export * from './types/index.js';
 
+// Model abstraction layer
+export * from './model/index.js';
+
 // Schema validation
 export * from './schema.js';
 
