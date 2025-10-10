@@ -1,3 +1,5 @@
+// TypeScript types for workflow-definition.schema.json
+
 export type Lang = 'en' | 'tr' | 'en-US' | 'tr-TR';
 export type VersionStrategy = 'Major' | 'Minor';
 export type TriggerType = 0 | 1 | 2 | 3; // Manual, Auto, Timeout, Event

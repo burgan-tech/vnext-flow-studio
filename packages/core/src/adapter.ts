@@ -1,4 +1,4 @@
-import type { Workflow, Diagram } from './types.js';
+import type { Workflow, Diagram, Label } from './types/index.js';
 
 export const START_NODE_ID = '__start__';
 export const TIMEOUT_NODE_ID = '__timeout__';
@@ -68,7 +68,7 @@ export function toReactFlow(
   // Add state nodes
   for (const state of workflow.attributes.states) {
     const pos = diagram.nodePos[state.key] ?? { x: 100, y: 100 };
-    const label = state.labels.find(l => l.language === lang)?.label ||
+    const label = state.labels.find((l: Label) => l.language === lang)?.label ||
                   state.labels[0]?.label ||
                   state.key;
 
@@ -104,7 +104,7 @@ export function toReactFlow(
 
     // Add local transitions
     for (const transition of (state.transitions || [])) {
-      const transitionLabel = transition.labels?.find(l => l.language === lang)?.label ||
+      const transitionLabel = transition.labels?.find((l: Label) => l.language === lang)?.label ||
                               transition.labels?.[0]?.label ||
                               transition.key;
 
@@ -125,7 +125,7 @@ export function toReactFlow(
   // Add start edge
   if (workflow.attributes.startTransition) {
     const st = workflow.attributes.startTransition;
-    const startLabel = st.labels?.find(l => l.language === lang)?.label ||
+    const startLabel = st.labels?.find((l: Label) => l.language === lang)?.label ||
                        st.labels?.[0]?.label ||
                        'Start';
 
@@ -152,7 +152,7 @@ export function toReactFlow(
 
   // Add shared transitions (expanded)
   for (const sharedTransition of (workflow.attributes.sharedTransitions || [])) {
-    const sharedLabel = sharedTransition.labels?.find(l => l.language === lang)?.label ||
+    const sharedLabel = sharedTransition.labels?.find((l: Label) => l.language === lang)?.label ||
                         sharedTransition.labels?.[0]?.label ||
                         sharedTransition.key;
 

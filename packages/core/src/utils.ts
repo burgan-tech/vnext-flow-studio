@@ -1,4 +1,4 @@
-import type { Label, Lang } from './types.js';
+import type { Label, Lang } from './types/index.js';
 
 export function getLocalizedLabel(labels: Label[], lang: Lang = 'en'): string | undefined {
   return labels.find(l => l.language === lang)?.label || labels[0]?.label;

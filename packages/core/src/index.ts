@@ -1,5 +1,5 @@
 // Types
-export * from './types.js';
+export * from './types/index.js';
 
 // Schema validation
 export * from './schema.js';

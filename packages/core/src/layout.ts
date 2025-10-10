@@ -1,5 +1,5 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
-import type { Diagram, Workflow, State } from './types.js';
+import type { Diagram, Workflow, State } from './types/index.js';
 import { START_NODE_ID, TIMEOUT_NODE_ID } from './adapter.js';
 
 export interface AutoLayoutOptions {
@@ -120,9 +120,9 @@ export async function autoLayout(
       : { nodePos: {} };
   }
 
-  const stateKeys = new Set(states.map((state) => state.key));
+  const stateKeys = new Set(states.map((state: State) => state.key));
 
-  const children: ElkChild[] = states.map((s) =>
+  const children: ElkChild[] = states.map((s: State) =>
     createChildFromState(s, options.nodeSizes?.[s.key])
   );
   const edges: Array<{

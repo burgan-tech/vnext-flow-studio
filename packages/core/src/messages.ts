@@ -1,4 +1,4 @@
-import type { Workflow, Diagram, State, Transition, SharedTransition, TaskDefinition } from './types.js';
+import type { Workflow, Diagram, State, Transition, SharedTransition, TaskDefinition } from './types/index.js';
 
 export type MsgToWebview =
   | {

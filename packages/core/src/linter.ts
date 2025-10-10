@@ -1,5 +1,5 @@
 import { validateWorkflow } from './schema.js';
-import type { TaskDefinition, TaskRef, Workflow } from './types.js';
+import type { TaskDefinition, TaskRef, Workflow, SharedTransition, Transition } from './types/index.js';
 
 export type Severity = 'error' | 'warning';
 
@@ -163,13 +163,13 @@ export function lint(
 
     // Count shared transitions available from this state
     const sharedTransitionsForState = (workflow.attributes.sharedTransitions || []).filter(
-      st => st.availableIn.includes(state.key)
+      (st: SharedTransition) => st.availableIn.includes(state.key)
     );
-    const sharedAutoTransitions = sharedTransitionsForState.filter(st => st.triggerType === 1);
+    const sharedAutoTransitions = sharedTransitionsForState.filter((st: SharedTransition) => st.triggerType === 1);
 
     // Check that automatic transitions have rules when needed
     // Consider both local and shared transitions
-    const autoTransitions = transitions.filter(t => t.triggerType === 1); // Auto triggers
+    const autoTransitions = transitions.filter((t: Transition) => t.triggerType === 1); // Auto triggers
     const totalTransitions = transitions.length + sharedTransitionsForState.length;
     const totalAutoTransitions = autoTransitions.length + sharedAutoTransitions.length;
 
