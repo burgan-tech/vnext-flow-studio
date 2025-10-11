@@ -1,6 +1,3 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
 echo "Running linter before push..."
 npm run lint
 
@@ -10,4 +7,3 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "✅ Linting passed!"
-

@@ -17,7 +17,8 @@
       "Bash(git commit:*)",
       "Bash(gh issue list:*)",
       "WebFetch(domain:github.com)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(bash .husky/pre-push:*)"
     ],
     "deny": [],
     "ask": []
