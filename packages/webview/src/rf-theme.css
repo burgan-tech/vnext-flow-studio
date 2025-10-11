@@ -643,7 +643,6 @@
   border: 2px solid var(--state-color);
   background: #ffffff;
   overflow: hidden;
-  pointer-events: none;
 }
 
 .flow-canvas__palette-icon-column {

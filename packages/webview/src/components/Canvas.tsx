@@ -562,31 +562,41 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
   const onDropCanvas = useCallback((event: React.DragEvent) => {
     event.preventDefault();
+    console.log('🔍 Drop event triggered');
 
     if (!reactFlowInstance) {
+      console.log('❌ No reactFlowInstance available');
       return;
     }
 
     const raw = event.dataTransfer.getData('application/reactflow');
+    console.log('🔍 Raw drag data:', raw);
     if (!raw) {
+      console.log('❌ No drag data available');
       return;
     }
 
     try {
       const payload = JSON.parse(raw) as { type: StateType; stateSubType: StateSubType | null };
+      console.log('🔍 Parsed payload:', payload);
+
       const template = stateTemplates.find((candidate) =>
         candidate.type === payload.type && (candidate.stateSubType ?? null) === payload.stateSubType
       );
 
       if (!template) {
+        console.log('❌ No matching template found');
         return;
       }
+
+      console.log('✅ Template found:', template.label);
 
       const position = reactFlowInstance.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY
       });
 
+      console.log('✅ Position calculated:', position);
       handleAddState(template, position);
     } catch (error) {
       console.warn('Failed to parse drag payload', error);
