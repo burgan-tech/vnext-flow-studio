@@ -14,7 +14,9 @@
       "Bash(git submodule add:*)",
       "Bash(git rm:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(gh issue list:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

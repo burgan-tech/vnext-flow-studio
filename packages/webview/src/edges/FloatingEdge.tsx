@@ -9,7 +9,7 @@ import {
   useEdges
 } from '@xyflow/react';
 
-import type { Node as RFNode, Edge as RFEdge } from '@xyflow/react';
+import type { Node as RFNode } from '@xyflow/react';
 
 type FloatingEdgeProps = {
   id: string;

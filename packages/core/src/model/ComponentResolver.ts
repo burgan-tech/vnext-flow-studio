@@ -502,19 +502,15 @@ export class ComponentResolver implements IComponentResolver {
               }
 
               // Component is valid for this type
-              if (true) {
-                const cacheKey = `${component.domain}/${component.flow || type}/${component.key}@${component.version}`;
+              const cacheKey = `${component.domain}/${component.flow || type}/${component.key}@${component.version}`;
 
-                // Add to cache
-                if (this.options.useCache) {
-                  cache.set(cacheKey, component as T);
-                }
-
-                components.push(component as T);
-                console.log(`[ComponentResolver] ✓ Loaded ${type}: ${component.domain}/${component.key}@${component.version}`);
-              } else {
-                console.log(`[ComponentResolver] ✗ Skipped ${file} - missing required fields (key/domain/version)`);
+              // Add to cache
+              if (this.options.useCache) {
+                cache.set(cacheKey, component as T);
               }
+
+              components.push(component as T);
+              console.log(`[ComponentResolver] ✓ Loaded ${type}: ${component.domain}/${component.key}@${component.version}`);
             } catch (err) {
               console.log(`[ComponentResolver] ✗ Failed to parse ${file}:`, err);
               continue;

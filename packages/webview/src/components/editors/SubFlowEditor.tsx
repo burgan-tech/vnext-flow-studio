@@ -53,15 +53,6 @@ export function SubFlowEditor({
     }
   };
 
-  // Handle mapping location change
-  const handleMappingLocationChange = (location: string) => {
-    if (!value) return;
-    onChange({
-      ...value,
-      mapping: { ...value.mapping, location }
-    });
-  };
-
   // Handle mapping code change
   const handleMappingCodeChange = (code: string) => {
     if (!value) return;

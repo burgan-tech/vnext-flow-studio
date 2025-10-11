@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { FLOW_FILE_GLOBS } from './flowFileUtils';
-import { generateWorkflowTemplate, getWorkflowTemplate } from '@amorphie-flow-studio/core';
+import { getWorkflowTemplate } from '@amorphie-flow-studio/core';
 
 export function registerCommands(context: vscode.ExtensionContext) {
   // flowEditor.open is registered in extension.ts as it needs context

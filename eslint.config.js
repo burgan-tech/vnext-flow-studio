@@ -14,7 +14,8 @@ module.exports = tseslint.config(
       '**/node_modules/**',
       '**/coverage/**',
       'flows/*.lock.json',
-      'sys-tasks/**/*.json'
+      'sys-tasks/**/*.json',
+      'schemas/**'
     ]
   },
   js.configs.recommended,
