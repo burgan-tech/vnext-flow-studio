@@ -11,7 +11,7 @@ import type {
   ModelLoadOptions,
   ModelSaveOptions
 } from './types.js';
-import type { Workflow, Diagram, State, Transition } from '../types/index.js';
+import type { Workflow, Diagram } from '../types/index.js';
 
 /**
  * VS Code specific events
@@ -175,12 +175,13 @@ export class VSCodeModelIntegration {
         }
         break;
 
-      case 'script':
+      case 'script': {
         const script = state.scripts.get(change.path);
         if (script) {
           await this.activeModel.updateScript(script.location, change.content);
         }
         break;
+      }
     }
   }
 

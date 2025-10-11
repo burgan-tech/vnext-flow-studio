@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as monaco from 'monaco-editor';
 import type { Rule } from '@amorphie-flow-studio/core';
 import { getAllBBTWorkflowIntelliSense } from '../../types/bbt-workflow-intellisense';
-import type { IntelliSenseItem } from '../../types/workflow-types';
+import type { IntelliSenseItem } from '../../types/ui-helpers';
 import { getTemplateForTaskType } from '../../utils/taskTemplates';
 
 

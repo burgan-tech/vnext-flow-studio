@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import type { TriggerType } from '../../types/workflow-types';
-import { TriggerTypeInfo } from '../../types/workflow-types';
+import type { TriggerType } from '@amorphie-flow-studio/core';
+import { TriggerTypeInfo } from '../../types/ui-helpers';
 
 interface EnhancedTriggerEditorProps {
   triggerType: TriggerType;

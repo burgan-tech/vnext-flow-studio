@@ -4,7 +4,7 @@
  * These provide accurate IntelliSense for C# mapping and rule scripts
  */
 
-import type { IntelliSenseItem } from './workflow-types';
+import type { IntelliSenseItem } from './ui-helpers';
 import {
   parseBBTWorkflowXml,
   BBT_WORKFLOW_DOMAIN_XML,

@@ -240,7 +240,7 @@ export function ReferenceSelector({
               {showDropdown && filteredComponents.length === 0 && searchTerm && (
                 <div className="reference-selector__dropdown">
                   <div className="reference-selector__dropdown-empty">
-                    No {componentType.toLowerCase()}s found matching "{searchTerm}"
+                    No {componentType.toLowerCase()}s found matching &quot;{searchTerm}&quot;
                   </div>
                 </div>
               )}

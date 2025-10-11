@@ -9,11 +9,6 @@ import type {
   Transition,
   SharedTransition,
   ExecutionTask,
-  TaskComponentDefinition,
-  SchemaDefinition,
-  ViewDefinition,
-  FunctionDefinition,
-  ExtensionDefinition,
   Diagram
 } from '../types/index.js';
 import type {
@@ -22,8 +17,6 @@ import type {
   ResolvedTransition,
   ResolvedSharedTransition,
   ResolvedExecutionTask,
-  ResolvedMapping,
-  ResolvedRule,
   ResolvedScript,
   ModelChangeEvent,
   ValidationResult,
@@ -35,7 +28,7 @@ import type {
 } from './types.js';
 import { ComponentResolver } from './ComponentResolver.js';
 import { ScriptManager } from './ScriptManager.js';
-import { lint, type Problem } from '../linter.js';
+import { lint } from '../linter.js';
 
 /**
  * Main workflow model that provides a unified view of a workflow
@@ -45,8 +38,6 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
   private state: WorkflowModelState;
   private componentResolver: ComponentResolver;
   private scriptManager: ScriptManager;
-  private originalWorkflow?: Workflow;
-  private originalDiagram?: Diagram;
 
   constructor(workflowPath: string, basePath?: string) {
     super();
@@ -149,7 +140,6 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
       // Load workflow file
       const workflowContent = await fs.readFile(this.state.metadata.workflowPath, 'utf-8');
       this.state.workflow = JSON.parse(workflowContent) as Workflow;
-      this.originalWorkflow = JSON.parse(workflowContent) as Workflow;
 
       // Load diagram file if it exists
       const diagramPath = this.getDiagramPath();
@@ -157,7 +147,6 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
         try {
           const diagramContent = await fs.readFile(diagramPath, 'utf-8');
           this.state.diagram = JSON.parse(diagramContent) as Diagram;
-          this.originalDiagram = JSON.parse(diagramContent) as Diagram;
           this.state.metadata.diagramPath = diagramPath;
         } catch {
           // Diagram file doesn't exist - that's ok
@@ -707,7 +696,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
   /**
    * Save the model back to files
    */
-  async save(options: ModelSaveOptions = {}): Promise<SaveResult> {
+  async save(_options: ModelSaveOptions = {}): Promise<SaveResult> {
     // This will be implemented by ModelSaver
     throw new Error('Save not yet implemented - use ModelSaver');
   }

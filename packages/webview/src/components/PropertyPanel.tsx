@@ -8,7 +8,7 @@ import {
   type StateSubType,
   type Label,
   type ExecutionTask,
-  type TaskDefinition,
+  type TaskComponentDefinition,
   type SchemaRef,
   type SharedTransition,
 } from '@amorphie-flow-studio/core';
@@ -17,9 +17,7 @@ import { decodeBase64, encodeBase64 } from '../utils/base64Utils';
 import {
   CollapsibleSection,
   LabelListEditor,
-  SchemaEditor,
   ExecutionTaskListEditor,
-  ViewEditor,
   EnhancedTriggerEditor,
   EnhancedRuleEditor,
   ReferenceSelector,
@@ -40,7 +38,7 @@ interface PropertyPanelProps {
   workflow: Workflow;
   selection: PropertySelection;
   collapsed: boolean;
-  availableTasks: TaskDefinition[];
+  availableTasks: TaskComponentDefinition[];
   catalogs?: Record<string, any[]>;
 }
 

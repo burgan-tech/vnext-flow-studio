@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { ExecutionTask, TaskDefinition } from '@amorphie-flow-studio/core';
+import type { ExecutionTask, TaskComponentDefinition } from '@amorphie-flow-studio/core';
 import { isTaskRef } from './utils';
 import { RuleEditor } from './RuleEditor';
 import { ReferenceSelector, type ComponentReference } from './ReferenceSelector';
@@ -8,7 +8,7 @@ import { ScriptSelector, type ScriptItem } from './ScriptSelector';
 interface ExecutionTaskListEditorProps {
   title: string;
   tasks?: ExecutionTask[];
-  availableTasks: TaskDefinition[];
+  availableTasks: TaskComponentDefinition[];
   availableMappers?: ScriptItem[];
   onLoadFromFile?: (taskIndex: number) => void;
   onChange: (tasks?: ExecutionTask[]) => void;

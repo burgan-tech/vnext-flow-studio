@@ -1,14 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import * as monaco from 'monaco-editor';
-import type {
-  TaskDefinition,
-  State,
-  Workflow,
-  MappingConfiguration,
-  WorkflowContext,
-  IntelliSenseItem,
-  TaskTypeInfo
-} from '../../types/workflow-types';
+import type { State, Workflow, TaskComponentDefinition } from '@amorphie-flow-studio/core';
+import type { IntelliSenseItem, MappingConfiguration, WorkflowContext } from '../../types/ui-helpers';
+import { TaskTypeInfo } from '../../types/ui-helpers';
 import { getAllBBTWorkflowIntelliSense } from '../../types/bbt-workflow-intellisense';
 
 // Monaco Editor Worker Configuration for VS Code Webview
@@ -117,8 +111,8 @@ interface EnhancedMappingEditorProps {
   // Enhanced context
   currentState?: State;
   workflow?: Workflow;
-  availableTasks?: TaskDefinition[];
-  currentTask?: TaskDefinition;
+  availableTasks?: TaskComponentDefinition[];
+  currentTask?: TaskComponentDefinition;
 }
 
 interface MappingTemplate {

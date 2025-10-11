@@ -146,7 +146,7 @@ export interface Workflow {
     functions?: FunctionRef[];
     extensions?: ExtensionRef[];
     sharedTransitions?: SharedTransition[];
-    startTransition?: TransitionBase & { triggerType: 0 };
+    startTransition: TransitionBase & { triggerType: 0 };
     states: State[];
   };
 }

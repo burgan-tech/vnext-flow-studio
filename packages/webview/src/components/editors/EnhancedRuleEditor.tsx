@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { EnhancedMappingEditor } from './EnhancedMappingEditor';
 import { ScriptSelector, type ScriptItem } from './ScriptSelector';
-import type {
-  Rule,
-  State,
-  Workflow,
-  TaskDefinition
-} from '../../types/workflow-types';
+import type { Rule, TaskComponentDefinition, State, Workflow } from '@amorphie-flow-studio/core';
 
 interface EnhancedRuleEditorProps {
   title: string;
@@ -19,7 +14,7 @@ interface EnhancedRuleEditorProps {
   // Enhanced context
   currentState?: State;
   workflow?: Workflow;
-  availableTasks?: TaskDefinition[];
+  availableTasks?: TaskComponentDefinition[];
   hideHeader?: boolean;
 }
 

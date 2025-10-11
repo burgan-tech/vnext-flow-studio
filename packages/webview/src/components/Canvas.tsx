@@ -33,7 +33,7 @@ import type {
   State,
   StateType,
   StateSubType,
-  TaskDefinition
+  TaskComponentDefinition
 } from '@amorphie-flow-studio/core';
 
 const nodeTypes = {
@@ -92,7 +92,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const selectionRef = useRef<PropertySelection>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string; edgeId?: string } | null>(null);
-  const [taskCatalog, setTaskCatalog] = useState<TaskDefinition[]>([]);
+  const [taskCatalog, setTaskCatalog] = useState<TaskComponentDefinition[]>([]);
   const [catalogs, setCatalogs] = useState<Record<string, any[]>>({});
   const pendingMeasuredAutoLayout = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);

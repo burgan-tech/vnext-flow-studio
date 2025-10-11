@@ -65,9 +65,9 @@ export interface HttpTaskConfig {
   validateSsl?: boolean;
 }
 
-export interface ScriptTaskConfig {
-  // Script task has no specific config properties in the schema
-}
+// Script task has no specific config properties in the schema
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ScriptTaskConfig {}
 
 // Union type for all task configurations
 export type TaskConfig =

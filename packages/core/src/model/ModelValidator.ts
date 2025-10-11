@@ -2,10 +2,8 @@
 
 import { WorkflowModel } from './WorkflowModel.js';
 import type { ValidationResult, ValidationError, ValidationWarning } from './types.js';
-import type { State, Transition } from '../types/index.js';
-import { lint, type Problem } from '../linter.js';
+import { lint } from '../linter.js';
 import { validateWorkflow } from '../schema.js';
-import * as fs from 'fs/promises';
 
 /**
  * Validation rule types
@@ -227,7 +225,7 @@ export class ModelValidator {
     }
 
     // Check all referenced scripts exist and are valid
-    for (const [path, script] of state.scripts) {
+    for (const [, script] of state.scripts) {
       if (!script.exists) {
         // Find where this script is used
         const usages = model.findScriptUsages(script.location);

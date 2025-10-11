@@ -8,7 +8,6 @@ import type {
   ExecutionTask,
   Mapping,
   Rule,
-  TaskDefinition,
   FunctionDefinition,
   ExtensionDefinition,
   ViewDefinition,
@@ -286,6 +285,6 @@ export interface IModelEventEmitter {
   on(event: 'change', listener: (event: ModelChangeEvent) => void): void;
   on(event: 'save', listener: (result: SaveResult) => void): void;
   on(event: 'validate', listener: (result: ValidationResult) => void): void;
-  off(event: string, listener: Function): void;
+  off(event: string, listener: (...args: any[]) => void): void;
   emit(event: string, ...args: any[]): void;
 }

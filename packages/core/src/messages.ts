@@ -1,4 +1,4 @@
-import type { Workflow, Diagram, State, Transition, SharedTransition, TaskDefinition } from './types/index.js';
+import type { Workflow, Diagram, State, Transition, SharedTransition, TaskComponentDefinition } from './types/index.js';
 
 export type MsgToWebview =
   | {
@@ -7,14 +7,14 @@ export type MsgToWebview =
       diagram: Diagram;
       derived: { nodes: any[]; edges: any[] };
       problemsById: Record<string, any>;
-      tasks: TaskDefinition[];
+      tasks: TaskComponentDefinition[];
       catalogs?: Record<string, any[]>;
       generatedDiagram?: boolean;
     }
   | { type: 'workflow:update'; workflow: Workflow; derived: { nodes: any[]; edges: any[] } }
   | { type: 'diagram:update'; diagram: Diagram }
   | { type: 'lint:update'; problemsById: Record<string, any> }
-  | { type: 'catalog:update'; tasks: TaskDefinition[]; catalogs?: Record<string, any[]> }
+  | { type: 'catalog:update'; tasks: TaskComponentDefinition[]; catalogs?: Record<string, any[]> }
   | { type: 'select:node'; nodeId: string };
 
 export type MsgFromWebview =

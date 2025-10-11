@@ -228,7 +228,7 @@ export class ScriptManager implements IScriptManager {
       this.scriptCache.set(absolutePath, script);
 
       return script;
-    } catch (error) {
+    } catch {
       // File doesn't exist or can't be read
       return {
         location,

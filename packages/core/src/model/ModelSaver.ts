@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { WorkflowModel } from './WorkflowModel.js';
 import type { ModelSaveOptions, SaveResult, ResolvedScript } from './types.js';
-import type { Workflow, Diagram, State, Transition, SharedTransition, ExecutionTask } from '../types/index.js';
+import type { Workflow, Diagram } from '../types/index.js';
 
 /**
  * Saves workflow models back to the filesystem
@@ -126,7 +126,6 @@ export class ModelSaver {
     model: WorkflowModel,
     workflow: Workflow
   ): Promise<void> {
-    const scriptManager = model['scriptManager'];
 
     // Helper to update mapping encoding
     const updateMapping = async (mapping: any) => {
@@ -320,7 +319,7 @@ export class ModelSaver {
 
     if (includeScripts) {
       bundle.scripts = {};
-      for (const [path, script] of state.scripts) {
+      for (const [, script] of state.scripts) {
         bundle.scripts[script.location] = {
           content: script.content,
           base64: script.base64

@@ -1,16 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { EnhancedMappingEditor } from './EnhancedMappingEditor';
-import type {
-  ExecutionTask,
-  TaskDefinition,
-  State,
-  Workflow
-} from '../../types/workflow-types';
+import type { ExecutionTask, TaskComponentDefinition, State, Workflow } from '@amorphie-flow-studio/core';
 
 interface EnhancedExecutionTaskEditorProps {
   title: string;
   tasks?: ExecutionTask[];
-  availableTasks: TaskDefinition[];
+  availableTasks: TaskComponentDefinition[];
   onLoadFromFile?: (taskIndex: number) => void;
   onChange: (tasks?: ExecutionTask[]) => void;
   // Enhanced context
@@ -19,7 +14,7 @@ interface EnhancedExecutionTaskEditorProps {
 }
 
 interface TaskSearchResult {
-  task: TaskDefinition;
+  task: TaskComponentDefinition;
   relevanceScore: number;
   matchReasons: string[];
 }
@@ -163,7 +158,7 @@ export const EnhancedExecutionTaskEditor: React.FC<EnhancedExecutionTaskEditorPr
     }));
   };
 
-  const selectTask = (taskIndex: number, selectedTask: TaskDefinition) => {
+  const selectTask = (taskIndex: number, selectedTask: TaskComponentDefinition) => {
     const currentTask = sortedTasks[taskIndex];
     if (!currentTask) return;
 
