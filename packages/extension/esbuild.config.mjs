@@ -48,6 +48,6 @@ try {
 }
 
 // Copy canonical schema into extension package so jsonValidation can resolve it
-const schemaSrc = resolve(extDir, '../../schemas/workflow-definition.schema.json');
+const schemaSrc = resolve(extDir, '../../schemas/schemas/workflow-definition.schema.json');
 const schemaDest = resolve(extDir, 'schemas/workflow-definition.schema.json');
 await safeCopy(schemaSrc, schemaDest);
