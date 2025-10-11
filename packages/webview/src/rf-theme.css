@@ -592,14 +592,79 @@
   left: 24px;
   z-index: 10;
   display: flex;
-  flex-direction: row;
-  gap: 10px;
-  padding: 10px;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(8px);
   border-radius: 14px;
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
   border: 1px solid rgba(148, 163, 184, 0.28);
+  overflow: hidden;
+  max-width: 60px;
+  transition: max-width 0.3s ease, box-shadow 0.3s ease;
+}
+
+.flow-canvas__toolbar:hover {
+  max-width: 500px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.22);
+}
+
+.flow-canvas__toolbar-section {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.flow-canvas__toolbar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(241, 245, 249, 0.6);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  cursor: default;
+  min-width: 60px;
+  box-sizing: border-box;
+}
+
+.flow-canvas__toolbar-icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  color: #475569;
+}
+
+.flow-canvas__toolbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.flow-canvas__toolbar:hover .flow-canvas__toolbar-title {
+  opacity: 1;
+}
+
+.flow-canvas__toolbar-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+}
+
+.flow-canvas__toolbar:hover .flow-canvas__toolbar-items {
+  padding: 10px;
+  max-height: 1000px;
+  opacity: 1;
+  pointer-events: all;
 }
 
 .flow-canvas__palette-item {

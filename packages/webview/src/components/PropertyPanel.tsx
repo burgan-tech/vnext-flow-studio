@@ -632,7 +632,11 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                       stateKey: stateDraft.key
                     });
                   }}
-                  title={`Open subflow: ${stateDraft.subFlow.process.key}`}
+                  title={
+                    'key' in stateDraft.subFlow.process
+                      ? `Open subflow: ${stateDraft.subFlow.process.key}`
+                      : `Open subflow: ${stateDraft.subFlow.process.ref}`
+                  }
                   style={{ fontSize: '12px', padding: '4px 12px' }}
                 >
                   → Open Subflow
@@ -772,6 +776,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 <SubFlowEditor
                   value={stateDraft.subFlow || null}
                   availableWorkflows={catalogs.workflow || []}
+                  availableMappers={availableMappers}
                   onChange={(subFlow) => {
                     setStateDraft(prev => {
                       if (!prev) return prev;

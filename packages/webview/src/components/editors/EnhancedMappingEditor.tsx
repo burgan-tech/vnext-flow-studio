@@ -4,6 +4,7 @@ import type { State, Workflow, TaskComponentDefinition } from '@amorphie-flow-st
 import type { IntelliSenseItem, MappingConfiguration, WorkflowContext } from '../../types/ui-helpers';
 import { TaskTypeInfo } from '../../types/ui-helpers';
 import { getAllBBTWorkflowIntelliSense } from '../../types/bbt-workflow-intellisense';
+import { ScriptSelector, type ScriptItem } from './ScriptSelector';
 
 // Monaco Editor Worker Configuration for VS Code Webview
 declare global {
@@ -112,6 +113,7 @@ interface EnhancedMappingEditorProps {
   currentState?: State;
   workflow?: Workflow;
   availableTasks?: TaskComponentDefinition[];
+  availableMappers?: ScriptItem[];
   currentTask?: TaskComponentDefinition;
 }
 
@@ -273,6 +275,7 @@ export const EnhancedMappingEditor: React.FC<EnhancedMappingEditorProps> = ({
   currentState,
   workflow,
   availableTasks = [],
+  availableMappers = [],
   currentTask
 }) => {
   const [editorContent, setEditorContent] = useState<string>('');
@@ -280,20 +283,30 @@ export const EnhancedMappingEditor: React.FC<EnhancedMappingEditorProps> = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [showTemplates, setShowTemplates] = useState<boolean>(false);
+  const [showScriptSelector, setShowScriptSelector] = useState<boolean>(false);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const isProgrammaticChange = useRef<boolean>(false);
 
   // Initialize editor content from mapping
   useEffect(() => {
     if (mapping.code) {
       try {
-        const decodedContent = atob(mapping.code);
+        // Use UTF-8 safe decoding instead of atob
+        const decodedContent = decodeURIComponent(escape(atob(mapping.code)));
         setEditorContent(decodedContent);
         onMessage('Loaded mapping from base64 content');
       } catch {
-        setEditorContent(mapping.code);
-        onMessage('Loaded mapping content directly');
+        // Fallback: try plain atob for backward compatibility
+        try {
+          const decodedContent = atob(mapping.code);
+          setEditorContent(decodedContent);
+          onMessage('Loaded mapping from base64 content (legacy)');
+        } catch {
+          setEditorContent(mapping.code);
+          onMessage('Loaded mapping content directly');
+        }
       }
     } else {
       const templateContent = getDefaultTemplate();
@@ -594,17 +607,27 @@ return new {
     if (editorRef.current && isEditorReady) {
       const currentValue = editorRef.current.getValue();
       if (currentValue !== editorContent) {
+        isProgrammaticChange.current = true;
         editorRef.current.setValue(editorContent);
+        setTimeout(() => {
+          isProgrammaticChange.current = false;
+        }, 0);
       }
     }
   }, [editorContent, isEditorReady]);
 
   // Handle content changes
   const handleEditorChange = useCallback((value: string) => {
+    // Skip if this is a programmatic change
+    if (isProgrammaticChange.current) {
+      return;
+    }
+
     setEditorContent(value);
     setHasUnsavedChanges(true);
 
-    const encodedContent = btoa(value);
+    // Use UTF-8 safe encoding instead of btoa
+    const encodedContent = btoa(unescape(encodeURIComponent(value)));
     const updatedMapping = {
       ...mapping,
       code: encodedContent
@@ -911,9 +934,31 @@ return new {
 
         <div style={{ flex: 1 }} />
 
+        {availableMappers.length > 0 && (
+          <button
+            onClick={() => {
+              setShowScriptSelector(!showScriptSelector);
+              setShowTemplates(false);
+            }}
+            style={{
+              backgroundColor: 'var(--vscode-button-secondaryBackground)',
+              color: 'var(--vscode-button-foreground)',
+              border: '1px solid var(--vscode-button-border)',
+              padding: '4px 8px',
+              fontSize: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            📄 Scripts
+          </button>
+        )}
+
         {showTemplateSelector && (
           <button
-            onClick={() => setShowTemplates(!showTemplates)}
+            onClick={() => {
+              setShowTemplates(!showTemplates);
+              setShowScriptSelector(false);
+            }}
             style={{
               backgroundColor: 'var(--vscode-button-secondaryBackground)',
               color: 'var(--vscode-button-foreground)',
@@ -960,6 +1005,39 @@ return new {
           </button>
         )}
       </div>
+
+      {/* Script Selector Panel */}
+      {showScriptSelector && availableMappers.length > 0 && (
+        <div style={{
+          padding: '12px',
+          backgroundColor: 'var(--vscode-sideBar-background)',
+          borderBottom: '1px solid var(--vscode-sideBar-border)'
+        }}>
+          <ScriptSelector
+            label="Available Mapper Scripts"
+            value={mapping.location || null}
+            availableScripts={availableMappers}
+            scriptType="mapper"
+            onChange={(location, script) => {
+              if (location && script) {
+                // Load the script content into the editor
+                setEditorContent(script.content);
+                setHasUnsavedChanges(true);
+                // Use UTF-8 safe encoding
+                const encodedContent = btoa(unescape(encodeURIComponent(script.content)));
+                onMappingChange({
+                  ...mapping,
+                  location: script.location,
+                  code: encodedContent
+                });
+                onMessage(`Loaded script: ${script.location}`);
+                setShowScriptSelector(false);
+              }
+            }}
+            helpText="Select a mapper script from available scripts in the workspace"
+          />
+        </div>
+      )}
 
       {/* Templates Panel */}
       {showTemplates && (

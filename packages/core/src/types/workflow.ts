@@ -64,8 +64,10 @@ export interface TransitionBase {
   triggerType: TriggerType;
   versionStrategy: VersionStrategy;
   labels?: Label[];
-  rule?: Rule;
+  rule?: Rule | null;
   schema?: SchemaRef | null;
+  timer?: TimerConfig | null;
+  view?: ViewRef | null;
   onExecutionTasks?: ExecutionTask[];
 }
 
@@ -93,8 +95,8 @@ export interface State {
 }
 
 export interface TimerConfig {
-  reset: 'N' | 'R';
-  duration: string;
+  reset: string; // Timer reset strategy (e.g., 'N' for no reset, 'R' for reset)
+  duration: string; // ISO 8601 duration format
 }
 
 export interface TimeoutCfg {
@@ -131,6 +133,7 @@ export interface Workflow {
   flow: string;
   domain: string;
   version: string;
+  flowVersion?: string;
   tags: string[];
   attributes: {
     type: 'C' | 'F' | 'S' | 'P';
@@ -138,6 +141,7 @@ export interface Workflow {
     timeout?: TimeoutCfg | null;
     labels?: Label[];
     functions?: FunctionRef[];
+    features?: ExtensionRef[]; // Alternative name for extensions
     extensions?: ExtensionRef[];
     sharedTransitions?: SharedTransition[];
     startTransition: TransitionBase & { triggerType: 0 };

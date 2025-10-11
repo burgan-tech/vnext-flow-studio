@@ -43,6 +43,10 @@
         "title": "Open in Amorphie Flow Studio"
       },
       {
+        "command": "flowEditor.createWorkflow",
+        "title": "Create New Workflow"
+      },
+      {
         "command": "flowEditor.freezeVersions",
         "title": "Freeze Versions (Lock)"
       }
@@ -53,6 +57,11 @@
           "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceFilename =~ /-subflow\\.json$/ || resourceFilename =~ /-workflow\\.json$/ || resourceDirname =~ /(^|\\\\|\\/)workflows(\\\\|\\/|$)/ || resourceDirname =~ /(^|\\\\|\\/)Workflows(\\\\|\\/|$)/)",
           "command": "flowEditor.open",
           "group": "navigation"
+        },
+        {
+          "when": "explorerResourceIsFolder",
+          "command": "flowEditor.createWorkflow",
+          "group": "2_workspace@1"
         }
       ],
       "editor/title": [
@@ -60,6 +69,12 @@
           "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceFilename =~ /-subflow\\.json$/ || resourceFilename =~ /-workflow\\.json$/ || resourceDirname =~ /(^|\\\\|\\/)workflows(\\\\|\\/|$)/ || resourceDirname =~ /(^|\\\\|\\/)Workflows(\\\\|\\/|$)/)",
           "command": "flowEditor.open",
           "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "flowEditor.createWorkflow",
+          "when": "workspaceFolderCount > 0"
         }
       ]
     },

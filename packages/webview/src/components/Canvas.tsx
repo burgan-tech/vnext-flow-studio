@@ -752,41 +752,49 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
       <div className="canvas-shell__flow">
         <div className="flow-canvas" style={{ height: '100vh' }}>
           <div className="flow-canvas__toolbar" role="toolbar" aria-label="Add new state">
-            {stateTemplates.map((template) => {
-              const stateClass = getToolbarStateClass(template.type);
+            <div className="flow-canvas__toolbar-section">
+              <div className="flow-canvas__toolbar-header">
+                <span className="flow-canvas__toolbar-icon">⊞</span>
+                <span className="flow-canvas__toolbar-title">States</span>
+              </div>
+              <div className="flow-canvas__toolbar-items">
+                {stateTemplates.map((template) => {
+                  const stateClass = getToolbarStateClass(template.type);
 
-              // Get icon for this state type
-              const getIcon = () => {
-                switch (template.type) {
-                  case 1: return '▶'; // Initial
-                  case 2: return '▢'; // Intermediate
-                  case 3: return '◉'; // Final
-                  case 4: return '⊕'; // Subflow
-                  default: return '●';
-                }
-              };
+                  // Get icon for this state type
+                  const getIcon = () => {
+                    switch (template.type) {
+                      case 1: return '▶'; // Initial
+                      case 2: return '▢'; // Intermediate
+                      case 3: return '◉'; // Final
+                      case 4: return '⊕'; // Subflow
+                      default: return '●';
+                    }
+                  };
 
-              return (
-                <button
-                  key={`${template.type}-${template.stateSubType ?? 'default'}`}
-                  type="button"
-                  className="flow-canvas__palette-item"
-                  onClick={() => handleAddState(template)}
-                  onDragStart={(event) => handleDragStart(event, template)}
-                  draggable
-                  title={template.description}
-                >
-                  <span className={`flow-canvas__palette-preview ${stateClass}`}>
-                    <span className="flow-canvas__palette-icon-column">
-                      <span className="flow-canvas__palette-type-icon">{getIcon()}</span>
-                    </span>
-                    <span className="flow-canvas__palette-content">
-                      {template.label}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+                  return (
+                    <button
+                      key={`${template.type}-${template.stateSubType ?? 'default'}`}
+                      type="button"
+                      className="flow-canvas__palette-item"
+                      onClick={() => handleAddState(template)}
+                      onDragStart={(event) => handleDragStart(event, template)}
+                      draggable
+                      title={template.description}
+                    >
+                      <span className={`flow-canvas__palette-preview ${stateClass}`}>
+                        <span className="flow-canvas__palette-icon-column">
+                          <span className="flow-canvas__palette-type-icon">{getIcon()}</span>
+                        </span>
+                        <span className="flow-canvas__palette-content">
+                          {template.label}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
           <ReactFlow
             nodes={nodes}

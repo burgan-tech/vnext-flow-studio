@@ -7,6 +7,13 @@ export { ModelLoader, type DiscoveryOptions, type DiscoveredWorkflow } from './M
 export { ModelSaver } from './ModelSaver.js';
 export { ModelValidator, type ValidationOptions, type ValidationRule } from './ModelValidator.js';
 export { VSCodeModelIntegration, type VSCodeModelEvents, type DocumentChange } from './VSCodeIntegration.js';
+export {
+  generateWorkflowTemplate,
+  generateSubflowTemplate,
+  generateSubprocessTemplate,
+  getWorkflowTemplate,
+  type WorkflowTemplateOptions
+} from './WorkflowTemplate.js';
 
 // Export all types
 export type {

@@ -73,7 +73,7 @@ export interface ResolvedTransition extends Omit<Transition, 'onExecutionTasks' 
   /** Original execution tasks (for reference) */
   onExecutionTasks?: ExecutionTask[];
   /** Original rule (for reference) */
-  rule?: Rule;
+  rule?: Rule | null;
 }
 
 /**
@@ -89,7 +89,7 @@ export interface ResolvedSharedTransition extends Omit<SharedTransition, 'onExec
   /** Original execution tasks (for reference) */
   onExecutionTasks?: ExecutionTask[];
   /** Original rule (for reference) */
-  rule?: Rule;
+  rule?: Rule | null;
 }
 
 /**

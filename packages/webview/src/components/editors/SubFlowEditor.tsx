@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import type { SubFlowConfig } from '@amorphie-flow-studio/core';
 import { ReferenceSelector, type AvailableComponent } from './ReferenceSelector';
+import { RuleEditor } from './RuleEditor';
+import { ScriptSelector, type ScriptItem } from './ScriptSelector';
 
 export interface SubFlowEditorProps {
   /** Current subflow configuration value */
   value: SubFlowConfig | null;
   /** Available workflows from catalog */
   availableWorkflows?: AvailableComponent[];
+  /** Available mapper scripts from catalog */
+  availableMappers?: ScriptItem[];
   /** Callback when configuration changes */
   onChange: (value: SubFlowConfig | null) => void;
   /** Callback for loading mapping from file */
@@ -28,11 +32,12 @@ const SUBFLOW_TYPES = [
 export function SubFlowEditor({
   value,
   availableWorkflows = [],
+  availableMappers = [],
   onChange,
   onLoadMappingFromFile,
   disabled = false
 }: SubFlowEditorProps) {
-  const [showMappingEditor, setShowMappingEditor] = useState(false);
+  const [mappingText, setMappingText] = useState('');
 
   // Handle type change
   const handleTypeChange = (type: 'C' | 'F' | 'S' | 'P') => {
@@ -60,6 +65,7 @@ export function SubFlowEditor({
   // Handle mapping code change
   const handleMappingCodeChange = (code: string) => {
     if (!value) return;
+    // Don't encode here - let parent handle encoding on save
     onChange({
       ...value,
       mapping: { ...value.mapping, code }
@@ -67,12 +73,21 @@ export function SubFlowEditor({
   };
 
   // Decode mapping code for display
-  const decodedCode = React.useMemo(() => {
-    if (!value?.mapping?.code) return '';
-    try {
-      return atob(value.mapping.code);
-    } catch {
-      return value.mapping.code;
+  React.useEffect(() => {
+    if (value?.mapping?.code) {
+      try {
+        const decoded = decodeURIComponent(escape(atob(value.mapping.code)));
+        setMappingText(decoded);
+      } catch {
+        try {
+          const decoded = atob(value.mapping.code);
+          setMappingText(decoded);
+        } catch {
+          setMappingText(value.mapping.code);
+        }
+      }
+    } else {
+      setMappingText('');
     }
   }, [value?.mapping?.code]);
 
@@ -181,74 +196,63 @@ export function SubFlowEditor({
           />
 
           {/* Mapping Configuration */}
-          <div className="property-panel__field">
-            <label>Mapping Script:</label>
-
-            {/* Location Input */}
-            <input
-              type="text"
-              className="property-panel__input"
-              value={value.mapping.location}
-              onChange={(e) => handleMappingLocationChange(e.target.value)}
-              placeholder="./src/mappings/subflow-mapping.csx"
-              disabled={disabled}
-              style={{ fontSize: '12px', marginBottom: '4px' }}
+          {availableMappers.length > 0 ? (
+            <>
+              <ScriptSelector
+                label="Mapper Script"
+                value={value.mapping?.location || null}
+                availableScripts={availableMappers}
+                scriptType="mapper"
+                onChange={(location, script) => {
+                  if (location && script) {
+                    // Update both location and load the script content
+                    setMappingText(script.content);
+                    onChange({
+                      ...value,
+                      mapping: {
+                        location: script.location,
+                        code: script.content // Use plain content, will be encoded on save
+                      }
+                    });
+                  }
+                }}
+                helpText="Select a mapper script from available scripts in the workspace"
+              />
+              <RuleEditor
+                title="Mapping Code"
+                rule={value.mapping}
+                inlineText={mappingText}
+                onLoadFromFile={onLoadMappingFromFile}
+                onChange={(rule) => {
+                  if (rule) {
+                    onChange({ ...value, mapping: rule });
+                  }
+                }}
+                onInlineChange={(text) => {
+                  setMappingText(text);
+                  handleMappingCodeChange(text);
+                }}
+                hideLocation={true}
+              />
+            </>
+          ) : (
+            <RuleEditor
+              title="Mapping Script"
+              rule={value.mapping}
+              inlineText={mappingText}
+              onLoadFromFile={onLoadMappingFromFile}
+              onChange={(rule) => {
+                if (rule) {
+                  onChange({ ...value, mapping: rule });
+                }
+              }}
+              onInlineChange={(text) => {
+                setMappingText(text);
+                handleMappingCodeChange(text);
+              }}
+              hideLocation={false}
             />
-            <small className="property-panel__help">
-              Path to the C# mapping script file
-            </small>
-
-            {/* Code Editor Toggle */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-              <button
-                type="button"
-                className="property-panel__button"
-                onClick={() => setShowMappingEditor(!showMappingEditor)}
-                disabled={disabled}
-                style={{ fontSize: '11px' }}
-              >
-                {showMappingEditor ? 'Hide Code' : 'Show Code'}
-              </button>
-              {onLoadMappingFromFile && (
-                <button
-                  type="button"
-                  className="property-panel__button"
-                  onClick={onLoadMappingFromFile}
-                  disabled={disabled}
-                  style={{ fontSize: '11px' }}
-                >
-                  Load from File
-                </button>
-              )}
-            </div>
-
-            {/* Simple Code Editor */}
-            {showMappingEditor && (
-              <div style={{ marginTop: '8px' }}>
-                <textarea
-                  className="property-panel__textarea"
-                  value={decodedCode}
-                  onChange={(e) => {
-                    const newCode = e.target.value;
-                    const encoded = btoa(newCode);
-                    handleMappingCodeChange(encoded);
-                  }}
-                  placeholder="// C# mapping code&#10;return new {&#10;    // Map data here&#10;};"
-                  disabled={disabled}
-                  rows={10}
-                  style={{
-                    fontFamily: 'monospace',
-                    fontSize: '12px',
-                    width: '100%',
-                    resize: 'vertical'
-                  }}
-                />
-                <small className="property-panel__help">
-                  C# code for mapping data to/from the subflow
-                </small>
-              </div>
-            )}
-          </div>
+          )}
         </>
       )}
     </div>

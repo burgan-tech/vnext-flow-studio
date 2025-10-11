@@ -111,21 +111,43 @@ async function openFlowEditor(
       : FLOW_AND_DIAGRAM_GLOBS.map((pattern) => vscode.workspace.createFileSystemWatcher(pattern))
     );
 
-    // Watch for task file changes (for catalog refresh)
-    const taskPatterns = [
+    // Watch for component file changes (for catalog refresh)
+    const componentPatterns = [
+      // Tasks
       '**/Tasks/**/*.json',
       '**/tasks/**/*.json',
-      '**/sys-tasks/**/*.json'
+      '**/sys-tasks/**/*.json',
+      // Schemas
+      '**/Schemas/**/*.json',
+      '**/schemas/**/*.json',
+      '**/sys-schemas/**/*.json',
+      // Views
+      '**/Views/**/*.json',
+      '**/views/**/*.json',
+      '**/sys-views/**/*.json',
+      // Functions
+      '**/Functions/**/*.json',
+      '**/functions/**/*.json',
+      '**/sys-functions/**/*.json',
+      // Extensions
+      '**/Extensions/**/*.json',
+      '**/extensions/**/*.json',
+      '**/sys-extensions/**/*.json',
+      // Workflows (for subflow catalog)
+      '**/Workflows/**/*.json',
+      '**/workflows/**/*.json',
+      '**/flows/**/*.json',
+      '**/sys-flows/**/*.json'
     ];
 
-    const taskWatchers = (workspaceFolder
-      ? taskPatterns.map((pattern) =>
+    const componentWatchers = (workspaceFolder
+      ? componentPatterns.map((pattern) =>
           vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(workspaceFolder, pattern))
         )
-      : taskPatterns.map((pattern) => vscode.workspace.createFileSystemWatcher(pattern))
+      : componentPatterns.map((pattern) => vscode.workspace.createFileSystemWatcher(pattern))
     );
 
-    const watchers = [...flowWatchers, ...taskWatchers];
+    const watchers = [...flowWatchers, ...componentWatchers];
 
     const flowUriKey = flowUri.toString();
     const diagramUri = getDiagramUri(flowUri);
@@ -160,31 +182,55 @@ async function openFlowEditor(
       watcher.onDidChange(handleFileChange);
     }
 
-    // Handle task catalog changes
-    const handleTaskFileEvent = async () => {
+    // Handle component catalog changes (tasks, schemas, views, functions, extensions, workflows)
+    const handleComponentFileEvent = async () => {
       try {
+        // Wait a bit for file system to settle
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         // Reload components in the model
         const resolver = (model as any).componentResolver;
         if (resolver) {
-          await resolver.clearCache();
-          await resolver.preloadAllComponents();
+          console.log('[FileWatcher] Component file changed, clearing cache and reloading...');
+          resolver.clearCache();
+          const components = await resolver.preloadAllComponents();
+          console.log('[FileWatcher] Preloaded components:', {
+            tasks: components.tasks.length,
+            schemas: components.schemas.length,
+            views: components.views.length,
+            functions: components.functions.length,
+            extensions: components.extensions.length,
+            workflows: components.workflows.length
+          });
+
+          // Update the model's state with the preloaded components
+          const modelState = model.getModelState();
+          modelState.components.workflows.clear();
+          modelState.components.tasks.clear();
+          modelState.components.schemas.clear();
+          modelState.components.views.clear();
+
+          components.workflows.forEach((w: any) => modelState.components.workflows.set(w.key, w));
+          components.tasks.forEach((t: any) => modelState.components.tasks.set(t.key, t));
+          components.schemas.forEach((s: any) => modelState.components.schemas.set(s.key, s));
+          components.views.forEach((v: any) => modelState.components.views.set(v.key, v));
         }
 
-        // Update the webview
+        // Update the webview with refreshed catalogs
         await modelBridge.handleWebviewMessage(
           { type: 'request:lint' },
           model,
           panel
         );
       } catch (error) {
-        console.warn('Failed to refresh task catalog:', error);
+        console.warn('Failed to refresh component catalog:', error);
       }
     };
 
-    for (const watcher of taskWatchers) {
-      watcher.onDidChange(handleTaskFileEvent);
-      watcher.onDidCreate(handleTaskFileEvent);
-      watcher.onDidDelete(handleTaskFileEvent);
+    for (const watcher of componentWatchers) {
+      watcher.onDidChange(handleComponentFileEvent);
+      watcher.onDidCreate(handleComponentFileEvent);
+      watcher.onDidDelete(handleComponentFileEvent);
     }
 
     // Cleanup on panel disposal

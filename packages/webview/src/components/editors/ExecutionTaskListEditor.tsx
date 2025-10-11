@@ -309,38 +309,27 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
               </div>
             )}
 
-            <div className="property-panel__field">
-              <label>Code (Base64 or inline):</label>
-              <RuleEditor
-                title=""
-                rule={task.mapping ? { location: task.mapping.location, code: task.mapping.code } : undefined}
-                inlineText={mappingTexts[index] || ''}
-                hideLocation={true}
-                taskType={(() => {
-                  // Try to get task type from available tasks
-                  if (isTaskRef(task.task)) {
-                    const taskDef = availableTasks.find(t => t.key === task.task.ref);
-                    return taskDef?.type;
-                  } else {
-                    return task.task.type;
-                  }
-                })()}
-                onChange={(mapping) => {
-                  if (mapping) {
-                    handleTaskChange(index, {
-                      ...task,
-                      mapping: { location: mapping.location, code: mapping.code }
-                    });
-                  } else {
-                    handleTaskChange(index, {
-                      ...task,
-                      mapping: { location: '', code: '' }
-                    });
-                  }
-                }}
-                onInlineChange={(code) => handleMappingCodeChange(index, code)}
-              />
-            </div>
+            <RuleEditor
+              title="Mapping Code"
+              rule={task.mapping}
+              inlineText={mappingTexts[index] || ''}
+              onLoadFromFile={onLoadFromFile ? () => onLoadFromFile(index) : undefined}
+              onChange={(rule) => {
+                if (rule) {
+                  handleTaskChange(index, {
+                    ...task,
+                    mapping: rule
+                  });
+                }
+              }}
+              onInlineChange={(text) => {
+                const newMappingTexts = [...mappingTexts];
+                newMappingTexts[index] = text;
+                setMappingTexts(newMappingTexts);
+                handleMappingCodeChange(index, text);
+              }}
+              hideLocation={true}
+            />
               </div>
             )}
 

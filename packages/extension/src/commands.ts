@@ -1,8 +1,178 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs/promises';
 import { FLOW_FILE_GLOBS } from './flowFileUtils';
+import { generateWorkflowTemplate, getWorkflowTemplate } from '@amorphie-flow-studio/core';
 
 export function registerCommands(context: vscode.ExtensionContext) {
   // flowEditor.open is registered in extension.ts as it needs context
+
+  // Command to create a new workflow from scratch
+  const createWorkflowCommand = vscode.commands.registerCommand(
+    'flowEditor.createWorkflow',
+    async (uri?: vscode.Uri) => {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage('No workspace folder found. Please open a workspace first.');
+        return;
+      }
+
+      // Determine the target folder from context menu or use default
+      let targetFolder: string;
+      if (uri && uri.fsPath) {
+        // Called from context menu - use the selected folder
+        const stat = await vscode.workspace.fs.stat(uri);
+        if (stat.type === vscode.FileType.Directory) {
+          targetFolder = uri.fsPath;
+        } else {
+          // If a file was selected, use its parent directory
+          targetFolder = path.dirname(uri.fsPath);
+        }
+      } else {
+        // Called from command palette - use default
+        targetFolder = path.join(workspaceFolder.uri.fsPath, 'flows');
+      }
+
+      // Ask for workflow type
+      const workflowType = await vscode.window.showQuickPick(
+        [
+          { label: 'Flow', value: 'F', description: 'Standard workflow' },
+          { label: 'SubFlow', value: 'S', description: 'Reusable subflow' },
+          { label: 'Sub Process', value: 'P', description: 'Sub process workflow' }
+        ],
+        { placeHolder: 'Select workflow type' }
+      );
+
+      if (!workflowType) {
+        return;
+      }
+
+      // Ask for workflow details
+      const key = await vscode.window.showInputBox({
+        prompt: 'Enter workflow key (lowercase, alphanumeric with dashes)',
+        placeHolder: 'my-workflow',
+        validateInput: (value) => {
+          if (!value) return 'Key is required';
+          if (!/^[a-z0-9-]+$/.test(value)) {
+            return 'Key must contain only lowercase letters, numbers, and dashes';
+          }
+          return null;
+        }
+      });
+
+      if (!key) {
+        return;
+      }
+
+      const domain = await vscode.window.showInputBox({
+        prompt: 'Enter domain (lowercase, alphanumeric with dashes)',
+        placeHolder: 'core',
+        value: 'core',
+        validateInput: (value) => {
+          if (!value) return 'Domain is required';
+          if (!/^[a-z0-9-]+$/.test(value)) {
+            return 'Domain must contain only lowercase letters, numbers, and dashes';
+          }
+          return null;
+        }
+      });
+
+      if (!domain) {
+        return;
+      }
+
+      const flow = await vscode.window.showInputBox({
+        prompt: 'Enter flow identifier (lowercase, alphanumeric with dashes)',
+        placeHolder: 'sys-flows',
+        value: 'sys-flows',
+        validateInput: (value) => {
+          if (!value) return 'Flow is required';
+          if (!/^[a-z0-9-]+$/.test(value)) {
+            return 'Flow must contain only lowercase letters, numbers, and dashes';
+          }
+          return null;
+        }
+      });
+
+      if (!flow) {
+        return;
+      }
+
+      const label = await vscode.window.showInputBox({
+        prompt: 'Enter workflow label',
+        placeHolder: 'My Workflow',
+        value: key.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+      });
+
+      if (!label) {
+        return;
+      }
+
+      // Generate the workflow
+      const workflow = getWorkflowTemplate(workflowType.value as 'F' | 'S' | 'P', {
+        key,
+        flow,
+        domain,
+        version: '1.0.0',
+        type: workflowType.value as 'F' | 'S' | 'P',
+        labels: [{ label, language: 'en' }],
+        tags: ['new']
+      });
+
+      // Add $schema reference
+      const workflowWithSchema = {
+        $schema: '../schemas/schemas/workflow-definition.schema.json',
+        ...workflow
+      };
+
+      // Determine save location - use targetFolder if it's a workflow-related directory,
+      // otherwise use flows/domain structure
+      let defaultFolder: string;
+      const targetFolderLower = targetFolder.toLowerCase();
+      if (targetFolderLower.includes('workflow') ||
+          targetFolderLower.includes('flows') ||
+          targetFolderLower.includes('flow')) {
+        defaultFolder = targetFolder;
+      } else {
+        defaultFolder = path.join(targetFolder, 'flows', domain);
+      }
+
+      const saveUri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(path.join(defaultFolder, `${key}.json`)),
+        filters: {
+          'Workflow Files': ['json']
+        },
+        title: 'Save New Workflow'
+      });
+
+      if (!saveUri) {
+        return;
+      }
+
+      // Ensure directory exists
+      const saveDir = path.dirname(saveUri.fsPath);
+      await fs.mkdir(saveDir, { recursive: true });
+
+      // Write the workflow file
+      const content = JSON.stringify(workflowWithSchema, null, 2);
+      await fs.writeFile(saveUri.fsPath, content, 'utf-8');
+
+      // Open the new workflow in the editor
+      const doc = await vscode.workspace.openTextDocument(saveUri);
+      await vscode.window.showTextDocument(doc);
+
+      vscode.window.showInformationMessage(`Created workflow: ${key}`);
+
+      // Optionally open in flow editor
+      const openInEditor = await vscode.window.showQuickPick(['Yes', 'No'], {
+        placeHolder: 'Open in Flow Editor?'
+      });
+
+      if (openInEditor === 'Yes') {
+        await vscode.commands.executeCommand('flowEditor.open', saveUri);
+      }
+    }
+  );
 
   // Stub for freeze versions command
   const freezeVersionsCommand = vscode.commands.registerCommand(
@@ -35,5 +205,5 @@ export function registerCommands(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(freezeVersionsCommand);
+  context.subscriptions.push(createWorkflowCommand, freezeVersionsCommand);
 }

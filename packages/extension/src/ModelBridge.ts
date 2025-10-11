@@ -740,6 +740,15 @@ export class ModelBridge {
       type: 'lint:update',
       problemsById: problems
     });
+
+    // Also send updated catalogs (in case this was triggered by component file changes)
+    const catalogs = this.getCatalogsFromModel(model);
+    const tasks = Array.from(model.getModelState().components.tasks.values());
+    panel.webview.postMessage({
+      type: 'catalog:update',
+      tasks,
+      catalogs
+    });
   }
 
   /**

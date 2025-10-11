@@ -5,11 +5,11 @@ import type { Rule, TaskComponentDefinition, State, Workflow } from '@amorphie-f
 
 interface EnhancedRuleEditorProps {
   title: string;
-  rule?: Rule;
+  rule?: Rule | null;
   inlineText: string;
   availableRules?: ScriptItem[];
   onLoadFromFile?: () => void;
-  onChange: (rule?: Rule) => void;
+  onChange: (rule?: Rule | null) => void;
   onInlineChange: (text: string) => void;
   // Enhanced context
   currentState?: State;
