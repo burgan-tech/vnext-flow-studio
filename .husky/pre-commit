@@ -1,0 +1,6 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Pre-commit hook disabled - linting runs on pre-push
+# Uncomment below to run tests before commit:
+# npm test
