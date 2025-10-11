@@ -91,12 +91,20 @@ export class ModelBridge {
    */
   async openWorkflow(flowUri: vscode.Uri, panel: vscode.WebviewPanel): Promise<WorkflowModel> {
     try {
+      // Get the workspace folder for this file to use as basePath
+      const workspaceFolder = vscode.workspace.getWorkspaceFolder(flowUri);
+      const basePath = workspaceFolder?.uri.fsPath || path.dirname(flowUri.fsPath);
+
+      console.log('[ModelBridge] openWorkflow - workspaceFolder:', workspaceFolder?.uri.fsPath);
+      console.log('[ModelBridge] openWorkflow - basePath:', basePath);
+
       // Load the model with all components preloaded
       const model = await this.integration.openWorkflow(flowUri.fsPath, {
         resolveReferences: true,
         loadScripts: true,
         validate: true,
-        preloadComponents: true // This will scan and load all tasks, schemas, views, etc.
+        preloadComponents: true, // This will scan and load all tasks, schemas, views, etc.
+        basePath: basePath // Use VS Code workspace folder as base path
       });
 
       // Track the association between panel and model
@@ -947,7 +955,12 @@ export class ModelBridge {
    */
   private getTasksFromModel(model: WorkflowModel): TaskDefinition[] {
     const state = model.getModelState();
-    return Array.from(state.components.tasks.values());
+    const tasks = Array.from(state.components.tasks.values());
+    console.log('[ModelBridge] getTasksFromModel:', tasks.length, 'tasks found');
+    if (tasks.length > 0) {
+      console.log('[ModelBridge] First task sample:', tasks[0]);
+    }
+    return tasks;
   }
 
   /**
@@ -955,13 +968,25 @@ export class ModelBridge {
    */
   private getCatalogsFromModel(model: WorkflowModel): Record<string, any[]> {
     const state = model.getModelState();
-    return {
+    const catalogs = {
       task: Array.from(state.components.tasks.values()),
       schema: Array.from(state.components.schemas.values()),
       view: Array.from(state.components.views.values()),
       function: Array.from(state.resolvedFunctions.values()),
-      extension: Array.from(state.resolvedExtensions.values())
+      extension: Array.from(state.resolvedExtensions.values()),
+      mapper: Array.from(state.mappers.values()),
+      rule: Array.from(state.rules.values())
     };
+    console.log('[ModelBridge] getCatalogsFromModel:', {
+      tasks: catalogs.task.length,
+      schemas: catalogs.schema.length,
+      views: catalogs.view.length,
+      functions: catalogs.function.length,
+      extensions: catalogs.extension.length,
+      mappers: catalogs.mapper.length,
+      rules: catalogs.rule.length
+    });
+    return catalogs;
   }
 
   /**

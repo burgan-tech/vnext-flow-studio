@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import type { ExecutionTask, TaskDefinition } from '@amorphie-flow-studio/core';
 import { isTaskRef } from './utils';
 import { RuleEditor } from './RuleEditor';
+import { ReferenceSelector, type ComponentReference } from './ReferenceSelector';
+import { ScriptSelector, type ScriptItem } from './ScriptSelector';
 
 interface ExecutionTaskListEditorProps {
   title: string;
   tasks?: ExecutionTask[];
   availableTasks: TaskDefinition[];
+  availableMappers?: ScriptItem[];
   onLoadFromFile?: (taskIndex: number) => void;
   onChange: (tasks?: ExecutionTask[]) => void;
 }
@@ -15,6 +18,7 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
   title,
   tasks = [],
   availableTasks,
+  availableMappers = [],
   onLoadFromFile,
   onChange
 }) => {
@@ -230,168 +234,80 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
               />
             </div>
 
-            <div className="property-panel__field">
-              <label>Task Type:</label>
-              <select
-                value={isTaskRef(task.task) ? 'full' : 'ref'}
-                onChange={(e) => {
-                  if (e.target.value === 'full') {
+            <ReferenceSelector
+              label="Task"
+              value={isTaskRef(task.task) ? task.task as ComponentReference : null}
+              availableComponents={availableTasks}
+              componentType="Task"
+              defaultFlow="sys-tasks"
+              required={true}
+              onChange={(reference) => {
+                handleTaskChange(index, {
+                  ...task,
+                  task: reference || { key: '', domain: '', flow: 'sys-tasks', version: '1.0.0' }
+                });
+              }}
+              helpText="Select a task definition to execute"
+            />
+
+            {availableMappers.length > 0 ? (
+              <ScriptSelector
+                label="Mapper Script"
+                value={task.mapping?.location || null}
+                availableScripts={availableMappers}
+                scriptType="mapper"
+                onChange={(location, script) => {
+                  if (location && script) {
+                    // Update both location and load the script content
                     handleTaskChange(index, {
                       ...task,
-                      task: { key: '', domain: '', flow: 'sys-tasks', version: '1.0.0' }
+                      mapping: {
+                        location: script.location,
+                        code: script.content // Use plain content, will be encoded on save
+                      }
                     });
+                    // Also update the mapping text state
+                    const newMappingTexts = [...mappingTexts];
+                    newMappingTexts[index] = script.content;
+                    setMappingTexts(newMappingTexts);
                   } else {
                     handleTaskChange(index, {
                       ...task,
-                      task: { ref: '' }
+                      mapping: { location: '', code: '' }
                     });
                   }
                 }}
-                className="property-panel__select"
-              >
-                <option value="ref">Path Reference</option>
-                <option value="full">Full Reference</option>
-              </select>
-            </div>
-
-            {isTaskRef(task.task) ? (
-              <>
-                <div className="property-panel__field">
-                  <label>Key:</label>
-                  <input
-                    type="text"
-                    value={task.task.key}
-                    onChange={(e) =>
-                      handleTaskChange(index, {
-                        ...task,
-                        task: { ...task.task, key: e.target.value } as any
-                      })
-                    }
-                    placeholder="Task key"
-                    className="property-panel__input"
-                  />
-                </div>
-                <div className="property-panel__field">
-                  <label>Domain:</label>
-                  <input
-                    type="text"
-                    value={task.task.domain}
-                    onChange={(e) =>
-                      handleTaskChange(index, {
-                        ...task,
-                        task: { ...task.task, domain: e.target.value } as any
-                      })
-                    }
-                    placeholder="Domain"
-                    className="property-panel__input"
-                  />
-                </div>
-                <div className="property-panel__field">
-                  <label>Flow:</label>
-                  <input
-                    type="text"
-                    value={task.task.flow}
-                    onChange={(e) =>
-                      handleTaskChange(index, {
-                        ...task,
-                        task: { ...task.task, flow: e.target.value } as any
-                      })
-                    }
-                    placeholder="sys-tasks"
-                    className="property-panel__input"
-                  />
-                </div>
-                <div className="property-panel__field">
-                  <label>Version:</label>
-                  <input
-                    type="text"
-                    value={task.task.version}
-                    onChange={(e) =>
-                      handleTaskChange(index, {
-                        ...task,
-                        task: { ...task.task, version: e.target.value } as any
-                      })
-                    }
-                    placeholder="1.0.0"
-                    className="property-panel__input"
-                  />
-                </div>
-              </>
+                helpText="Select a mapper script from available scripts in the workspace"
+              />
             ) : (
               <div className="property-panel__field">
-                <label>Task Path:</label>
-                {availableTasks.length > 0 ? (
-                  <>
-                    <select
-                      value={task.task.ref}
-                      onChange={(e) =>
-                        handleTaskChange(index, {
-                          ...task,
-                          task: { ref: e.target.value }
-                        })
-                      }
-                      className="property-panel__select"
+                <label>Mapping Location:</label>
+                <div className="property-panel__input-group">
+                  <input
+                    type="text"
+                    value={task.mapping.location}
+                    onChange={(e) =>
+                      handleTaskChange(index, {
+                        ...task,
+                        mapping: { ...task.mapping, location: e.target.value }
+                      })
+                    }
+                    placeholder="./src/mappings/example.csx"
+                    className="property-panel__input"
+                  />
+                  {onLoadFromFile && (
+                    <button
+                      type="button"
+                      onClick={() => onLoadFromFile(index)}
+                      className="property-panel__action-button"
+                      title="Load from file"
                     >
-                      <option value="">Select a task...</option>
-                      {availableTasks.map((availableTask) => {
-                        const path = (availableTask as any).path || `Tasks/${availableTask.key}.json`;
-                        return (
-                          <option key={path} value={path}>
-                            {path} ({availableTask.key} v{availableTask.version})
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <small className="property-panel__help">
-                      Or enter a custom path:
-                    </small>
-                  </>
-                ) : null}
-                <input
-                  type="text"
-                  value={task.task.ref}
-                  onChange={(e) =>
-                    handleTaskChange(index, {
-                      ...task,
-                      task: { ref: e.target.value }
-                    })
-                  }
-                  placeholder="e.g., Tasks/validate.json"
-                  className="property-panel__input"
-                />
-                <small className="property-panel__help">
-                  Path to the task definition file relative to project root
-                </small>
+                      📁
+                    </button>
+                  )}
+                </div>
               </div>
             )}
-
-            <div className="property-panel__field">
-              <label>Mapping Location:</label>
-              <div className="property-panel__input-group">
-                <input
-                  type="text"
-                  value={task.mapping.location}
-                  onChange={(e) =>
-                    handleTaskChange(index, {
-                      ...task,
-                      mapping: { ...task.mapping, location: e.target.value }
-                    })
-                  }
-                  placeholder="./src/mappings/example.csx"
-                  className="property-panel__input"
-                />
-                {onLoadFromFile && (
-                  <button
-                    type="button"
-                    onClick={() => onLoadFromFile(index)}
-                    className="property-panel__action-button"
-                    title="Load from file"
-                  >
-                    📁
-                  </button>
-                )}
-              </div>
-            </div>
 
             <div className="property-panel__field">
               <label>Code (Base64 or inline):</label>

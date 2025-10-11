@@ -439,6 +439,8 @@ export class ComponentResolver implements IComponentResolver {
     };
 
     const basePath = this.options.basePath || process.cwd();
+    console.log('[ComponentResolver] preloadAllComponents - basePath:', basePath);
+    console.log('[ComponentResolver] search paths:', this.options.searchPaths);
 
     // Helper function to scan a directory for components
     const scanForComponents = async <T>(
@@ -447,12 +449,15 @@ export class ComponentResolver implements IComponentResolver {
     ): Promise<T[]> => {
       const components: T[] = [];
       const searchPaths = this.options.searchPaths![type] || [];
+      console.log(`[ComponentResolver] Scanning for ${type}, searchPaths:`, searchPaths);
 
       for (const searchPath of searchPaths) {
         const fullSearchPath = path.resolve(basePath, searchPath);
+        console.log(`[ComponentResolver] Checking path: ${fullSearchPath}`);
 
         try {
           const files = await this.findJsonFiles(fullSearchPath);
+          console.log(`[ComponentResolver] Found ${files.length} JSON files in ${searchPath}`);
 
           for (const file of files) {
             try {
@@ -469,18 +474,22 @@ export class ComponentResolver implements IComponentResolver {
                 }
 
                 components.push(component as T);
+                console.log(`[ComponentResolver] ✓ Loaded ${type}: ${component.domain}/${component.key}@${component.version}`);
+              } else {
+                console.log(`[ComponentResolver] ✗ Skipped ${file} - missing required fields (key/domain/version)`);
               }
-            } catch {
-              // Skip invalid JSON files
+            } catch (err) {
+              console.log(`[ComponentResolver] ✗ Failed to parse ${file}:`, err);
               continue;
             }
           }
-        } catch {
-          // Search path doesn't exist
+        } catch (err) {
+          console.log(`[ComponentResolver] ✗ Search path doesn't exist or error: ${fullSearchPath}`, err);
           continue;
         }
       }
 
+      console.log(`[ComponentResolver] Total ${type} loaded: ${components.length}`);
       return components;
     };
 

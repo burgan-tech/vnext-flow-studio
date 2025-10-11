@@ -4,6 +4,7 @@ import { Canvas } from './components/Canvas';
 import '@xyflow/react/dist/style.css';
 import './rf-theme.css';
 import './enhanced-editors.css';
+import './styles/reference-selector.css';
 
 function App() {
   return <Canvas />;

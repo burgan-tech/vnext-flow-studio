@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { EnhancedMappingEditor } from './EnhancedMappingEditor';
+import { ScriptSelector, type ScriptItem } from './ScriptSelector';
 import type {
   Rule,
   State,
@@ -11,6 +12,7 @@ interface EnhancedRuleEditorProps {
   title: string;
   rule?: Rule;
   inlineText: string;
+  availableRules?: ScriptItem[];
   onLoadFromFile?: () => void;
   onChange: (rule?: Rule) => void;
   onInlineChange: (text: string) => void;
@@ -103,6 +105,7 @@ export const EnhancedRuleEditor: React.FC<EnhancedRuleEditorProps> = ({
   title,
   rule,
   inlineText,
+  availableRules = [],
   onLoadFromFile,
   onChange,
   onInlineChange,
@@ -245,28 +248,52 @@ export const EnhancedRuleEditor: React.FC<EnhancedRuleEditorProps> = ({
 
       {hasRule && rule && (hideHeader || isExpanded) && (
         <>
-          <div className="property-panel__field">
-            <label>Location:</label>
-            <div className="property-panel__input-group">
-              <input
-                type="text"
-                value={rule.location}
-                onChange={(e) => onChange({ ...rule, location: e.target.value })}
-                placeholder="./src/rules/example.csx"
-                className="property-panel__input"
-              />
-              {onLoadFromFile && (
-                <button
-                  type="button"
-                  onClick={onLoadFromFile}
-                  className="property-panel__action-button"
-                  title="Load from file"
-                >
-                  📁
-                </button>
-              )}
+          {availableRules.length > 0 ? (
+            <ScriptSelector
+              label="Rule Script"
+              value={rule.location || null}
+              availableScripts={availableRules}
+              scriptType="rule"
+              onChange={(location, script) => {
+                if (location && script) {
+                  // Update both location and load the script content
+                  onChange({
+                    location: script.location,
+                    code: script.content // Use plain content, will be encoded on save
+                  });
+                  // Also update the inline text state
+                  onInlineChange(script.content);
+                } else {
+                  onChange(undefined);
+                  onInlineChange('');
+                }
+              }}
+              helpText="Select a rule script from available scripts in the workspace"
+            />
+          ) : (
+            <div className="property-panel__field">
+              <label>Location:</label>
+              <div className="property-panel__input-group">
+                <input
+                  type="text"
+                  value={rule.location}
+                  onChange={(e) => onChange({ ...rule, location: e.target.value })}
+                  placeholder="./src/rules/example.csx"
+                  className="property-panel__input"
+                />
+                {onLoadFromFile && (
+                  <button
+                    type="button"
+                    onClick={onLoadFromFile}
+                    className="property-panel__action-button"
+                    title="Load from file"
+                  >
+                    📁
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {showTemplates && (
             <div className="property-panel__templates">

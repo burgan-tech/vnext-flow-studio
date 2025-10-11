@@ -372,4 +372,127 @@ export class ScriptManager implements IScriptManager {
   removeFromCache(absolutePath: string): void {
     this.scriptCache.delete(absolutePath);
   }
+
+  /**
+   * Discover and load all .csx script files in the workspace recursively
+   * Returns scripts categorized by type based on implemented interface (IMapping or ICondition/IRule)
+   */
+  async discoverScripts(basePath: string): Promise<{ mappers: ResolvedScript[]; rules: ResolvedScript[] }> {
+    const maxDepth = 10;
+
+    console.log('[ScriptManager] Discovering all .csx scripts in workspace:', basePath);
+
+    const mappers: ResolvedScript[] = [];
+    const rules: ResolvedScript[] = [];
+
+    try {
+      const files = await this.findCsxFiles(basePath, maxDepth);
+      console.log(`[ScriptManager] Found ${files.length} .csx files in workspace`);
+
+      for (const absolutePath of files) {
+        try {
+          // Calculate relative path from basePath
+          let relativePath = path.relative(basePath, absolutePath);
+          if (!relativePath.startsWith('./') && !relativePath.startsWith('../')) {
+            relativePath = `./${relativePath}`;
+          }
+
+          // Load the script
+          const script = await this.loadScript(relativePath, basePath);
+          if (script && script.exists) {
+            // Analyze script content to determine type
+            const scriptType = this.analyzeScriptType(script.content);
+
+            if (scriptType === 'mapping') {
+              mappers.push(script);
+              console.log(`[ScriptManager] ✓ Loaded mapper (IMapping): ${relativePath}`);
+            } else if (scriptType === 'rule') {
+              rules.push(script);
+              console.log(`[ScriptManager] ✓ Loaded rule (ICondition/IRule): ${relativePath}`);
+            } else {
+              console.log(`[ScriptManager] ⚠ Unknown type for: ${relativePath}`);
+            }
+          }
+        } catch (err) {
+          console.log(`[ScriptManager] ✗ Failed to load ${absolutePath}:`, err);
+          continue;
+        }
+      }
+    } catch (err) {
+      console.log(`[ScriptManager] ✗ Failed to scan workspace:`, err);
+    }
+
+    console.log(`[ScriptManager] Total discovered - Mappers: ${mappers.length}, Rules: ${rules.length}`);
+    return { mappers, rules };
+  }
+
+  /**
+   * Analyze script content to determine if it implements IMapping (mappers) or IConditionMapping/ICondition/IRule (rules)
+   */
+  private analyzeScriptType(content: string): 'mapping' | 'rule' | 'unknown' {
+    // Check for IMapping interface (these are mappers)
+    if (content.includes(': IMapping') ||
+        content.includes(':IMapping') ||
+        content.includes(', IMapping') ||
+        content.includes(',IMapping')) {
+      return 'mapping';
+    }
+
+    // Check for IConditionMapping, ICondition, or IRule interfaces (these are rules/conditions)
+    if (content.includes(': IConditionMapping') ||
+        content.includes(':IConditionMapping') ||
+        content.includes(', IConditionMapping') ||
+        content.includes(',IConditionMapping') ||
+        content.includes(': ICondition') ||
+        content.includes(':ICondition') ||
+        content.includes(', ICondition') ||
+        content.includes(',ICondition') ||
+        content.includes(': IRule') ||
+        content.includes(':IRule') ||
+        content.includes(', IRule') ||
+        content.includes(',IRule')) {
+      return 'rule';
+    }
+
+    // Fallback: check for method signatures
+    if (content.includes('InputHandler') && content.includes('OutputHandler')) {
+      return 'mapping';
+    }
+
+    if (content.includes('EvaluateRule') || content.includes('Evaluate')) {
+      return 'rule';
+    }
+
+    return 'unknown';
+  }
+
+  /**
+   * Find all .csx files in a directory recursively
+   */
+  private async findCsxFiles(dir: string, maxDepth: number = 5): Promise<string[]> {
+    const results: string[] = [];
+
+    const walk = async (currentDir: string, depth: number) => {
+      if (depth > maxDepth) return;
+
+      try {
+        const entries = await fs.readdir(currentDir, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(currentDir, entry.name);
+
+          if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+            await walk(fullPath, depth + 1);
+          } else if (entry.isFile() && entry.name.endsWith('.csx')) {
+            results.push(fullPath);
+          }
+        }
+      } catch {
+        // Directory doesn't exist or can't be read
+      }
+    };
+
+    await walk(dir, 0);
+    return results;
+  }
 }

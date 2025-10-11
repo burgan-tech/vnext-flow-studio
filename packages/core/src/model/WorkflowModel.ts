@@ -51,7 +51,11 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
   constructor(workflowPath: string, basePath?: string) {
     super();
 
+    // BasePath should be provided by the caller (VS Code workspace folder)
+    // If not provided, fallback to workflow file's directory as a last resort
     const actualBasePath = basePath || path.dirname(workflowPath);
+    console.log('[WorkflowModel] constructor - workflowPath:', workflowPath);
+    console.log('[WorkflowModel] constructor - basePath:', actualBasePath);
 
     this.state = {
       workflow: {} as Workflow,
@@ -61,6 +65,8 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
       resolvedExtensions: new Map(),
       resolvedSharedTransitions: new Map(),
       scripts: new Map(),
+      mappers: new Map(),
+      rules: new Map(),
       components: {
         tasks: new Map(),
         schemas: new Map(),
@@ -92,7 +98,15 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
     try {
       // Optionally preload all components from the filesystem
       if (preloadComponents) {
+        console.log('[WorkflowModel] Preloading components from filesystem...');
         const components = await this.componentResolver.preloadAllComponents();
+        console.log('[WorkflowModel] Preload complete:', {
+          tasks: components.tasks.length,
+          schemas: components.schemas.length,
+          views: components.views.length,
+          functions: components.functions.length,
+          extensions: components.extensions.length
+        });
 
         // Store preloaded components in the state
         for (const task of components.tasks) {
@@ -115,6 +129,21 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
           const key = `${ext.domain}/${ext.flow || 'sys-extensions'}/${ext.key}@${ext.version}`;
           this.state.resolvedExtensions.set(key, ext);
         }
+        console.log('[WorkflowModel] Components stored in state');
+
+        // Preload all scripts from the filesystem
+        console.log('[WorkflowModel] Preloading scripts from filesystem...');
+        const { mappers, rules } = await this.scriptManager.discoverScripts(this.state.metadata.basePath);
+        console.log(`[WorkflowModel] Preloaded ${mappers.length} mappers and ${rules.length} rules`);
+
+        // Store preloaded mappers and rules in the state
+        for (const mapper of mappers) {
+          this.state.mappers.set(mapper.absolutePath, mapper);
+        }
+        for (const rule of rules) {
+          this.state.rules.set(rule.absolutePath, rule);
+        }
+        console.log('[WorkflowModel] Mappers and rules stored in state');
       }
 
       // Load workflow file

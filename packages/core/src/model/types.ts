@@ -204,6 +204,10 @@ export interface WorkflowModelState {
   resolvedSharedTransitions: Map<string, ResolvedSharedTransition>;
   /** All script files used in the workflow */
   scripts: Map<string, ResolvedScript>;
+  /** Available mapper scripts from filesystem */
+  mappers: Map<string, ResolvedScript>;
+  /** Available rule scripts from filesystem */
+  rules: Map<string, ResolvedScript>;
   /** All referenced components */
   components: {
     tasks: Map<string, TaskComponentDefinition>;

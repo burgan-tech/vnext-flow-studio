@@ -22,9 +22,12 @@ import {
   ViewEditor,
   EnhancedTriggerEditor,
   EnhancedRuleEditor,
+  ReferenceSelector,
   isSchemaRef,
   isTaskRef,
-  type SchemaMode
+  type SchemaMode,
+  type ComponentReference,
+  type ScriptItem
 } from './editors';
 
 export type PropertySelection =
@@ -222,6 +225,31 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       .join(' ');
   }, [collapsed]);
 
+  // Convert catalog scripts to ScriptItem format
+  const availableMappers = useMemo((): ScriptItem[] => {
+    return (catalogs.mapper || []).map((script: any) => ({
+      location: script.location || '',
+      absolutePath: script.absolutePath || '',
+      content: script.content || '',
+      base64: script.base64 || '',
+      exists: script.exists !== false,
+      lastModified: script.lastModified ? new Date(script.lastModified) : undefined,
+      size: script.size
+    }));
+  }, [catalogs.mapper]);
+
+  const availableRules = useMemo((): ScriptItem[] => {
+    return (catalogs.rule || []).map((script: any) => ({
+      location: script.location || '',
+      absolutePath: script.absolutePath || '',
+      content: script.content || '',
+      base64: script.base64 || '',
+      exists: script.exists !== false,
+      lastModified: script.lastModified ? new Date(script.lastModified) : undefined,
+      size: script.size
+    }));
+  }, [catalogs.rule]);
+
   const selectedState = useMemo(() => {
     if (selection?.kind !== 'state') return null;
     return workflow.attributes.states.find((state) => state.key === selection.stateKey) ?? null;
@@ -306,51 +334,6 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       setSharedRuleText('');
     }
   }, [selectedSharedTransition]);
-
-  const handleSchemaModeChange = (mode: SchemaMode) => {
-    setTransitionDraft((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev } as Transition & Record<string, unknown>;
-      if (mode === 'none') {
-        next.schema = null;
-      } else if (mode === 'full') {
-        next.schema = isSchemaRef(prev.schema)
-          ? { ...prev.schema }
-          : { key: '', domain: '', version: '', flow: 'sys-schemas' };
-      } else {
-        // ref mode
-        next.schema = { ref: '' };
-      }
-      return next as Transition;
-    });
-  };
-
-  const handleSchemaRefChange = (ref: string) => {
-    setTransitionDraft((prev) => {
-      if (!prev) return prev;
-      return { ...prev, schema: { ref } };
-    });
-  };
-
-  const handleSchemaReferenceChange = (
-    field: 'key' | 'domain' | 'version',
-    value: string
-  ) => {
-    setTransitionDraft((prev) => {
-      if (!prev) return prev;
-      const current = isSchemaRef(prev.schema)
-        ? prev.schema
-        : { key: '', domain: '', version: '', flow: 'sys-schemas' };
-      return {
-        ...prev,
-        schema: {
-          ...current,
-          [field]: value,
-          flow: 'sys-schemas'
-        }
-      };
-    });
-  };
 
   const handleStateSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     console.log('🔍 handleStateSubmit called!');
@@ -733,43 +716,26 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
             </CollapsibleSection>
 
             <CollapsibleSection title="View Reference" defaultExpanded={false}>
-            <ViewEditor
-              title=""
-              view={stateDraft.view}
-              availableViews={catalogs.view}
-              onModeChange={(mode) => {
-                if (mode === 'none') {
+              <ReferenceSelector
+                label="View"
+                value={stateDraft.view && 'key' in stateDraft.view ? stateDraft.view as ComponentReference : null}
+                availableComponents={catalogs.view || []}
+                componentType="View"
+                defaultFlow="sys-views"
+                onChange={(reference) => {
                   setStateDraft(prev => {
                     if (!prev) return prev;
                     const next = { ...prev } as State & Record<string, unknown>;
-                    delete next.view;
+                    if (reference) {
+                      next.view = reference;
+                    } else {
+                      delete next.view;
+                    }
                     return next as State;
                   });
-                } else if (mode === 'ref') {
-                  setStateDraft(prev => prev ? { ...prev, view: { ref: '' } } : prev);
-                } else {
-                  setStateDraft(prev => prev ? {
-                    ...prev,
-                    view: { key: '', domain: '', flow: 'sys-views', version: '1.0.0' }
-                  } : prev);
-                }
-              }}
-              onReferenceChange={(field, value) => {
-                setStateDraft(prev => {
-                  if (!prev || !prev.view || !('key' in prev.view)) return prev;
-                  return {
-                    ...prev,
-                    view: {
-                      ...prev.view,
-                      [field]: value
-                    }
-                  };
-                });
-              }}
-              onRefChange={(ref) => {
-                setStateDraft(prev => prev ? { ...prev, view: { ref } } : prev);
-              }}
-            />
+                }}
+                helpText="Select a view definition to display UI for this state"
+              />
             </CollapsibleSection>
 
             <CollapsibleSection
@@ -802,6 +768,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               title=""
               tasks={stateDraft.onEntries}
               availableTasks={availableTasks}
+              availableMappers={availableMappers}
               onLoadFromFile={(taskIndex) => {
                 postMessage({
                   type: 'mapping:loadFromFile',
@@ -855,6 +822,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               title=""
               tasks={stateDraft.onExits}
               availableTasks={availableTasks}
+              availableMappers={availableMappers}
               onLoadFromFile={(taskIndex) => {
                 postMessage({
                   type: 'mapping:loadFromFile',
@@ -1028,6 +996,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 title=""
                 rule={transitionDraft.rule}
                 inlineText={ruleText}
+                availableRules={availableRules}
                 onLoadFromFile={() => {
                   if (selection?.kind === 'transition') {
                     postMessage({
@@ -1058,14 +1027,20 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
             </CollapsibleSection>
 
             <CollapsibleSection title="Schema" defaultExpanded={false}>
-            <SchemaEditor
-              title=""
-              schema={transitionDraft.schema}
-              availableSchemas={catalogs.schema}
-              onModeChange={handleSchemaModeChange}
-              onReferenceChange={(field, value) => handleSchemaReferenceChange(field as 'key' | 'domain' | 'version', value)}
-              onRefChange={handleSchemaRefChange}
-            />
+              <ReferenceSelector
+                label="Schema"
+                value={transitionDraft.schema && isSchemaRef(transitionDraft.schema) ? transitionDraft.schema as ComponentReference : null}
+                availableComponents={catalogs.schema || []}
+                componentType="Schema"
+                defaultFlow="sys-schemas"
+                onChange={(reference) => {
+                  setTransitionDraft(prev => {
+                    if (!prev) return prev;
+                    return { ...prev, schema: reference };
+                  });
+                }}
+                helpText="Select a schema to validate data sent with this transition"
+              />
             </CollapsibleSection>
 
             <CollapsibleSection
@@ -1098,6 +1073,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               title=""
               tasks={transitionDraft.onExecutionTasks}
               availableTasks={availableTasks}
+              availableMappers={availableMappers}
               onLoadFromFile={(taskIndex) => {
                 if (selection?.kind === 'transition') {
                   postMessage({
@@ -1274,6 +1250,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 title=""
                 rule={sharedTransitionDraft.rule}
                 inlineText={sharedRuleText}
+                availableRules={availableRules}
                 onLoadFromFile={() => {
                   // TODO: Implement shared transition rule file loading
                   console.log('Load rule from file for shared transition');
@@ -1298,41 +1275,19 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
             </CollapsibleSection>
 
             <CollapsibleSection title="Schema" defaultExpanded={false}>
-              <SchemaEditor
-                title=""
-                schema={sharedTransitionDraft.schema}
-              availableSchemas={catalogs.schema}
-              onModeChange={(mode) => {
-                if (mode === 'none') {
-                  setSharedTransitionDraft(prev => prev ? { ...prev, schema: null } : prev);
-                } else if (mode === 'full') {
-                  setSharedTransitionDraft(prev => prev ? {
-                    ...prev,
-                    schema: { key: '', domain: '', version: '', flow: 'sys-schemas' }
-                  } : prev);
-                } else {
-                  // ref mode
-                  setSharedTransitionDraft(prev => prev ? {
-                    ...prev,
-                    schema: { ref: '' }
-                  } : prev);
-                }
-              }}
-              onReferenceChange={(field, value) => {
-                setSharedTransitionDraft(prev => {
-                  if (!prev || !isSchemaRef(prev.schema)) return prev;
-                  return {
-                    ...prev,
-                    schema: {
-                      ...prev.schema,
-                      [field]: value
-                    }
-                  };
-                });
-              }}
-              onRefChange={(ref) => {
-                setSharedTransitionDraft(prev => prev ? { ...prev, schema: { ref } } : prev);
-              }}
+              <ReferenceSelector
+                label="Schema"
+                value={sharedTransitionDraft.schema && isSchemaRef(sharedTransitionDraft.schema) ? sharedTransitionDraft.schema as ComponentReference : null}
+                availableComponents={catalogs.schema || []}
+                componentType="Schema"
+                defaultFlow="sys-schemas"
+                onChange={(reference) => {
+                  setSharedTransitionDraft(prev => {
+                    if (!prev) return prev;
+                    return { ...prev, schema: reference };
+                  });
+                }}
+                helpText="Select a schema to validate data sent with this shared transition"
               />
             </CollapsibleSection>
 
@@ -1366,6 +1321,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 title=""
                 tasks={sharedTransitionDraft.onExecutionTasks}
               availableTasks={availableTasks}
+              availableMappers={availableMappers}
               onLoadFromFile={(taskIndex) => {
                 if (selection?.kind === 'sharedTransition') {
                   postMessage({
