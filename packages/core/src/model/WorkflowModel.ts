@@ -61,7 +61,8 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
       components: {
         tasks: new Map(),
         schemas: new Map(),
-        views: new Map()
+        views: new Map(),
+        workflows: new Map()
       },
       metadata: {
         workflowPath,
@@ -96,7 +97,8 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
           schemas: components.schemas.length,
           views: components.views.length,
           functions: components.functions.length,
-          extensions: components.extensions.length
+          extensions: components.extensions.length,
+          workflows: components.workflows.length
         });
 
         // Store preloaded components in the state
@@ -119,6 +121,10 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
         for (const ext of components.extensions) {
           const key = `${ext.domain}/${ext.flow || 'sys-extensions'}/${ext.key}@${ext.version}`;
           this.state.resolvedExtensions.set(key, ext);
+        }
+        for (const workflow of components.workflows) {
+          const key = `${workflow.domain}/${workflow.flow || 'sys-flows'}/${workflow.key}@${workflow.version}`;
+          this.state.components.workflows.set(key, workflow);
         }
         console.log('[WorkflowModel] Components stored in state');
 

@@ -36,3 +36,9 @@ export {
   formatTaskOptionLabel,
   type SchemaMode
 } from './utils';
+
+// SubFlow Editor
+export {
+  SubFlowEditor,
+  type SubFlowEditorProps
+} from './SubFlowEditor';

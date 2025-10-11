@@ -12,7 +12,8 @@ import type {
   SchemaDefinition,
   ViewDefinition,
   FunctionDefinition,
-  ExtensionDefinition
+  ExtensionDefinition,
+  Workflow
 } from '../types/index.js';
 import { ScriptManager } from './ScriptManager.js';
 
@@ -29,6 +30,7 @@ export interface ComponentResolverOptions {
     views?: string[];
     functions?: string[];
     extensions?: string[];
+    workflows?: string[];
   };
   /** Whether to use caching */
   useCache?: boolean;
@@ -62,6 +64,13 @@ const DEFAULT_SEARCH_PATHS = {
     'Extensions',
     'extensions',
     'sys-extensions'
+  ],
+  workflows: [
+    'Workflows',
+    'workflows',
+    'flows',
+    'sys-flows',
+    '.'
   ]
 };
 
@@ -78,6 +87,7 @@ export class ComponentResolver implements IComponentResolver {
   private viewCache: Map<string, ViewDefinition> = new Map();
   private functionCache: Map<string, FunctionDefinition> = new Map();
   private extensionCache: Map<string, ExtensionDefinition> = new Map();
+  private workflowCache: Map<string, Workflow> = new Map();
 
   constructor(options: ComponentResolverOptions = {}) {
     this.options = {
@@ -224,6 +234,7 @@ export class ComponentResolver implements IComponentResolver {
     this.viewCache.clear();
     this.functionCache.clear();
     this.extensionCache.clear();
+    this.workflowCache.clear();
     this.scriptManager.clearCache();
   }
 
@@ -429,13 +440,15 @@ export class ComponentResolver implements IComponentResolver {
     views: ViewDefinition[];
     functions: FunctionDefinition[];
     extensions: ExtensionDefinition[];
+    workflows: Workflow[];
   }> {
     const result = {
       tasks: [] as TaskComponentDefinition[],
       schemas: [] as SchemaDefinition[],
       views: [] as ViewDefinition[],
       functions: [] as FunctionDefinition[],
-      extensions: [] as ExtensionDefinition[]
+      extensions: [] as ExtensionDefinition[],
+      workflows: [] as Workflow[]
     };
 
     const basePath = this.options.basePath || process.cwd();
@@ -444,7 +457,7 @@ export class ComponentResolver implements IComponentResolver {
 
     // Helper function to scan a directory for components
     const scanForComponents = async <T>(
-      type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions',
+      type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'workflows',
       cache: Map<string, T>
     ): Promise<T[]> => {
       const components: T[] = [];
@@ -461,11 +474,35 @@ export class ComponentResolver implements IComponentResolver {
 
           for (const file of files) {
             try {
+              // Exclude diagram files for all types
+              if (file.endsWith('.diagram.json')) {
+                continue;
+              }
+
               const content = await fs.readFile(file, 'utf-8');
               const component = JSON.parse(content) as any;
 
               // Basic validation - must have key, domain, and version
-              if (component.key && component.domain && component.version) {
+              if (!component.key || !component.domain || !component.version) {
+                continue;
+              }
+
+              // Distinguish workflows from other components
+              // Workflows have an 'attributes' object with 'states' and 'startTransition'
+              const isWorkflow = component.attributes &&
+                                 component.attributes.states &&
+                                 component.attributes.startTransition;
+
+              // Skip if types don't match
+              if (type === 'workflows' && !isWorkflow) {
+                continue;
+              }
+              if (type !== 'workflows' && isWorkflow) {
+                continue;
+              }
+
+              // Component is valid for this type
+              if (true) {
                 const cacheKey = `${component.domain}/${component.flow || type}/${component.key}@${component.version}`;
 
                 // Add to cache
@@ -494,12 +531,13 @@ export class ComponentResolver implements IComponentResolver {
     };
 
     // Scan all component types in parallel
-    const [tasks, schemas, views, functions, extensions] = await Promise.all([
+    const [tasks, schemas, views, functions, extensions, workflows] = await Promise.all([
       scanForComponents<TaskComponentDefinition>('tasks', this.taskCache),
       scanForComponents<SchemaDefinition>('schemas', this.schemaCache),
       scanForComponents<ViewDefinition>('views', this.viewCache),
       scanForComponents<FunctionDefinition>('functions', this.functionCache),
-      scanForComponents<ExtensionDefinition>('extensions', this.extensionCache)
+      scanForComponents<ExtensionDefinition>('extensions', this.extensionCache),
+      scanForComponents<Workflow>('workflows', this.workflowCache)
     ]);
 
     result.tasks = tasks;
@@ -507,6 +545,7 @@ export class ComponentResolver implements IComponentResolver {
     result.views = views;
     result.functions = functions;
     result.extensions = extensions;
+    result.workflows = workflows;
 
     return result;
   }
@@ -520,13 +559,15 @@ export class ComponentResolver implements IComponentResolver {
     views: ViewDefinition[];
     functions: FunctionDefinition[];
     extensions: ExtensionDefinition[];
+    workflows: Workflow[];
   } {
     return {
       tasks: Array.from(this.taskCache.values()),
       schemas: Array.from(this.schemaCache.values()),
       views: Array.from(this.viewCache.values()),
       functions: Array.from(this.functionCache.values()),
-      extensions: Array.from(this.extensionCache.values())
+      extensions: Array.from(this.extensionCache.values()),
+      workflows: Array.from(this.workflowCache.values())
     };
   }
 }

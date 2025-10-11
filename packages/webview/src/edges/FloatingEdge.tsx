@@ -5,10 +5,11 @@ import {
   getBezierPath,
   getSmoothStepPath,
   Position,
-  useNodes
+  useNodes,
+  useEdges
 } from '@xyflow/react';
 
-import type { Node as RFNode } from '@xyflow/react';
+import type { Node as RFNode, Edge as RFEdge } from '@xyflow/react';
 
 type FloatingEdgeProps = {
   id: string;
@@ -135,9 +136,15 @@ const getSideForPoint = (pt: Point, rect: { x: number; y: number; width: number;
 export function FloatingEdge(props: FloatingEdgeProps) {
   const { id, source, target, markerEnd, style, className, label, labelStyle, labelBgStyle, labelBgPadding = [10, 8], labelBgBorderRadius = 6 } = props;
   const nodes = useNodes();
+  const edges = useEdges();
 
   const sourceNode = useMemo(() => nodes.find((n) => n.id === source), [nodes, source]);
   const targetNode = useMemo(() => nodes.find((n) => n.id === target), [nodes, target]);
+
+  // Check if there's a reverse edge (bidirectional connection)
+  const hasReverseEdge = useMemo(() => {
+    return edges.some((edge) => edge.source === target && edge.target === source && edge.id !== id);
+  }, [edges, source, target, id]);
 
   if (!sourceNode || !targetNode) return null;
 
@@ -149,6 +156,7 @@ export function FloatingEdge(props: FloatingEdgeProps) {
 
   let sourceX: number, sourceY: number, targetX: number, targetY: number;
   let sourcePosition: Position, targetPosition: Position;
+  let curvature = 0.25; // Default curvature for bezier
 
   if (isSelfConnection) {
     // Self-loop: exit from right, enter from bottom (creates a larger visible loop)
@@ -176,6 +184,11 @@ export function FloatingEdge(props: FloatingEdgeProps) {
     sourceY = sourceIntersection.y;
     targetX = targetIntersection.x;
     targetY = targetIntersection.y;
+
+    // If there's a bidirectional connection, add curvature to separate the edges
+    if (hasReverseEdge) {
+      curvature = 0.5; // Increase curvature for bidirectional edges
+    }
   }
 
   // Use smooth step path for self-loops, bezier for normal connections
@@ -200,17 +213,48 @@ export function FloatingEdge(props: FloatingEdgeProps) {
     labelX = posAbsolute.x + measuredWidth + 80;
     labelY = posAbsolute.y + srcRect.height / 2;
   } else {
-    const [path, defaultLabelX, defaultLabelY] = getBezierPath({
-      sourceX,
-      sourceY,
-      targetX,
-      targetY,
-      sourcePosition,
-      targetPosition
-    });
-    edgePath = path;
-    labelX = defaultLabelX;
-    labelY = defaultLabelY;
+    // For bidirectional edges, apply offset to control points
+    if (hasReverseEdge) {
+      // Calculate perpendicular offset vector
+      const dx = targetX - sourceX;
+      const dy = targetY - sourceY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Perpendicular vector (rotated 90 degrees)
+      const perpX = -dy / distance;
+      const perpY = dx / distance;
+
+      // Offset amount (20px to the "right" of the direction)
+      const offsetAmount = 20;
+
+      // Calculate control points with offset
+      const centerX = (sourceX + targetX) / 2;
+      const centerY = (sourceY + targetY) / 2;
+
+      const controlX = centerX + perpX * offsetAmount;
+      const controlY = centerY + perpY * offsetAmount;
+
+      // Create curved path using quadratic bezier
+      edgePath = `M ${sourceX},${sourceY} Q ${controlX},${controlY} ${targetX},${targetY}`;
+
+      // Position label at the curve apex
+      labelX = controlX;
+      labelY = controlY;
+    } else {
+      // Normal bezier path
+      const [path, defaultLabelX, defaultLabelY] = getBezierPath({
+        sourceX,
+        sourceY,
+        targetX,
+        targetY,
+        sourcePosition,
+        targetPosition,
+        curvature
+      });
+      edgePath = path;
+      labelX = defaultLabelX;
+      labelY = defaultLabelY;
+    }
   }
 
   return (

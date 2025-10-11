@@ -3,8 +3,8 @@ import React from 'react';
 const TRIGGER_TYPE_INFO = [
   { type: 0, color: '#3b82f6', label: 'Manual', description: 'User-triggered transition' },
   { type: 1, color: '#10b981', label: 'Auto', description: 'Automatic transition' },
-  { type: 2, color: '#f59e0b', label: 'Timeout', description: 'Time-based transition' },
-  { type: 3, color: '#8b5cf6', label: 'Event', description: 'Event-driven transition' }
+  { type: 2, color: '#fbbf24', label: 'Timeout', description: 'Time-based transition' },
+  { type: 3, color: '#c4b5fd', label: 'Event', description: 'Event-driven transition' }
 ];
 
 export const TriggerTypeLegend: React.FC = () => {

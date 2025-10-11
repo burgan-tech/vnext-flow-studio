@@ -212,6 +212,7 @@ export interface WorkflowModelState {
     tasks: Map<string, TaskComponentDefinition>;
     schemas: Map<string, SchemaDefinition>;
     views: Map<string, ViewDefinition>;
+    workflows: Map<string, Workflow>;
   };
   /** Metadata about the model */
   metadata: {

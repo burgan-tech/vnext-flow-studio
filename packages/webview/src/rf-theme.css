@@ -540,7 +540,7 @@
 }
 
 .trigger-manual .react-flow__edge-path {
-  stroke: #86efac;
+  stroke: #3b82f6;
 }
 
 .trigger-auto .react-flow__edge-path {
@@ -1209,7 +1209,7 @@
 .trigger-legend {
   position: absolute;
   bottom: 20px;
-  left: 20px;
+  right: 20px;
   background: rgba(37, 37, 38, 0.95);
   border: 1px solid #3e3e42;
   border-radius: 4px;

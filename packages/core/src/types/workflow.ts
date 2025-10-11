@@ -89,15 +89,7 @@ export interface State {
   onExits?: ExecutionTask[];
   transitions?: Transition[];
   view?: ViewRef;
-  subFlow?: {
-    type: 'S' | 'P';
-    process: {
-      key: string;
-      domain: string;
-      version: string;
-      flow: string;
-    };
-  } | null;
+  subFlow?: SubFlowConfig | null;
 }
 
 export interface TimerConfig {
@@ -124,12 +116,14 @@ export interface Reference {
   version: string;
 }
 
-export interface SubFlow {
-  key: string;
-  domain: string;
-  flow: string;
-  version: string;
-  type?: 'S' | 'P';
+export type ProcessRef =
+  | { ref: string }
+  | { key: string; domain: string; flow: string; version: string };
+
+export interface SubFlowConfig {
+  type: 'C' | 'F' | 'S' | 'P';
+  process: ProcessRef;
+  mapping: ScriptCode;
 }
 
 export interface Workflow {

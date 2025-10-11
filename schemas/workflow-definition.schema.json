@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://bbt.workflow/schemas/workflow-definition.schema.json",
-  "title": "BBT Workflow Definition",
-  "description": "Schema for BBT Workflow Definition JSON files",
+  "$id": "https://vnext.com/schemas/workflow-definition.schema.json",
+  "title": "vNext Workflow Definition",
+  "description": "Schema for vNext Workflow Component Definition JSON files (sys-flows flow)",
   "type": "object",
   "required": [
     "key",
@@ -13,29 +13,38 @@
     "attributes"
   ],
   "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
     "key": {
       "type": "string",
-      "description": "Unique identifier for the workflow",
+      "description": "Workflow key identifier",
       "pattern": "^[a-z0-9-]+$"
     },
     "flow": {
       "type": "string",
-      "description": "Flow identifier for the workflow",
+      "description": "Flow identifier",
       "pattern": "^[a-z0-9-]+$"
+    },
+    "flowVersion": {
+      "type": "string",
+      "description": "Flow version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
     },
     "domain": {
       "type": "string",
-      "description": "Domain the workflow belongs to",
+      "description": "Domain identifier",
       "pattern": "^[a-z0-9-]+$"
     },
     "version": {
       "type": "string",
-      "description": "Version of the workflow in Major.Minor.Patch format",
+      "description": "Version in Major.Minor.Patch format",
       "pattern": "^\\d+\\.\\d+\\.\\d+$"
     },
     "tags": {
       "type": "array",
-      "description": "Tags for categorizing the workflow",
+      "description": "Workflow tags",
       "items": {
         "type": "string"
       }
@@ -43,7 +52,9 @@
     "attributes": {
       "type": "object",
       "required": [
-        "type"
+        "type",
+        "startTransition",
+        "states"
       ],
       "properties": {
         "type": {
@@ -62,18 +73,6 @@
             "Sub Process"
           ]
         },
-        "subFlowType": {
-          "type": "string",
-          "description": "Sub flow type (when type is S or P)",
-          "enum": [
-            "S",
-            "P"
-          ],
-          "enumDescriptions": [
-            "SubFlow",
-            "Sub Process"
-          ]
-        },
         "timeout": {
           "anyOf": [
             {
@@ -88,40 +87,19 @@
               "properties": {
                 "key": {
                   "type": "string",
-                  "description": "Timeout key identifier"
+                  "description": "Timeout key identifier",
+                  "pattern": "^[a-z0-9-]+$"
                 },
                 "target": {
                   "type": "string",
-                  "description": "Target state for timeout"
+                  "description": "Target state for timeout",
+                  "pattern": "^[a-z0-9-]+$"
                 },
                 "versionStrategy": {
                   "$ref": "#/definitions/versionStrategy"
                 },
                 "timer": {
-                  "type": "object",
-                  "required": [
-                    "reset",
-                    "duration"
-                  ],
-                  "properties": {
-                    "reset": {
-                      "type": "string",
-                      "description": "Timer reset strategy",
-                      "enum": [
-                        "N",
-                        "R"
-                      ],
-                      "enumDescriptions": [
-                        "Never",
-                        "Reset"
-                      ]
-                    },
-                    "duration": {
-                      "type": "string",
-                      "description": "Duration in ISO 8601 format (e.g., PT1H, PT30M)",
-                      "pattern": "^P(?:T(?:\\d+H)?(?:\\d+M)?(?:\\d+S)?)?$"
-                    }
-                  }
+                  "$ref": "#/definitions/timerConfig"
                 }
               }
             },
@@ -131,69 +109,42 @@
           ]
         },
         "labels": {
-          "$ref": "#/definitions/labels"
+          "type": "array",
+          "description": "Multi-language labels",
+          "items": {
+            "$ref": "#/definitions/languageLabel"
+          }
         },
         "functions": {
           "type": "array",
           "description": "Functions used in the workflow",
           "items": {
-            "$ref": "#/definitions/functionReference"
+            "$ref": "#/definitions/reference"
           }
         },
-        "extensions": {
+        "features": {
           "type": "array",
-          "description": "Extensions used in the workflow",
+          "description": "Features (extensions) used in the workflow",
           "items": {
-            "$ref": "#/definitions/extensionReference"
+            "$ref": "#/definitions/reference"
           }
         },
         "sharedTransitions": {
           "type": "array",
           "description": "Shared transitions available across multiple states",
           "items": {
-            "allOf": [
-              {
-                "$ref": "#/definitions/transitionBase"
-              },
-              {
-                "type": "object",
-                "required": [
-                  "availableIn"
-                ],
-                "properties": {
-                  "availableIn": {
-                    "type": "array",
-                    "description": "States where this shared transition is available",
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            ]
+            "$ref": "#/definitions/transition"
+          }
+        },
+        "extensions": {
+          "type": "array",
+          "description": "Extensions used in the workflow",
+          "items": {
+            "$ref": "#/definitions/reference"
           }
         },
         "startTransition": {
-          "allOf": [
-            {
-              "$ref": "#/definitions/transitionBase"
-            },
-            {
-              "type": "object",
-              "required": [
-                "key",
-                "target",
-                "triggerType",
-                "versionStrategy"
-              ],
-              "properties": {
-                "triggerType": {
-                  "const": 0,
-                  "description": "Start transition must be manual"
-                }
-              }
-            }
-          ]
+          "$ref": "#/definitions/transition"
         },
         "states": {
           "type": "array",
@@ -250,387 +201,152 @@
       ],
       "description": "Type of workflow state"
     },
-    "stateSubType": {
-      "type": "integer",
-      "enum": [
-        1,
-        2,
-        3
+    "languageLabel": {
+      "type": "object",
+      "required": [
+        "label",
+        "language"
       ],
-      "enumDescriptions": [
-        "Success completion",
-        "Failed completion",
-        "Cancelled completion"
-      ],
-      "description": "Sub-type for final states"
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Label text"
+        },
+        "language": {
+          "type": "string",
+          "description": "Language code (ISO 639-1 with optional region code: en, en-US, tr, tr-TR)",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+        }
+      }
     },
-    "viewType": {
-      "type": "integer",
-      "enum": [
-        1,
-        2,
-        3
+    "timerConfig": {
+      "type": "object",
+      "required": [
+        "reset",
+        "duration"
       ],
-      "enumDescriptions": [
-        "JSON view",
-        "HTML view",
-        "Markdown view"
-      ],
-      "description": "Type of view content"
-    },
-    "viewTarget": {
-      "type": "integer",
-      "enum": [
-        1,
-        2,
-        3
-      ],
-      "enumDescriptions": [
-        "State view",
-        "Transition view",
-        "Task view"
-      ],
-      "description": "Target for the view"
-    },
-    "labels": {
-      "type": "array",
-      "description": "Multi-language labels",
-      "items": {
-        "type": "object",
-        "required": [
-          "label",
-          "language"
-        ],
-        "properties": {
-          "label": {
-            "type": "string",
-            "description": "Label text"
-          },
-          "language": {
-            "type": "string",
-            "description": "Language code (ISO 639-1 with optional region code: en, en-US, tr, tr-TR)",
-            "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
-          }
+      "properties": {
+        "reset": {
+          "type": "string",
+          "description": "Timer reset strategy"
+        },
+        "duration": {
+          "type": "string",
+          "description": "Duration in ISO 8601 format",
+          "pattern": "^P(?=\\d|T\\d)(\\d+Y)?(\\d+M)?(\\d+D)?(T(\\d+H)?(\\d+M)?(\\d+S)?)?$"
         }
       }
     },
     "reference": {
+      "description": "Generic reference - can be either explicit reference or ref",
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "Explicit reference",
+          "required": [
+            "key",
+            "domain",
+            "flow",
+            "version"
+          ],
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "domain": {
+              "type": "string"
+            },
+            "flow": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^\\d+\\.\\d+\\.\\d+$"
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "key"
+              ]
+            },
+            {
+              "required": [
+                "id"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "description": "Reference using ref",
+          "required": [
+            "ref"
+          ],
+          "properties": {
+            "ref": {
+              "type": "string",
+              "description": "Reference to component file"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "scriptCode": {
       "type": "object",
       "required": [
-        "key",
-        "domain",
-        "flow",
-        "version"
+        "code",
+        "location"
       ],
       "properties": {
-        "key": {
-          "type": "string",
-          "description": "Reference key"
-        },
-        "domain": {
-          "type": "string",
-          "description": "Domain name"
-        },
-        "flow": {
-          "type": "string",
-          "description": "Flow name"
-        },
-        "version": {
-          "type": "string",
-          "description": "Version in Major.Minor.Patch format",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
-        }
-      }
-    },
-    "functionReference": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": ["ref"],
-          "properties": {
-            "ref": {
-              "type": "string",
-              "description": "Reference identifier for the function"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "key",
-            "domain",
-            "flow",
-            "version"
-          ],
-          "properties": {
-            "key": {
-              "type": "string",
-              "description": "Function key"
-            },
-            "domain": {
-              "type": "string",
-              "description": "Domain name"
-            },
-            "flow": {
-              "type": "string",
-              "description": "Flow name for functions"
-            },
-            "version": {
-              "type": "string",
-              "description": "Version in Major.Minor.Patch format",
-              "pattern": "^\\d+\\.\\d+\\.\\d+$"
-            }
-          }
-        }
-      ]
-    },
-    "extensionReference": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": ["ref"],
-          "properties": {
-            "ref": {
-              "type": "string",
-              "description": "Reference identifier for the extension"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "key",
-            "domain",
-            "flow",
-            "version"
-          ],
-          "properties": {
-            "key": {
-              "type": "string",
-              "description": "Extension key"
-            },
-            "domain": {
-              "type": "string",
-              "description": "Domain name"
-            },
-            "flow": {
-              "type": "string",
-              "description": "Flow name for extensions"
-            },
-            "version": {
-              "type": "string",
-              "description": "Version in Major.Minor.Patch format",
-              "pattern": "^\\d+\\.\\d+\\.\\d+$"
-            }
-          }
-        }
-      ]
-    },
-    "taskReference": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": ["ref"],
-          "properties": {
-            "ref": {
-              "type": "string",
-              "description": "Reference identifier for the task"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "key",
-            "domain",
-            "flow",
-            "version"
-          ],
-          "properties": {
-            "key": {
-              "type": "string",
-              "description": "Task key"
-            },
-            "domain": {
-              "type": "string",
-              "description": "Domain name"
-            },
-            "flow": {
-              "type": "string",
-              "description": "Flow name for tasks"
-            },
-            "version": {
-              "type": "string",
-              "description": "Version in Major.Minor.Patch format",
-              "pattern": "^\\d+\\.\\d+\\.\\d+$"
-            }
-          }
-        }
-      ]
-    },
-    "viewReference": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": ["ref"],
-          "properties": {
-            "ref": {
-              "type": "string",
-              "description": "Reference identifier for the view"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "key",
-            "domain",
-            "flow",
-            "version"
-          ],
-          "properties": {
-            "key": {
-              "type": "string",
-              "description": "View key"
-            },
-            "domain": {
-              "type": "string",
-              "description": "Domain name"
-            },
-            "flow": {
-              "type": "string",
-              "description": "Flow name for views"
-            },
-            "version": {
-              "type": "string",
-              "description": "Version in Major.Minor.Patch format",
-              "pattern": "^\\d+\\.\\d+\\.\\d+$"
-            }
-          }
-        }
-      ]
-    },
-    "schemaReference": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": ["ref"],
-          "properties": {
-            "ref": {
-              "type": "string",
-              "description": "Reference identifier for the schema"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "key",
-            "domain",
-            "flow",
-            "version"
-          ],
-          "properties": {
-            "key": {
-              "type": "string",
-              "description": "Schema key"
-            },
-            "domain": {
-              "type": "string",
-              "description": "Domain name"
-            },
-            "flow": {
-              "type": "string",
-              "description": "Flow name for schemas"
-            },
-            "version": {
-              "type": "string",
-              "description": "Version in Major.Minor.Patch format",
-              "pattern": "^\\d+\\.\\d+\\.\\d+$"
-            }
-          }
-        }
-      ]
-    },
-    "mapping": {
-      "type": "object",
-      "required": [
-        "location",
-        "code"
-      ],
-      "properties": {
-        "location": {
-          "type": "string",
-          "description": "Path to the mapping file",
-          "pattern": "^\\./src/.*\\.csx$"
-        },
         "code": {
           "type": "string",
-          "description": "Base64 encoded code"
-        }
-      }
-    },
-    "rule": {
-      "type": "object",
-      "required": [
-        "location",
-        "code"
-      ],
-      "properties": {
+          "description": "Script code content"
+        },
         "location": {
           "type": "string",
-          "description": "Path to the rule file",
-          "pattern": "^\\./src/.*\\.csx$"
-        },
-        "code": {
-          "type": "string",
-          "description": "Base64 encoded code"
+          "description": "Location of the script file"
         }
       }
     },
-    "task": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": ["ref"],
-          "properties": {
-            "ref": {
-              "type": "string",
-              "description": "Reference identifier for the task"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "key",
-            "domain",
-            "flow",
-            "version"
+    "subFlow": {
+      "type": "object",
+      "required": [
+        "type",
+        "process",
+        "mapping"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "SubFlow type",
+          "enum": [
+            "C",
+            "F",
+            "S",
+            "P"
           ],
-          "properties": {
-            "key": {
-              "type": "string",
-              "description": "Task key"
-            },
-            "domain": {
-              "type": "string",
-              "description": "Domain name"
-            },
-            "flow": {
-              "type": "string",
-              "description": "Flow name for tasks"
-            },
-            "version": {
-              "type": "string",
-              "description": "Version in Major.Minor.Patch format",
-              "pattern": "^\\d+\\.\\d+\\.\\d+$"
-            }
-          }
+          "enumDescriptions": [
+            "Core",
+            "Flow",
+            "SubFlow",
+            "Sub Process"
+          ]
+        },
+        "process": {
+          "$ref": "#/definitions/reference"
+        },
+        "mapping": {
+          "$ref": "#/definitions/scriptCode"
         }
-      ]
+      }
     },
-    "executionTask": {
+    "onExecuteTask": {
       "type": "object",
       "required": [
         "order",
@@ -644,46 +360,91 @@
           "minimum": 1
         },
         "task": {
-          "$ref": "#/definitions/task"
+          "$ref": "#/definitions/reference"
         },
         "mapping": {
-          "$ref": "#/definitions/mapping"
+          "$ref": "#/definitions/scriptCode"
         }
       }
     },
-    "transitionBase": {
+    "transition": {
       "type": "object",
       "required": [
         "key",
         "target",
-        "triggerType",
-        "versionStrategy"
+        "versionStrategy",
+        "triggerType"
       ],
       "properties": {
         "key": {
           "type": "string",
-          "description": "Transition key"
+          "description": "Transition key",
+          "pattern": "^[a-z0-9-]+$"
         },
         "target": {
           "type": "string",
-          "description": "Target state key"
+          "description": "Target state key",
+          "pattern": "^[a-z0-9-]+$"
         },
-        "triggerType": {
-          "$ref": "#/definitions/triggerType"
+        "from": {
+          "type": "string",
+          "description": "Source state key (optional for shared transitions)",
+          "pattern": "^[a-z0-9-]+$"
         },
         "versionStrategy": {
           "$ref": "#/definitions/versionStrategy"
         },
-        "labels": {
-          "$ref": "#/definitions/labels"
+        "triggerType": {
+          "$ref": "#/definitions/triggerType"
         },
-        "rule": {
-          "$ref": "#/definitions/rule"
+        "availableIn": {
+          "type": "array",
+          "description": "States where this transition is available",
+          "items": {
+            "type": "string"
+          }
         },
         "schema": {
           "anyOf": [
             {
-              "$ref": "#/definitions/schemaReference"
+              "$ref": "#/definitions/reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/scriptCode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timer": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/timerConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "description": "Multi-language labels",
+          "items": {
+            "$ref": "#/definitions/languageLabel"
+          }
+        },
+        "view": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/reference"
             },
             {
               "type": "null"
@@ -692,15 +453,12 @@
         },
         "onExecutionTasks": {
           "type": "array",
-          "description": "Tasks to execute during the transition",
+          "description": "Tasks to execute during transition",
           "items": {
-            "$ref": "#/definitions/executionTask"
+            "$ref": "#/definitions/onExecuteTask"
           }
         }
       }
-    },
-    "transition": {
-      "$ref": "#/definitions/transitionBase"
     },
     "state": {
       "type": "object",
@@ -713,33 +471,41 @@
       "properties": {
         "key": {
           "type": "string",
-          "description": "State key"
+          "description": "State key",
+          "pattern": "^[a-z0-9-]+$"
         },
         "stateType": {
           "$ref": "#/definitions/stateType"
-        },
-        "stateSubType": {
-          "$ref": "#/definitions/stateSubType"
         },
         "versionStrategy": {
           "$ref": "#/definitions/versionStrategy"
         },
         "labels": {
-          "$ref": "#/definitions/labels"
-        },
-        "onEntries": {
           "type": "array",
-          "description": "Tasks to execute when entering the state",
+          "description": "Multi-language labels",
           "items": {
-            "$ref": "#/definitions/executionTask"
+            "$ref": "#/definitions/languageLabel"
           }
         },
-        "onExits": {
-          "type": "array",
-          "description": "Tasks to execute when exiting the state",
-          "items": {
-            "$ref": "#/definitions/executionTask"
-          }
+        "view": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subFlow": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/subFlow"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "transitions": {
           "type": "array",
@@ -748,8 +514,19 @@
             "$ref": "#/definitions/transition"
           }
         },
-        "view": {
-          "$ref": "#/definitions/viewReference"
+        "onEntries": {
+          "type": "array",
+          "description": "Tasks to execute when entering the state",
+          "items": {
+            "$ref": "#/definitions/onExecuteTask"
+          }
+        },
+        "onExits": {
+          "type": "array",
+          "description": "Tasks to execute when exiting the state",
+          "items": {
+            "$ref": "#/definitions/onExecuteTask"
+          }
         }
       }
     }

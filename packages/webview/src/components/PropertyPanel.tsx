@@ -21,6 +21,7 @@ import {
   EnhancedTriggerEditor,
   EnhancedRuleEditor,
   ReferenceSelector,
+  SubFlowEditor,
   isSchemaRef,
   isTaskRef,
   type SchemaMode,
@@ -139,6 +140,36 @@ function sanitizeState(draft: State): State {
     result.view = draft.view;
   } else {
     delete result.view;
+  }
+
+  // Handle subFlow configuration
+  if (draft.subFlow) {
+    console.log('🔍 sanitizeState - checking subFlow:', JSON.stringify(draft.subFlow, null, 2));
+
+    // Validate that process reference has required fields
+    const process = draft.subFlow.process;
+    const hasValidProcess =
+      ('ref' in process && process.ref) ||
+      ('key' in process && process.key && process.domain && process.version);
+
+    console.log('🔍 sanitizeState - hasValidProcess:', hasValidProcess, {
+      hasRef: 'ref' in process && !!process.ref,
+      hasKey: 'key' in process && !!process.key,
+      hasDomain: 'key' in process && !!process.domain,
+      hasVersion: 'key' in process && !!process.version,
+      hasType: !!draft.subFlow.type
+    });
+
+    if (hasValidProcess && draft.subFlow.type) {
+      result.subFlow = draft.subFlow;
+      console.log('✅ sanitizeState - keeping subFlow');
+    } else {
+      delete result.subFlow;
+      console.log('❌ sanitizeState - deleting subFlow due to validation failure');
+    }
+  } else {
+    delete result.subFlow;
+    console.log('🔍 sanitizeState - no subFlow in draft');
   }
 
   if (!Array.isArray(result.labels)) {
@@ -735,6 +766,31 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 helpText="Select a view definition to display UI for this state"
               />
             </CollapsibleSection>
+
+            {stateDraft.stateType === 4 && (
+              <CollapsibleSection title="Subflow Configuration" defaultExpanded={false}>
+                <SubFlowEditor
+                  value={stateDraft.subFlow || null}
+                  availableWorkflows={catalogs.workflow || []}
+                  onChange={(subFlow) => {
+                    setStateDraft(prev => {
+                      if (!prev) return prev;
+                      const next = { ...prev } as State & Record<string, unknown>;
+                      if (subFlow) {
+                        next.subFlow = subFlow;
+                      } else {
+                        delete next.subFlow;
+                      }
+                      return next as State;
+                    });
+                  }}
+                  onLoadMappingFromFile={() => {
+                    // TODO: Implement subflow mapping file loading
+                    console.log('Load subflow mapping from file');
+                  }}
+                />
+              </CollapsibleSection>
+            )}
 
             <CollapsibleSection
               title="On Entry Tasks"
