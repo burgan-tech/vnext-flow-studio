@@ -769,15 +769,30 @@ export class ModelBridge {
    * Navigate to subflow
    */
   private async navigateToSubflow(model: WorkflowModel, stateKey: string): Promise<void> {
+    console.log('[ModelBridge] navigateToSubflow called for state:', stateKey);
     const workflow = model.getWorkflow();
     const state = workflow.attributes.states.find(s => s.key === stateKey);
 
-    if (!state || state.stateType !== 4 || !state.subFlow?.process) {
-      vscode.window.showWarningMessage(`State ${stateKey} is not a valid subflow state`);
+    if (!state) {
+      console.error('[ModelBridge] State not found:', stateKey);
+      vscode.window.showWarningMessage(`State ${stateKey} not found`);
+      return;
+    }
+
+    if (state.stateType !== 4) {
+      console.error('[ModelBridge] State is not a subflow. Type:', state.stateType);
+      vscode.window.showWarningMessage(`State ${stateKey} is not a subflow (type: ${state.stateType})`);
+      return;
+    }
+
+    if (!state.subFlow?.process) {
+      console.error('[ModelBridge] State has no subflow process reference');
+      vscode.window.showWarningMessage(`State ${stateKey} has no subflow reference configured`);
       return;
     }
 
     const subflowRef = state.subFlow.process;
+    console.log('[ModelBridge] Subflow reference:', JSON.stringify(subflowRef, null, 2));
 
     // First, try to find the subflow in the catalog
     const modelState = model.getModelState();
@@ -787,27 +802,51 @@ export class ModelBridge {
 
     // Handle ref-style reference
     if ('ref' in subflowRef && subflowRef.ref) {
+      console.log('[ModelBridge] Using ref-style reference:', subflowRef.ref);
       // For ref-style, we need to resolve the file path
       const basePath = modelState.metadata.basePath;
       const fullPath = path.resolve(basePath, subflowRef.ref);
+      console.log('[ModelBridge] Resolved path:', fullPath);
 
       try {
         const foundUri = vscode.Uri.file(fullPath);
-        await this.openSubflowInNewPanel(foundUri);
-        return;
+        // Check if file exists before opening
+        try {
+          await vscode.workspace.fs.stat(foundUri);
+          console.log('[ModelBridge] File exists, opening subflow');
+          await this.openSubflowInNewPanel(foundUri);
+          return;
+        } catch (statError) {
+          console.error('[ModelBridge] File does not exist:', fullPath);
+          vscode.window.showWarningMessage(`Subflow file not found at: ${subflowRef.ref}`);
+          return;
+        }
       } catch (error) {
-        console.error('Failed to open subflow by ref:', error);
-        vscode.window.showWarningMessage(`Subflow file not found: ${subflowRef.ref}`);
+        console.error('[ModelBridge] Failed to open subflow by ref:', error);
+        vscode.window.showWarningMessage(`Failed to open subflow: ${error}`);
         return;
       }
     }
 
     // Handle explicit reference - search in catalog
+    console.log('[ModelBridge] Searching catalog for subflow. Catalog size:', workflowCatalog.length);
+    console.log('[ModelBridge] Search criteria - key:', subflowRef.key, 'domain:', subflowRef.domain, 'flow:', subflowRef.flow, 'version:', subflowRef.version);
+
     targetWorkflow = workflowCatalog.find(wf => {
       const keyMatches = wf.key === subflowRef.key;
       const domainMatches = !subflowRef.domain || wf.domain === subflowRef.domain;
       const versionMatches = !subflowRef.version || wf.version === subflowRef.version;
       const flowMatches = !subflowRef.flow || wf.flow === subflowRef.flow;
+
+      if (keyMatches) {
+        console.log('[ModelBridge] Checking workflow:', {
+          key: wf.key,
+          domain: wf.domain,
+          flow: wf.flow,
+          version: wf.version,
+          matches: { keyMatches, domainMatches, versionMatches, flowMatches }
+        });
+      }
 
       return keyMatches && domainMatches && versionMatches && flowMatches;
     });
@@ -823,27 +862,32 @@ export class ModelBridge {
       );
 
       if (!foundUri) {
+        console.error('[ModelBridge] Filesystem search failed');
         vscode.window.showWarningMessage(
-          `Subflow not found with key="${subflowRef.key}", domain="${subflowRef.domain}", flow="${subflowRef.flow}", version="${subflowRef.version}"`
+          `Subflow not found: key="${subflowRef.key}", domain="${subflowRef.domain}", flow="${subflowRef.flow}", version="${subflowRef.version}". Make sure the workflow file exists and is in the workspace.`
         );
         return;
       }
 
+      console.log('[ModelBridge] Found via filesystem:', foundUri.fsPath);
       await this.openSubflowInNewPanel(foundUri);
       return;
     }
 
     // We found the workflow in the catalog, but we need to find its file path
     // Search for the file matching this workflow
+    console.log('[ModelBridge] Found in catalog:', targetWorkflow.key, '- searching for file');
     const foundUri = await this.findWorkflowFileInWorkspace(targetWorkflow);
 
     if (!foundUri) {
+      console.error('[ModelBridge] Workflow file not found in workspace');
       vscode.window.showWarningMessage(
-        `Workflow file not found for key="${targetWorkflow.key}", domain="${targetWorkflow.domain}"`
+        `Workflow file not found for key="${targetWorkflow.key}", domain="${targetWorkflow.domain}". The workflow is in the catalog but its file could not be located.`
       );
       return;
     }
 
+    console.log('[ModelBridge] Opening subflow from:', foundUri.fsPath);
     await this.openSubflowInNewPanel(foundUri);
   }
 
@@ -948,9 +992,11 @@ export class ModelBridge {
     version?: string,
     flow?: string
   ): Promise<vscode.Uri | null> {
+    console.log('[ModelBridge] findSubflowFile - searching for:', { key, domain, version, flow });
     // Get workspace folders
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
+      console.log('[ModelBridge] No workspace folders found');
       return null;
     }
 
@@ -959,12 +1005,14 @@ export class ModelBridge {
       '**/*.json'
     ];
 
+    let filesChecked = 0;
     for (const folder of workspaceFolders) {
       for (const pattern of patterns) {
         const files = await vscode.workspace.findFiles(
           new vscode.RelativePattern(folder, pattern),
           '**/node_modules/**'
         );
+        console.log('[ModelBridge] Found', files.length, 'JSON files to check');
 
         for (const file of files) {
           // Skip diagram files
@@ -972,6 +1020,7 @@ export class ModelBridge {
             continue;
           }
 
+          filesChecked++;
           try {
             const content = await vscode.workspace.fs.readFile(file);
             const workflow = JSON.parse(new TextDecoder().decode(content)) as any;
@@ -987,7 +1036,18 @@ export class ModelBridge {
             const versionMatches = !version || workflow.version === version;
             const flowMatches = !flow || workflow.flow === flow;
 
+            if (keyMatches) {
+              console.log('[ModelBridge] Found matching key in file:', file.fsPath, {
+                keyMatches,
+                domainMatches,
+                versionMatches,
+                flowMatches,
+                workflow: { key: workflow.key, domain: workflow.domain, version: workflow.version, flow: workflow.flow }
+              });
+            }
+
             if (keyMatches && domainMatches && versionMatches && flowMatches) {
+              console.log('[ModelBridge] ✓ Match found:', file.fsPath);
               return file;
             }
           } catch {
@@ -998,6 +1058,7 @@ export class ModelBridge {
       }
     }
 
+    console.log('[ModelBridge] Checked', filesChecked, 'workflow files, no match found');
     return null;
   }
 
