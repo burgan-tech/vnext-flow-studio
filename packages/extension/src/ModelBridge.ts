@@ -816,7 +816,7 @@ export class ModelBridge {
           console.log('[ModelBridge] File exists, opening subflow');
           await this.openSubflowInNewPanel(foundUri);
           return;
-        } catch (statError) {
+        } catch {
           console.error('[ModelBridge] File does not exist:', fullPath);
           vscode.window.showWarningMessage(`Subflow file not found at: ${subflowRef.ref}`);
           return;
