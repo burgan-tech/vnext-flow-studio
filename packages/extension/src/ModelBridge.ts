@@ -156,14 +156,15 @@ export class ModelBridge {
         basePath: basePath // Use VS Code workspace folder as base path
       });
 
-      // Track the association between panel and model
-      this.panelModelMap.set(panel.id, model);
-      this.config.activePanels.set(flowUri.toString(), panel);
+      // Track the association between panel and model using the flow URI as the key
+      const panelKey = flowUri.toString();
+      this.panelModelMap.set(panelKey, model);
+      this.config.activePanels.set(panelKey, panel);
 
       // Set up panel disposal cleanup
       panel.onDidDispose(() => {
-        this.panelModelMap.delete(panel.id);
-        this.config.activePanels.delete(flowUri.toString());
+        this.panelModelMap.delete(panelKey);
+        this.config.activePanels.delete(panelKey);
       });
 
       // Get initial data from model
@@ -1430,14 +1431,10 @@ export class ModelBridge {
    * Get panel for a model
    */
   private getPanelForModel(model: WorkflowModel): vscode.WebviewPanel | undefined {
-    for (const [panelId, m] of this.panelModelMap) {
+    for (const [panelKey, m] of this.panelModelMap) {
       if (m === model) {
-        // Find panel by ID
-        for (const panel of this.config.activePanels.values()) {
-          if ((panel as any).id === panelId) {
-            return panel;
-          }
-        }
+        // Find panel by the same key (flow URI)
+        return this.config.activePanels.get(panelKey);
       }
     }
     return undefined;
