@@ -307,8 +307,10 @@ export class ModelBridge {
         icon: plugin.icon,
         keyPrefix: plugin.keyPrefix,
         defaultLabel: plugin.defaultLabel,
+        stateType: plugin.stateType,
         terminals: plugin.terminals,
-        profiles: plugin.profiles
+        profiles: plugin.profiles,
+        createState: plugin.createState
       }));
 
       // Get plugin variants

@@ -581,36 +581,19 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
       // Use variant template (should already have xProfile set)
       newState = { ...variant.stateTemplate };
     } else {
-      // Create state for plugin - hardcode ServiceTask specific logic
-      if (plugin.id === 'ServiceTask') {
-        newState = {
-          key: stateKey,
-          stateType: 2, // Intermediate
-          xProfile: 'ServiceTask', // Mark as ServiceTask
-          versionStrategy: 'Minor',
-          labels: [
-            {
-              label: stateLabel,
-              language: defaultLanguage
-            }
-          ],
-          onEntries: [
-            {
-              order: 1,
-              task: { ref: '' }, // To be configured
-              mapping: {
-                location: 'inline',
-                code: '// Configure task input mapping'
-              }
-            }
-          ],
-          transitions: []
-        };
+      // Use the plugin's createState method if available, otherwise create manually
+      if (plugin.createState && typeof plugin.createState === 'function') {
+        // Use plugin's createState method
+        newState = plugin.createState();
+        // Override the key to ensure uniqueness
+        newState.key = stateKey;
+        // Set xProfile to plugin ID to ensure proper plugin detection
+        newState.xProfile = plugin.id;
       } else {
-        // Fallback for other plugins
+        // Fallback for plugins without createState
         newState = {
           key: stateKey,
-          stateType: plugin.stateType || 2,
+          stateType: plugin.stateType,
           xProfile: plugin.id, // Set xProfile to plugin ID
           versionStrategy: 'Minor',
           labels: [
@@ -621,6 +604,11 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           ],
           transitions: []
         };
+
+        // Add stateSubType for Final states
+        if (plugin.id === 'Final' && plugin.stateType === 3) {
+          newState.stateSubType = 1; // Default to Success
+        }
       }
     }
 
@@ -629,6 +617,14 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     if (newState.labels && newState.labels.length > 0) {
       newState.labels[0].label = stateLabel;
       newState.labels[0].language = defaultLanguage;
+    } else {
+      // Add labels if missing
+      newState.labels = [
+        {
+          label: stateLabel,
+          language: defaultLanguage
+        }
+      ];
     }
 
     // Create design hints for this plugin state

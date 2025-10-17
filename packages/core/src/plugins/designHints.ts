@@ -116,59 +116,12 @@ export class DesignHintsManager {
 
   /**
    * Infer design hints from an existing state
+   * @deprecated This method should not be used as it relies on heuristics that can misidentify states
    */
   inferHintsFromState(state: State, _plugin?: StatePlugin): DesignHints | null {
-    // Try to detect plugin type from state patterns
-    const hasServiceTask = state.onEntries?.some(entry => entry.task);
-    const hasView = !!state.view;
-    const hasSubflow = !!state.subFlow;
-
-    // If it's a service task pattern
-    if (hasServiceTask && !hasView && !hasSubflow) {
-      const terminals: TerminalConfig[] = [];
-      const bindings: Record<string, string> = {};
-
-      // Detect Success terminal (auto trigger)
-      const successTransition = state.transitions?.find(t => t.triggerType === 1);
-      if (successTransition) {
-        terminals.push({
-          id: 'success',
-          role: 'success',
-          visible: true
-        });
-        bindings['success'] = successTransition.key;
-      }
-
-      // Detect Timeout terminal
-      const timeoutTransition = state.transitions?.find(t => t.triggerType === 2);
-      if (timeoutTransition) {
-        terminals.push({
-          id: 'timeout',
-          role: 'timeout',
-          visible: true
-        });
-        bindings['timeout'] = timeoutTransition.key;
-      }
-
-      // Detect Error terminal
-      const errorTransition = state.transitions?.find(
-        t => t.key.toLowerCase().includes('error') || t.key.toLowerCase().includes('fail')
-      );
-      if (errorTransition) {
-        terminals.push({
-          id: 'error',
-          role: 'error',
-          visible: true
-        });
-        bindings['error'] = errorTransition.key;
-      }
-
-      return {
-        kind: 'ServiceTask',
-        terminals,
-        terminalBindings: bindings
-      };
-    }
+    // Note: This method is deprecated and should not be used
+    // Plugin detection should only rely on explicit xProfile attributes
+    // not on heuristics based on state content
 
     // No plugin pattern detected
     return null;

@@ -99,15 +99,8 @@ export function toReactFlow(
         case 4: pluginId = 'SubFlow'; break;
         case 2:
         default:
-          // Check if it's a ServiceTask pattern
-          const hasServiceTask = state.onEntries?.some(entry => entry.task);
-          const hasView = !!state.view;
-          const hasSubflow = !!state.subFlow;
-          if (hasServiceTask && !hasView && !hasSubflow) {
-            pluginId = 'ServiceTask';
-          } else {
-            pluginId = 'Intermediate';
-          }
+          // Regular intermediate state - ServiceTask should only be detected via xProfile
+          pluginId = 'Intermediate';
           break;
       }
     }

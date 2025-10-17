@@ -423,16 +423,10 @@ export class PluginManager implements IPluginManager {
       }
     }
 
-    // Fallback: check for service task pattern
-    const hasServiceTask = state.onEntries?.some(entry => entry.task);
-    const hasView = !!state.view;
-    const hasSubflow = !!state.subFlow;
-
-    if (hasServiceTask && !hasView && !hasSubflow) {
-      return this.getPlugin('ServiceTask') || null;
-    }
-
-    // Final fallback based on state type for backward compatibility
+    // Fallback based on state type for backward compatibility
+    // Note: We don't use heuristics to detect ServiceTask since regular
+    // Intermediate states can also have tasks in onEntries. ServiceTask
+    // should only be detected when xProfile is explicitly set.
     if (!state.xProfile) {
       switch (state.stateType) {
         case 1: return this.getPlugin('Initial') || null;
@@ -440,6 +434,7 @@ export class PluginManager implements IPluginManager {
         case 4: return this.getPlugin('SubFlow') || null;
         case 2:
         default:
+          // Regular intermediate state, NOT ServiceTask
           return this.getPlugin('Intermediate') || null;
       }
     }
