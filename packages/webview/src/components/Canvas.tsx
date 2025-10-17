@@ -21,7 +21,6 @@ import {
   ReactFlowInstance,
   OnSelectionChangeParams
 } from '@xyflow/react';
-import { StateNode } from './nodes/StateNode';
 import { PluggableStateNode } from './nodes/PluggableStateNode';
 import { PropertyPanel, type PropertySelection } from './PropertyPanel';
 import { TriggerTypeLegend } from './TriggerTypeLegend';
@@ -41,8 +40,8 @@ import type {
 } from '@amorphie-flow-studio/core';
 
 const nodeTypes = {
-  default: StateNode,
-  event: StateNode,
+  default: PluggableStateNode,
+  event: PluggableStateNode,
   plugin: PluggableStateNode
 };
 

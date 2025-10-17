@@ -33,15 +33,22 @@ export function toReactFlow(
   const nodes: ReactFlowNode[] = [];
   const edges: ReactFlowEdge[] = [];
 
-  // Add pseudo nodes
+  // Add pseudo nodes (using plugin type for consistency)
   if (workflow.attributes.startTransition) {
     const eventWidth = 180;
     const eventHeight = 80;
     nodes.push({
       id: START_NODE_ID,
-      type: 'event',
+      type: 'plugin',
       position: diagram.nodePos[START_NODE_ID] ?? { x: 0, y: 0 },
-      data: { label: 'Start', variant: 'start' as const, width: eventWidth, height: eventHeight },
+      data: {
+        title: 'Start',
+        variant: 'start' as const,
+        width: eventWidth,
+        height: eventHeight,
+        // No state or stateType for event nodes
+        pluginId: undefined
+      },
       draggable: true,
       selectable: false,
       sourcePosition: 'right',
@@ -55,9 +62,16 @@ export function toReactFlow(
     const eventHeight = 80;
     nodes.push({
       id: TIMEOUT_NODE_ID,
-      type: 'event',
+      type: 'plugin',
       position: diagram.nodePos[TIMEOUT_NODE_ID] ?? { x: -120, y: 0 },
-      data: { label: 'Timeout', variant: 'timeout' as const, width: eventWidth, height: eventHeight },
+      data: {
+        title: 'Timeout',
+        variant: 'timeout' as const,
+        width: eventWidth,
+        height: eventHeight,
+        // No state or stateType for event nodes
+        pluginId: undefined
+      },
       draggable: true,
       selectable: false,
       sourcePosition: 'right',
