@@ -21,6 +21,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Fetch all history for version bumping
+
+      - name: Configure Git
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
@@ -56,6 +64,36 @@ jobs:
       - name: Check TypeScript compilation
         run: npx tsc --noEmit --project packages/core/tsconfig.json
 
+      # Version bump - only on push to main
+      - name: Bump version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: version
+        run: |
+          # Get current version
+          CURRENT_VERSION=$(node -p "require('./packages/extension/package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Bump patch version using npm version (updates all workspace packages)
+          cd packages/extension
+          npm version patch --no-git-tag-version
+          cd ../..
+
+          # Also bump root package.json
+          npm version patch --no-git-tag-version
+
+          # Get new version
+          NEW_VERSION=$(node -p "require('./packages/extension/package.json').version")
+          echo "New version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "previous=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version bump
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin main || echo "No changes to push"
+
       # Release steps - only run on push to main (not on PRs)
       - name: Stage extension assets
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -89,10 +127,10 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: meta
         run: |
-          VERSION=$(node -p "require('./packages/extension/package.json').version")
-          TAG="v${VERSION}-${GITHUB_RUN_NUMBER}"
-          NAME="${VERSION} (build ${GITHUB_RUN_NUMBER})"
-          BODY="Automatic release for commit ${GITHUB_SHA}"
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          NAME="${VERSION}"
+          BODY="Automatic release for version ${VERSION} from commit ${GITHUB_SHA}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
