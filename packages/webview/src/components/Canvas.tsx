@@ -101,7 +101,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [catalogs, setCatalogs] = useState<Record<string, any[]>>({});
   const [plugins, setPlugins] = useState<StatePlugin[]>([]);
   const [pluginVariants, setPluginVariants] = useState<Map<string, StateVariant[]>>(new Map());
-  const [designHints, setDesignHints] = useState<Map<string, DesignHints>>(new Map());
+  const [_designHints, setDesignHints] = useState<Map<string, DesignHints>>(new Map());
   const pendingMeasuredAutoLayout = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);
 

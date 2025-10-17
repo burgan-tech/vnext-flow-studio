@@ -223,7 +223,7 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
   ].filter(Boolean).join(' ');
 
   // Render terminal labels for plugin nodes (currently disabled to keep nodes clean)
-  const renderTerminalLabel = (terminal: TerminalConfig) => {
+  const renderTerminalLabel = (_terminal: TerminalConfig) => {
     // Terminal labels are disabled for now to avoid clutter
     // They can be shown on hover or in property panel instead
     return null;
@@ -246,7 +246,7 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
                           terminal.role === 'approve' ||
                           terminal.role === 'reject';
 
-          const isTarget = terminal.role === 'input' || !isSource;
+          const _isTarget = terminal.role === 'input' || !isSource;
 
           // Get position from terminal config or default based on role
           let position: string = 'right';

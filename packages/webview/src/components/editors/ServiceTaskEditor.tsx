@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import type { State, ExecutionTask, TaskRef } from '@amorphie-flow-studio/core';
-import type { DesignHints, TerminalConfig } from '@amorphie-flow-studio/core/plugins/types';
+import type { State, TaskRef } from '@amorphie-flow-studio/core';
+import type { DesignHints } from '@amorphie-flow-studio/core/plugins/types';
 import { ReferenceSelector } from './ReferenceSelector';
 import { MappingEditor } from './MappingEditor';
 

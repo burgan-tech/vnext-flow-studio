@@ -5,10 +5,7 @@
 import type {
   State,
   Transition,
-  TriggerType,
-  ExecutionTask,
-  ViewRef,
-  Label
+  TriggerType
 } from '../types/index.js';
 
 /**

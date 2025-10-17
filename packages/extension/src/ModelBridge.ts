@@ -23,8 +23,7 @@ import {
   type MsgToWebview,
   type ValidationResult,
   type Problem,
-  type DesignHints,
-  type DiagramWithHints
+  type DesignHints
 } from '@amorphie-flow-studio/core';
 
 /**

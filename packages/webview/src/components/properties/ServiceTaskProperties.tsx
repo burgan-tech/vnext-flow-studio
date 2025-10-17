@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import type { State, ExecutionTask, Label, VersionStrategy } from '@amorphie-flow-studio/core';
+import type { State, VersionStrategy } from '@amorphie-flow-studio/core';
 import { useBridge } from '../../hooks/useBridge';
 import {
   CollapsibleSection,

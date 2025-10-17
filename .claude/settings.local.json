@@ -18,7 +18,9 @@
       "Bash(gh issue list:*)",
       "WebFetch(domain:github.com)",
       "Bash(npm install:*)",
-      "Bash(bash .husky/pre-push:*)"
+      "Bash(bash .husky/pre-push:*)",
+      "Bash(git remote get-url:*)",
+      "Bash(gh issue view:*)"
     ],
     "deny": [],
     "ask": []
