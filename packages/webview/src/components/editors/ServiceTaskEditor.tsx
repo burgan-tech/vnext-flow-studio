@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import type { State, TaskRef, DesignHints, TerminalConfig } from '@amorphie-flow-studio/core';
+import type { State, TaskRef, DesignHints } from '@amorphie-flow-studio/core';
 import { ReferenceSelector } from './ReferenceSelector';
 // import { MappingEditor } from './MappingEditor'; // TODO: MappingEditor component not implemented yet
 
@@ -80,8 +80,8 @@ export function ServiceTaskEditor({ state, hints, onChange, registries }: Servic
     onChange(newState, hints);
   }, [state, hints, onChange]);
 
-  // Handle mapping change
-  const handleMappingChange = useCallback((mapping: { location: string; code: string }) => {
+  // Handle mapping change (will be used when MappingEditor is implemented)
+  const _handleMappingChange = useCallback((mapping: { location: string; code: string }) => {
     const newState = { ...state };
 
     if (!newState.onEntries || newState.onEntries.length === 0) {
@@ -353,6 +353,7 @@ export function ServiceTaskEditor({ state, hints, onChange, registries }: Servic
             </p>
 
             {currentMapping ? (
+              /* TODO: Re-enable when MappingEditor is implemented
               <MappingEditor
                 mapping={currentMapping}
                 onChange={handleMappingChange}
@@ -361,6 +362,10 @@ export function ServiceTaskEditor({ state, hints, onChange, registries }: Servic
                   taskSchema: {} // Could be populated from task definition
                 }}
               />
+              */
+              <div style={{ padding: '10px', background: '#f0f0f0', borderRadius: '4px' }}>
+                MappingEditor component not yet implemented
+              </div>
             ) : (
               <div className="no-mapping">
                 <p>No task selected. Select a task first to configure mapping.</p>

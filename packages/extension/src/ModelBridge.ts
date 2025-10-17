@@ -18,7 +18,6 @@ import {
   type Transition,
   type SharedTransition,
   type ExecutionTask,
-  type TaskDefinition,
   type TaskComponentDefinition,
   type MsgFromWebview,
   type MsgToWebview,
