@@ -333,9 +333,19 @@ export class ModelValidator {
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
     const workflow = model.getWorkflow();
+    const modelState = model.getModelState();
+
+    // Build scripts context for the linter
+    const scripts = new Map<string, { exists: boolean }>();
+    for (const [absolutePath, script] of modelState.scripts) {
+      scripts.set(absolutePath, { exists: script.exists });
+    }
 
     // Use the linter for transition validation
-    const lintResult = lint(workflow);
+    const lintResult = lint(workflow, {
+      workflowPath: modelState.metadata.workflowPath,
+      scripts
+    });
 
     for (const [location, problems] of Object.entries(lintResult)) {
       for (const problem of problems) {
@@ -393,7 +403,19 @@ export class ModelValidator {
     }
 
     const workflow = model.getWorkflow();
-    const lintResult = lint(workflow, { tasks: taskCatalog });
+    const modelState = model.getModelState();
+
+    // Build scripts context for the linter
+    const scripts = new Map<string, { exists: boolean }>();
+    for (const [absolutePath, script] of modelState.scripts) {
+      scripts.set(absolutePath, { exists: script.exists });
+    }
+
+    const lintResult = lint(workflow, {
+      tasks: taskCatalog,
+      workflowPath: modelState.metadata.workflowPath,
+      scripts
+    });
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
 

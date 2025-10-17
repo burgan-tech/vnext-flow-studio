@@ -286,9 +286,11 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
 
     // Resolve rule script
     if (transition.rule && loadScripts) {
+      // Always resolve scripts relative to workflow file directory
+      const workflowDir = path.dirname(this.state.metadata.workflowPath);
       const script = await this.scriptManager.loadScript(
         transition.rule.location,
-        this.state.metadata.basePath
+        workflowDir
       );
       if (script) {
         resolved.resolvedRule = {
@@ -335,9 +337,11 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
 
     // Resolve rule script
     if (sharedTransition.rule && loadScripts) {
+      // Always resolve scripts relative to workflow file directory
+      const workflowDir = path.dirname(this.state.metadata.workflowPath);
       const script = await this.scriptManager.loadScript(
         sharedTransition.rule.location,
-        this.state.metadata.basePath
+        workflowDir
       );
       if (script) {
         resolved.resolvedRule = {
@@ -391,9 +395,11 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
 
     // Resolve mapping script
     if (task.mapping && loadScripts) {
+      // Always resolve scripts relative to workflow file directory
+      const workflowDir = path.dirname(this.state.metadata.workflowPath);
       const script = await this.scriptManager.loadScript(
         task.mapping.location,
-        this.state.metadata.basePath
+        workflowDir
       );
       if (script) {
         resolved.resolvedMapping = {
@@ -535,9 +541,11 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
    * Get script content by location
    */
   getScript(location: string): ResolvedScript | undefined {
+    // Always resolve relative paths from workflow file directory
+    const workflowDir = path.dirname(this.state.metadata.workflowPath);
     const absolutePath = path.isAbsolute(location)
       ? location
-      : path.resolve(this.state.metadata.basePath, location);
+      : path.resolve(workflowDir, location);
     return this.state.scripts.get(absolutePath);
   }
 
@@ -545,8 +553,10 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
    * Update script content
    */
   async updateScript(location: string, content: string): Promise<void> {
-    await this.scriptManager.saveScript(location, content, this.state.metadata.basePath);
-    const script = await this.scriptManager.loadScript(location, this.state.metadata.basePath);
+    // Always resolve scripts relative to workflow file directory
+    const workflowDir = path.dirname(this.state.metadata.workflowPath);
+    await this.scriptManager.saveScript(location, content, workflowDir);
+    const script = await this.scriptManager.loadScript(location, workflowDir);
 
     if (script) {
       this.state.scripts.set(script.absolutePath, script);
@@ -564,10 +574,12 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
    * Create a new script from template
    */
   async createScript(location: string, taskType?: string): Promise<ResolvedScript> {
+    // Always resolve scripts relative to workflow file directory
+    const workflowDir = path.dirname(this.state.metadata.workflowPath);
     const script = await this.scriptManager.createScript(
       location,
       taskType || 'mapping',
-      this.state.metadata.basePath
+      workflowDir
     );
 
     this.state.scripts.set(script.absolutePath, script);
@@ -670,7 +682,18 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
    */
   async validate(): Promise<ValidationResult> {
     const tasks = Array.from(this.state.components.tasks.values());
-    const lintResult = lint(this.state.workflow, { tasks });
+
+    // Build scripts context for the linter
+    const scripts = new Map<string, { exists: boolean }>();
+    for (const [absolutePath, script] of this.state.scripts) {
+      scripts.set(absolutePath, { exists: script.exists });
+    }
+
+    const lintResult = lint(this.state.workflow, {
+      tasks,
+      workflowPath: this.state.metadata.workflowPath,
+      scripts
+    });
 
     const errors = [];
     const warnings = [];

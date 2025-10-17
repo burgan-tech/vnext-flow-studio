@@ -39,7 +39,21 @@ export const ScriptSelector: React.FC<ScriptSelectorProps> = ({
   // Find the selected script
   const selectedScript = useMemo(() => {
     if (!value) return null;
-    return availableScripts.find(s => s.location === value || s.absolutePath === value) || null;
+
+    // Normalize paths for comparison
+    const normalizeLocation = (loc: string) => {
+      // Remove leading ./ if present
+      return loc.startsWith('./') ? loc.substring(2) : loc;
+    };
+
+    const normalizedValue = normalizeLocation(value);
+
+    return availableScripts.find(s => {
+      const normalizedScriptLocation = normalizeLocation(s.location);
+      return normalizedScriptLocation === normalizedValue ||
+             s.location === value ||
+             s.absolutePath === value;
+    }) || null;
   }, [value, availableScripts]);
 
   // Filter scripts based on search
@@ -67,16 +81,17 @@ export const ScriptSelector: React.FC<ScriptSelectorProps> = ({
   };
 
   const getDisplayName = (script: ScriptItem) => {
-    // Extract filename from location
+    // Extract filename from location, preserving original format
     const parts = script.location.split('/');
     const filename = parts[parts.length - 1];
     return filename.replace('.csx', '');
   };
 
   const getDisplayPath = (script: ScriptItem) => {
-    // Return the location path without filename
+    // Return the location path without filename, preserving original format
     const parts = script.location.split('/');
-    return parts.slice(0, -1).join('/');
+    const path = parts.slice(0, -1).join('/');
+    return path || '.';
   };
 
   return (
@@ -139,7 +154,16 @@ export const ScriptSelector: React.FC<ScriptSelectorProps> = ({
                 </div>
               ) : (
                 filteredScripts.map((script, index) => {
-                  const isSelected = script.location === value || script.absolutePath === value;
+                  // Normalize paths for comparison
+                  const normalizeLocation = (loc: string) => {
+                    return loc.startsWith('./') ? loc.substring(2) : loc;
+                  };
+                  const normalizedValue = value ? normalizeLocation(value) : '';
+                  const normalizedScriptLocation = normalizeLocation(script.location);
+
+                  const isSelected = normalizedScriptLocation === normalizedValue ||
+                                   script.location === value ||
+                                   script.absolutePath === value;
                   return (
                     <button
                       key={index}

@@ -86,7 +86,7 @@ export const ExecutionTaskListEditor: React.FC<ExecutionTaskListEditorProps> = (
     const newTask: ExecutionTask = {
       order: tasks.length + 1,
       task: { ref: '' },
-      mapping: { location: './src/mappings/new.csx', code: '' }
+      mapping: { location: '', code: '' }
     };
     onChange([...tasks, newTask]);
 

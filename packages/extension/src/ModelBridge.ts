@@ -1344,14 +1344,29 @@ export class ModelBridge {
    */
   private getCatalogsFromModel(model: WorkflowModel): Record<string, any[]> {
     const state = model.getModelState();
+    const workflowDir = path.dirname(state.metadata.workflowPath);
+
+    // Transform script locations to be relative to workflow file
+    const transformScriptLocation = (script: any) => {
+      // Calculate path relative to workflow file
+      let relativePath = path.relative(workflowDir, script.absolutePath);
+      if (!relativePath.startsWith('./') && !relativePath.startsWith('../')) {
+        relativePath = `./${relativePath}`;
+      }
+      return {
+        ...script,
+        location: relativePath
+      };
+    };
+
     const catalogs = {
       task: Array.from(state.components.tasks.values()),
       schema: Array.from(state.components.schemas.values()),
       view: Array.from(state.components.views.values()),
       function: Array.from(state.resolvedFunctions.values()),
       extension: Array.from(state.resolvedExtensions.values()),
-      mapper: Array.from(state.mappers.values()),
-      rule: Array.from(state.rules.values()),
+      mapper: Array.from(state.mappers.values()).map(transformScriptLocation),
+      rule: Array.from(state.rules.values()).map(transformScriptLocation),
       workflow: Array.from(state.components.workflows.values())
     };
     console.log('[ModelBridge] getCatalogsFromModel:', {

@@ -317,7 +317,11 @@ export class FlowDiagnosticsProvider {
     workflow: Workflow,
     tasks?: TaskDefinition[]
   ): Promise<void> {
-    const problems = lint(workflow, { tasks });
+    const problems = lint(workflow, {
+      tasks,
+      workflowPath: uri.fsPath
+      // Note: Scripts context not available in legacy method
+    });
     const diagnostics: vscode.Diagnostic[] = [];
 
     // Read the document to find actual positions

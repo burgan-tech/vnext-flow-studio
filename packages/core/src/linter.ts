@@ -32,7 +32,7 @@ export function lint(
       return null; // Can't check - no context provided
     }
 
-    // Resolve path relative to workflow file
+    // Resolve path relative to workflow file's directory
     const workflowDir = path.dirname(context.workflowPath);
     const absolutePath = path.isAbsolute(location)
       ? location
