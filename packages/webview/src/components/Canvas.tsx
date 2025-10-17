@@ -658,7 +658,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     });
   }, [postMessage, workflow]);
 
-  const handleDragStart = useCallback((event: React.DragEvent, template: StateTemplate) => {
+  const _handleDragStart = useCallback((event: React.DragEvent, template: StateTemplate) => {
     event.dataTransfer.setData(
       'application/reactflow',
       JSON.stringify({ type: template.type, stateSubType: template.stateSubType ?? null })
@@ -849,7 +849,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     };
   }, [contextMenu]);
 
-  const getToolbarStateClass = useCallback((type: StateType) => {
+  const _getToolbarStateClass = useCallback((type: StateType) => {
     switch (type) {
       case 1:
         return 'state-node--initial';

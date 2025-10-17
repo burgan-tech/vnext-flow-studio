@@ -13,7 +13,7 @@ import type {
   PluginHooks,
   PluginProblem
 } from '../types.js';
-import type { State, Transition, Workflow } from '../../types/index.js';
+import type { State, Transition } from '../../types/index.js';
 
 /**
  * Initial state terminal definitions

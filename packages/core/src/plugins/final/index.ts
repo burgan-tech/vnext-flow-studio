@@ -63,7 +63,7 @@ const finalStateHooks: PluginHooks = {
     }
   },
 
-  onValidate: (state: State, hints: DesignHints): PluginProblem[] => {
+  onValidate: (state: State, _hints: DesignHints): PluginProblem[] => {
     const problems: PluginProblem[] = [];
 
     // Final states cannot have transitions
@@ -113,7 +113,7 @@ const finalStateHooks: PluginHooks = {
     return problems;
   },
 
-  onSerialize: (state: State, hints: DesignHints): State => {
+  onSerialize: (state: State, _hints: DesignHints): State => {
     // Ensure no transitions are saved for final states
     const cleanState = { ...state };
     delete cleanState.transitions;

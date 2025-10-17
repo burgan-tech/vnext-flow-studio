@@ -118,7 +118,7 @@ export class DesignHintsManager {
    * Infer design hints from an existing state
    * @deprecated This method should not be used as it relies on heuristics that can misidentify states
    */
-  inferHintsFromState(state: State, _plugin?: StatePlugin): DesignHints | null {
+  inferHintsFromState(_state: State, _plugin?: StatePlugin): DesignHints | null {
     // Note: This method is deprecated and should not be used
     // Plugin detection should only rely on explicit xProfile attributes
     // not on heuristics based on state content

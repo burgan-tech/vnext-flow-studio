@@ -134,7 +134,7 @@ const intermediateStateHooks: PluginHooks = {
     return transition;
   },
 
-  onValidate: (state: State, hints: DesignHints): PluginProblem[] => {
+  onValidate: (state: State, _hints: DesignHints): PluginProblem[] => {
     const problems: PluginProblem[] = [];
 
     // Check for multiple auto transitions without rules
