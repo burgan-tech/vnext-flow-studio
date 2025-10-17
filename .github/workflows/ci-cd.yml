@@ -175,7 +175,18 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         id: meta
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          # Use version from bump step if available, otherwise get current version
+          if [ -n "${{ steps.version.outputs.version }}" ]; then
+            VERSION="${{ steps.version.outputs.version }}"
+            PREV_VERSION="${{ steps.version.outputs.previous }}"
+            BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          else
+            # Fallback if version bump was skipped
+            VERSION=$(node -p "require('./packages/extension/package.json').version")
+            PREV_VERSION="N/A"
+            BUMP_TYPE="none"
+          fi
+
           TAG="v${VERSION}"
 
           # Check if this is a prerelease
@@ -188,11 +199,8 @@ jobs:
             NAME="${VERSION}"
           fi
 
-          # Generate body with version bump info
-          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
-
-          # Create body as a single-line JSON-escaped string to avoid YAML issues
-          BODY="## Version ${VERSION}\n\n- Previous version: ${{ steps.version.outputs.previous }}\n- Bump type: ${BUMP_TYPE}\n- Commit: ${GITHUB_SHA}\n\n### Installation\nDownload the VSIX file below and install it in VS Code using:\n\`\`\`\ncode --install-extension amorphie-flow-studio-${VERSION}.vsix\n\`\`\`"
+          # Create simple release body
+          BODY="Release ${VERSION} from commit ${GITHUB_SHA:0:7}"
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
