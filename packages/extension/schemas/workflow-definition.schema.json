@@ -477,11 +477,6 @@
         "stateType": {
           "$ref": "#/definitions/stateType"
         },
-        "xProfile": {
-          "type": "string",
-          "description": "Profile for specialized state behavior (e.g., ServiceTask, HumanTask)",
-          "default": "Default"
-        },
         "versionStrategy": {
           "$ref": "#/definitions/versionStrategy"
         },
