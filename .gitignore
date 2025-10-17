@@ -12,3 +12,6 @@ coverage/
 out/
 .claude/settings.local.json
 .claude/settings.local.json
+
+# Extension build artifacts (schemas copied from submodule)
+packages/extension/schemas/
