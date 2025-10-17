@@ -119,11 +119,14 @@ export function registerCommands(context: vscode.ExtensionContext) {
         tags: ['new']
       });
 
-      // Add $schema reference
-      const workflowWithSchema = {
-        $schema: '../schemas/schemas/workflow-definition.schema.json',
-        ...workflow
-      };
+      // Add $schema reference - calculate relative path to schemas submodule
+      // The schemas submodule is at the project root in schemas/schemas/
+      const workspaceRoot = workspaceFolder.uri.fsPath;
+      const schemaPath = path.join(workspaceRoot, 'schemas', 'schemas', 'workflow-definition.schema.json');
+
+      // Calculate relative path from where the workflow will be saved
+      // (We'll update this after we know the save location)
+      let workflowWithSchema = workflow;
 
       // Determine save location - use targetFolder if it's a workflow-related directory,
       // otherwise use flows/domain structure
@@ -152,6 +155,13 @@ export function registerCommands(context: vscode.ExtensionContext) {
       // Ensure directory exists
       const saveDir = path.dirname(saveUri.fsPath);
       await fs.mkdir(saveDir, { recursive: true });
+
+      // Now calculate the relative path from the saved file to the schema
+      const relativeSchemaPath = path.relative(saveDir, schemaPath).replace(/\\/g, '/');
+      workflowWithSchema = {
+        $schema: relativeSchemaPath,
+        ...workflow
+      };
 
       // Write the workflow file
       const content = JSON.stringify(workflowWithSchema, null, 2);
