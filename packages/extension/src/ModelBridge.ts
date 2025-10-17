@@ -11,6 +11,10 @@ import {
   lint,
   autoLayout,
   pluginManager,
+  InitialStatePlugin,
+  IntermediateStatePlugin,
+  FinalStatePlugin,
+  SubFlowStatePlugin,
   ServiceTaskPlugin,
   DesignHintsManager,
   type Workflow,
@@ -62,13 +66,23 @@ export class ModelBridge {
    * Initialize the plugin system
    */
   private initializePlugins(): void {
+    // Register core state plugins
+    pluginManager.register(InitialStatePlugin);
+    pluginManager.register(IntermediateStatePlugin);
+    pluginManager.register(FinalStatePlugin);
+    pluginManager.register(SubFlowStatePlugin);
+
     // Register Service Task plugin
     pluginManager.register(ServiceTaskPlugin);
 
     // Set default profile
     pluginManager.setActiveProfile('Default');
 
-    // Activate Service Task plugin (since it's enabled by default)
+    // Activate all core plugins and Service Task plugin
+    pluginManager.activate('Initial');
+    pluginManager.activate('Intermediate');
+    pluginManager.activate('Final');
+    pluginManager.activate('SubFlow');
     pluginManager.activate('ServiceTask');
 
     // Refresh variants for active plugins

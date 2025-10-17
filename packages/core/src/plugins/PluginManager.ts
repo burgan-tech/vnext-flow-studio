@@ -405,6 +405,14 @@ export class PluginManager implements IPluginManager {
    * Detect plugin for existing state
    */
   detectPlugin(state: State): StatePlugin | null {
+    // Check xProfile first
+    if (state.xProfile) {
+      const plugin = this.getPlugin(state.xProfile);
+      if (plugin) {
+        return plugin;
+      }
+    }
+
     // Try each plugin's detection logic
     for (const plugin of this.getActivePlugins()) {
       if (plugin.hooks?.onDeserialize) {
@@ -422,6 +430,18 @@ export class PluginManager implements IPluginManager {
 
     if (hasServiceTask && !hasView && !hasSubflow) {
       return this.getPlugin('ServiceTask') || null;
+    }
+
+    // Final fallback based on state type for backward compatibility
+    if (!state.xProfile) {
+      switch (state.stateType) {
+        case 1: return this.getPlugin('Initial') || null;
+        case 3: return this.getPlugin('Final') || null;
+        case 4: return this.getPlugin('SubFlow') || null;
+        case 2:
+        default:
+          return this.getPlugin('Intermediate') || null;
+      }
     }
 
     return null;

@@ -161,15 +161,16 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
 
   // Calculate terminals to render
   const terminals = useMemo(() => {
-    if (designHints?.terminals) {
-      // Use plugin-defined terminals
+    if (designHints?.terminals && designHints.terminals.length > 0) {
+      // Use plugin-defined terminals if any are defined
       return designHints.terminals.filter(t => t.visible);
     }
 
-    // Fallback to standard terminals
+    // Fallback to standard terminals (for plugins with no custom terminals)
     const standardTerminals: TerminalConfig[] = [];
 
-    if (!isStart && !isFinal) {
+    // Add input terminal for all states except start nodes
+    if (!isStart) {
       standardTerminals.push({
         id: 'input',
         role: 'input',
@@ -178,6 +179,7 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
       });
     }
 
+    // Add output terminal for all states except final nodes
     if (!isFinal) {
       standardTerminals.push({
         id: 'output',
@@ -213,11 +215,15 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
     calculatedHeight = terminals.length > 2 ? 100 : 80;
   }
 
+  // Build class name with plugin-specific styling
+  const pluginClass = pluginId === 'ServiceTask' ? 'state-node--service-task' :
+                      pluginId ? `state-node--plugin-${pluginId.toLowerCase()}` : '';
+
   const classNames = [
     'react-flow__node-default',
     'state-node',
     stateTypeClass,
-    pluginId ? `plugin-${pluginId.toLowerCase()}` : '',
+    pluginClass,
     selected ? 'selected' : ''
   ].filter(Boolean).join(' ');
 
@@ -229,7 +235,7 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
   };
 
   return (
-    <div className={classNames} data-variant={variant} style={{ width: `${calculatedWidth}px`, height: `${calculatedHeight}px`, ...externalStyle }}>
+    <div className={classNames} data-variant={variant} data-plugin-id={pluginId} style={{ width: `${calculatedWidth}px`, height: `${calculatedHeight}px`, ...externalStyle }}>
       {/* Resizable card per RF v12 UI */}
       <NodeResizer isVisible={selected} minWidth={180} minHeight={80} handleStyle={{ borderRadius: 4 }} />
 

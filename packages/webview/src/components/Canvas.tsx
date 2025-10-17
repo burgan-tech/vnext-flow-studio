@@ -105,37 +105,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const pendingMeasuredAutoLayout = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const stateTemplates = useMemo<StateTemplate[]>(() => ([
-    {
-      type: 1,
-      label: 'Initial state',
-      description: 'Entry point for the flow',
-      keyPrefix: 'initial-state',
-      defaultLabel: 'Initial State'
-    },
-    {
-      type: 2,
-      label: 'Intermediate state',
-      description: 'Progress step within the journey',
-      keyPrefix: 'state',
-      defaultLabel: 'New State'
-    },
-    {
-      type: 3,
-      label: 'Final state',
-      description: 'Marks a successful completion',
-      keyPrefix: 'final-state',
-      defaultLabel: 'Final State',
-      stateSubType: 1
-    },
-    {
-      type: 4,
-      label: 'Subflow state',
-      description: 'Delegates to another flow',
-      keyPrefix: 'subflow-state',
-      defaultLabel: 'Subflow State'
-    }
-  ]), []);
+  // Legacy state templates are no longer used - all states come from plugins
+  const stateTemplates = useMemo<StateTemplate[]>(() => [], []);
 
   const defaultEdgeOptions = useMemo(() => ({
     type: 'floating' as const,
@@ -916,46 +887,18 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
                 <span className="flow-canvas__toolbar-title">States</span>
               </div>
               <div className="flow-canvas__toolbar-items">
-                {stateTemplates.map((template) => {
-                  const stateClass = getToolbarStateClass(template.type);
-
-                  // Get icon for this state type
-                  const getIcon = () => {
-                    switch (template.type) {
-                      case 1: return '▶'; // Initial
-                      case 2: return '▢'; // Intermediate
-                      case 3: return '◉'; // Final
-                      case 4: return '⊕'; // Subflow
-                      default: return '●';
-                    }
-                  };
-
-                  return (
-                    <button
-                      key={`${template.type}-${template.stateSubType ?? 'default'}`}
-                      type="button"
-                      className="flow-canvas__palette-item"
-                      onClick={() => handleAddState(template)}
-                      onDragStart={(event) => handleDragStart(event, template)}
-                      draggable
-                      title={template.description}
-                    >
-                      <span className={`flow-canvas__palette-preview ${stateClass}`}>
-                        <span className="flow-canvas__palette-icon-column">
-                          <span className="flow-canvas__palette-type-icon">{getIcon()}</span>
-                        </span>
-                        <span className="flow-canvas__palette-content">
-                          {template.label}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-
-                {/* Plugin States (added directly after regular states) */}
+                {/* All states now come from plugins */}
                 {plugins.map((plugin) => {
-                    // Get the appropriate state class based on the plugin's state type
-                    const pluginStateClass = getToolbarStateClass(plugin.stateType || 2); // Default to intermediate
+                    // Get the appropriate state class based on plugin ID
+                    // Map plugin IDs to their corresponding CSS classes
+                    const pluginClassMap: Record<string, string> = {
+                      'Initial': 'state-node--initial',
+                      'Intermediate': 'state-node--intermediate',
+                      'Final': 'state-node--final',
+                      'SubFlow': 'state-node--subflow',
+                      'ServiceTask': 'state-node--service-task'
+                    };
+                    const pluginStateClass = pluginClassMap[plugin.id] || 'state-node--intermediate';
                     const hasVariants = pluginVariants.get(plugin.id) && pluginVariants.get(plugin.id)!.length > 0;
 
                     // If has variants, wrap in group div, otherwise render button directly like regular states

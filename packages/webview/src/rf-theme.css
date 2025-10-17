@@ -376,6 +376,45 @@
   --state-muted: #5b21b6;
 }
 
+/* Plugin-based state nodes */
+.state-node--service-task,
+.state-node[data-plugin-id="ServiceTask"] {
+  --state-color: #0891b2;
+  --state-surface: #ecfeff;
+  --state-muted: #0e7490;
+}
+
+/* Palette preview colors - apply same colors to palette items */
+.flow-canvas__palette-preview.state-node--initial {
+  --state-color: #16a34a;
+  --state-surface: #f2fdf7;
+  --state-muted: #15803d;
+}
+
+.flow-canvas__palette-preview.state-node--intermediate {
+  --state-color: #2563eb;
+  --state-surface: #eef2ff;
+  --state-muted: #1e40af;
+}
+
+.flow-canvas__palette-preview.state-node--final {
+  --state-color: #dc2626;
+  --state-surface: #fef2f2;
+  --state-muted: #b91c1c;
+}
+
+.flow-canvas__palette-preview.state-node--subflow {
+  --state-color: #7c3aed;
+  --state-surface: #f5f3ff;
+  --state-muted: #5b21b6;
+}
+
+.flow-canvas__palette-preview.state-node--service-task {
+  --state-color: #0891b2;
+  --state-surface: #ecfeff;
+  --state-muted: #0e7490;
+}
+
 /* Special nodes (converted from event nodes) */
 .state-node[data-variant="start"] {
   --state-color: #16a34a;

@@ -1,0 +1,159 @@
+{
+  "$schema": "./schemas/schemas/workflow-definition.schema.json",
+  "attributes": {
+    "key": "test-plugin-system",
+    "labels": [
+      {
+        "language": "en",
+        "label": "Test Plugin System"
+      }
+    ],
+    "versionStrategy": "Minor",
+    "startTransition": {
+      "key": "start-to-initial",
+      "target": "initial-state",
+      "triggerType": 1,
+      "versionStrategy": "Minor"
+    },
+    "timeout": {
+      "timer": {
+        "duration": "PT1H",
+        "reset": "N"
+      },
+      "target": "timeout-state"
+    },
+    "states": [
+      {
+        "key": "initial-state",
+        "stateType": 1,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "language": "en",
+            "label": "Initial State (Legacy)"
+          }
+        ],
+        "transitions": [
+          {
+            "key": "initial-to-intermediate",
+            "target": "intermediate-state",
+            "triggerType": 1,
+            "versionStrategy": "Minor"
+          }
+        ]
+      },
+      {
+        "key": "intermediate-state",
+        "stateType": 2,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "language": "en",
+            "label": "Intermediate State (Legacy)"
+          }
+        ],
+        "onEntries": [
+          {
+            "order": 1,
+            "task": {
+              "ref": "test-task"
+            },
+            "mapping": {
+              "location": "inline",
+              "code": "return input;"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "key": "intermediate-to-subflow",
+            "target": "subflow-state",
+            "triggerType": 1,
+            "versionStrategy": "Minor"
+          }
+        ]
+      },
+      {
+        "key": "subflow-state",
+        "stateType": 4,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "language": "en",
+            "label": "SubFlow State (Legacy)"
+          }
+        ],
+        "subFlow": {
+          "type": "C",
+          "process": {
+            "ref": "child-workflow"
+          }
+        },
+        "transitions": [
+          {
+            "key": "subflow-to-service",
+            "target": "service-state",
+            "triggerType": 1,
+            "versionStrategy": "Minor"
+          }
+        ]
+      },
+      {
+        "key": "service-state",
+        "stateType": 2,
+        "xProfile": "ServiceTask",
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "language": "en",
+            "label": "Service Task (With xProfile)"
+          }
+        ],
+        "onEntries": [
+          {
+            "order": 1,
+            "task": {
+              "ref": "service-task"
+            },
+            "mapping": {
+              "location": "inline",
+              "code": "return input;"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "key": "service-to-final",
+            "target": "final-state",
+            "triggerType": 1,
+            "versionStrategy": "Minor"
+          }
+        ]
+      },
+      {
+        "key": "final-state",
+        "stateType": 3,
+        "stateSubType": 1,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "language": "en",
+            "label": "Final State (Success)"
+          }
+        ]
+      },
+      {
+        "key": "timeout-state",
+        "stateType": 3,
+        "stateSubType": 2,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "language": "en",
+            "label": "Timeout State (Failed)"
+          }
+        ]
+      }
+    ]
+  }
+}

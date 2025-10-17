@@ -86,9 +86,31 @@ export function toReactFlow(
     const contentWidth = Math.max(minContentWidth, titleWidth, stateKeyWidth);
     const calculatedWidth = iconColumnWidth + contentPadding + contentWidth + badgeWidth;
 
-    // Check if this is a plugin node based on xProfile
+    // All states now use the plugin system
     const stateHints = designHints?.[state.key];
-    const isPluginNode = state.xProfile && state.xProfile !== 'Default';
+
+    // Determine plugin ID - either from xProfile or based on state type for backward compatibility
+    let pluginId = state.xProfile;
+    if (!pluginId || pluginId === 'Default') {
+      // Auto-detect plugin for legacy states without xProfile
+      switch (state.stateType) {
+        case 1: pluginId = 'Initial'; break;
+        case 3: pluginId = 'Final'; break;
+        case 4: pluginId = 'SubFlow'; break;
+        case 2:
+        default:
+          // Check if it's a ServiceTask pattern
+          const hasServiceTask = state.onEntries?.some(entry => entry.task);
+          const hasView = !!state.view;
+          const hasSubflow = !!state.subFlow;
+          if (hasServiceTask && !hasView && !hasSubflow) {
+            pluginId = 'ServiceTask';
+          } else {
+            pluginId = 'Intermediate';
+          }
+          break;
+      }
+    }
 
     nodes.push({
       id: state.key,
@@ -102,9 +124,9 @@ export function toReactFlow(
         width: calculatedWidth,
         height: 80,
         hints: stateHints,
-        pluginId: state.xProfile // Use xProfile as plugin ID
+        pluginId: pluginId
       },
-      type: isPluginNode ? 'plugin' : 'default',
+      type: 'plugin', // Always use plugin node type now
       sourcePosition: 'right',
       targetPosition: 'left',
       style: { width: calculatedWidth, height: 80 }
