@@ -1582,11 +1582,12 @@ export class ModelBridge {
 
   /**
    * Generate a unique transition key
+   * Must match pattern ^[a-z0-9-]+$ as required by schema
    */
   private generateTransitionKey(from: string, target: string): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(7);
-    return `t_${from}_${target}_${timestamp}_${random}`;
+    // Use the same pattern as the plugin system for consistency
+    // This matches the schema requirement: lowercase letters, numbers, and hyphens only
+    return `${from}-to-${target}`;
   }
 
   /**
