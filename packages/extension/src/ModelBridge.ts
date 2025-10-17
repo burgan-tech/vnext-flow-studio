@@ -1300,9 +1300,20 @@ export class ModelBridge {
     // Use both ModelValidator and traditional linting for comprehensive checks
     const workflow = model.getWorkflow();
     const tasks = this.getTasksFromModel(model);
+    const modelState = model.getModelState();
+
+    // Build scripts context for the linter
+    const scripts = new Map<string, { exists: boolean }>();
+    for (const [absolutePath, script] of modelState.scripts) {
+      scripts.set(absolutePath, { exists: script.exists });
+    }
 
     // Get traditional lint problems for UI display
-    const lintProblems = lint(workflow, { tasks });
+    const lintProblems = lint(workflow, {
+      tasks,
+      workflowPath: modelState.metadata.workflowPath,
+      scripts
+    });
 
     // Also update VS Code diagnostics using ModelValidator if diagnosticsProvider has the new method
     const workflowPath = model.getModelState().metadata.workflowPath;

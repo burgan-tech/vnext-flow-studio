@@ -1,5 +1,6 @@
 import { validateWorkflow } from './schema.js';
 import type { TaskDefinition, TaskRef, Workflow, SharedTransition, Transition } from './types/index.js';
+import * as path from 'path';
 
 export type Severity = 'error' | 'warning';
 
@@ -12,6 +13,8 @@ export interface Problem {
 
 export interface LintContext {
   tasks?: TaskDefinition[];
+  workflowPath?: string; // Path to the workflow file for resolving relative script paths
+  scripts?: Map<string, { exists: boolean }>; // Map of absolute paths to script info
 }
 
 export function lint(
@@ -21,6 +24,22 @@ export function lint(
   const problems: Record<string, Problem[]> = {};
   const push = (ownerId: string, p: Problem) => {
     (problems[ownerId] ||= []).push(p);
+  };
+
+  // Helper to check if a script file exists (when context provides the info)
+  const checkScriptExists = (location: string | undefined): boolean | null => {
+    if (!location || !context.workflowPath || !context.scripts) {
+      return null; // Can't check - no context provided
+    }
+
+    // Resolve path relative to workflow file
+    const workflowDir = path.dirname(context.workflowPath);
+    const absolutePath = path.isAbsolute(location)
+      ? location
+      : path.resolve(workflowDir, location);
+
+    const scriptInfo = context.scripts.get(absolutePath);
+    return scriptInfo?.exists ?? null;
   };
 
   const taskIndex = new Set<string>();
@@ -232,12 +251,25 @@ export function lint(
         });
       }
 
-      if (task.mapping?.location && !task.mapping.location.match(/^\.\/.*\.csx$/)) {
-        push(state.key, {
-          id: 'E_BAD_PATH',
-          severity: 'error',
-          message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
-        });
+      if (task.mapping?.location) {
+        // Check path pattern
+        if (!task.mapping.location.match(/^\.\/.*\.csx$/)) {
+          push(state.key, {
+            id: 'E_BAD_PATH',
+            severity: 'error',
+            message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
+          });
+        } else {
+          // Check if file exists (when context available)
+          const exists = checkScriptExists(task.mapping.location);
+          if (exists === false) {
+            push(state.key, {
+              id: 'E_SCRIPT_NOT_FOUND',
+              severity: 'error',
+              message: `Script file '${task.mapping.location}' not found`
+            });
+          }
+        }
       }
     }
 
@@ -250,12 +282,25 @@ export function lint(
         });
       }
 
-      if (task.mapping?.location && !task.mapping.location.match(/^\.\/.*\.csx$/)) {
-        push(state.key, {
-          id: 'E_BAD_PATH',
-          severity: 'error',
-          message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
-        });
+      if (task.mapping?.location) {
+        // Check path pattern
+        if (!task.mapping.location.match(/^\.\/.*\.csx$/)) {
+          push(state.key, {
+            id: 'E_BAD_PATH',
+            severity: 'error',
+            message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
+          });
+        } else {
+          // Check if file exists (when context available)
+          const exists = checkScriptExists(task.mapping.location);
+          if (exists === false) {
+            push(state.key, {
+              id: 'E_SCRIPT_NOT_FOUND',
+              severity: 'error',
+              message: `Script file '${task.mapping.location}' not found`
+            });
+          }
+        }
       }
     }
 
@@ -263,12 +308,25 @@ export function lint(
 
     // Check transition rules and tasks
     for (const transition of (state.transitions || [])) {
-      if (transition.rule?.location && !transition.rule.location.match(/^\.\/.*\.csx$/)) {
-        push(state.key, {
-          id: 'E_BAD_PATH',
-          severity: 'error',
-          message: `rule.location '${transition.rule.location}' must match pattern './*.csx'`
-        });
+      if (transition.rule?.location) {
+        // Check path pattern
+        if (!transition.rule.location.match(/^\.\/.*\.csx$/)) {
+          push(state.key, {
+            id: 'E_BAD_PATH',
+            severity: 'error',
+            message: `rule.location '${transition.rule.location}' must match pattern './*.csx'`
+          });
+        } else {
+          // Check if file exists (when context available)
+          const exists = checkScriptExists(transition.rule.location);
+          if (exists === false) {
+            push(state.key, {
+              id: 'E_SCRIPT_NOT_FOUND',
+              severity: 'error',
+              message: `Script file '${transition.rule.location}' not found`
+            });
+          }
+        }
       }
 
       // Check transition-level onExecutionTasks
@@ -281,12 +339,25 @@ export function lint(
           });
         }
 
-        if (task.mapping?.location && !task.mapping.location.match(/^\.\/.*\.csx$/)) {
-          push(state.key, {
-            id: 'E_BAD_PATH',
-            severity: 'error',
-            message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
-          });
+        if (task.mapping?.location) {
+          // Check path pattern
+          if (!task.mapping.location.match(/^\.\/.*\.csx$/)) {
+            push(state.key, {
+              id: 'E_BAD_PATH',
+              severity: 'error',
+              message: `mapping.location '${task.mapping.location}' must match pattern './*.csx'`
+            });
+          } else {
+            // Check if file exists (when context available)
+            const exists = checkScriptExists(task.mapping.location);
+            if (exists === false) {
+              push(state.key, {
+                id: 'E_SCRIPT_NOT_FOUND',
+                severity: 'error',
+                message: `Script file '${task.mapping.location}' not found`
+              });
+            }
+          }
         }
       }
     }
