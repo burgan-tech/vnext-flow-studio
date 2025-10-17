@@ -1,13 +1,16 @@
-name: Release on main merge
+name: CI/CD
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
 
 jobs:
-  release:
-    name: Build and Release
+  build:
+    name: Build, Test and Release
     runs-on: ubuntu-latest
 
     permissions:
@@ -31,10 +34,31 @@ jobs:
       - name: Run lint
         run: npm run lint
 
-      - name: Build packages
+      - name: Build all packages
         run: npm run build
 
+      - name: Verify schema is accessible
+        run: |
+          if [ ! -f "schemas/schemas/workflow-definition.schema.json" ]; then
+            echo "Error: Schema file not found in submodule"
+            exit 1
+          fi
+          echo "Schema file found in submodule"
+
+      - name: Verify extension build
+        run: |
+          if [ ! -f "packages/extension/schemas/workflow-definition.schema.json" ]; then
+            echo "Error: Schema not copied to extension during build"
+            exit 1
+          fi
+          echo "Extension build successful with schema"
+
+      - name: Check TypeScript compilation
+        run: npx tsc --noEmit --project packages/core/tsconfig.json
+
+      # Release steps - only run on push to main (not on PRs)
       - name: Stage extension assets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           rm -rf packages/extension/dist-web
           mkdir -p packages/extension/dist-web
@@ -47,9 +71,11 @@ jobs:
           fi
 
       - name: Package VSIX
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npm run package
 
       - name: Locate VSIX artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: vsix
         run: |
           VSIX_FILE=$(find packages/extension -maxdepth 1 -name "*.vsix" -print -quit)
@@ -60,6 +86,7 @@ jobs:
           echo "file=$VSIX_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Compute release metadata
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: meta
         run: |
           VERSION=$(node -p "require('./packages/extension/package.json').version")
@@ -72,6 +99,7 @@ jobs:
           echo "body=$BODY" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
