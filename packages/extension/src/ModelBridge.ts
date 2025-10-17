@@ -136,16 +136,82 @@ export class ModelBridge {
   }
 
   /**
+   * Find the project-specific base path for component discovery.
+   *
+   * For multi-project workspaces (e.g., workspace/loans/, workspace/credit-cards/),
+   * this finds the project root by looking for component directories.
+   *
+   * Searches upward from the workflow file to find a directory that contains
+   * typical component folders (Tasks, Workflows, etc.)
+   */
+  private async findProjectBasePath(workflowPath: string, workspaceRoot?: string): Promise<string> {
+    const fs = await import('fs/promises');
+
+    // Start from workflow's parent directory
+    let currentDir = path.dirname(workflowPath);
+    const workspaceRootNormalized = workspaceRoot ? path.normalize(workspaceRoot) : null;
+
+    // Component directories to look for
+    const componentDirs = ['Tasks', 'tasks', 'Workflows', 'workflows', 'Flows', 'flows'];
+
+    // Search upward until we find a directory with component folders
+    while (true) {
+      // Check if any component directories exist at this level
+      const hasComponentDirs = await Promise.all(
+        componentDirs.map(async (dir) => {
+          try {
+            const fullPath = path.join(currentDir, dir);
+            const stats = await fs.stat(fullPath);
+            return stats.isDirectory();
+          } catch {
+            return false;
+          }
+        })
+      );
+
+      // If we found at least one component directory, this is likely the project root
+      if (hasComponentDirs.some(exists => exists)) {
+        console.log(`[ModelBridge] Found project root at: ${currentDir}`);
+        return currentDir;
+      }
+
+      // Move up one directory
+      const parentDir = path.dirname(currentDir);
+
+      // Stop if we've reached the workspace root
+      if (workspaceRootNormalized && path.normalize(currentDir) === workspaceRootNormalized) {
+        console.log(`[ModelBridge] Reached workspace root, using: ${currentDir}`);
+        return currentDir;
+      }
+
+      // Stop if we've reached the filesystem root
+      if (parentDir === currentDir) {
+        console.log(`[ModelBridge] Reached filesystem root, using workflow directory: ${path.dirname(workflowPath)}`);
+        return path.dirname(workflowPath);
+      }
+
+      currentDir = parentDir;
+    }
+  }
+
+  /**
    * Open a workflow in the editor
    */
   async openWorkflow(flowUri: vscode.Uri, panel: vscode.WebviewPanel): Promise<WorkflowModel> {
     try {
       // Get the workspace folder for this file to use as basePath
       const workspaceFolder = vscode.workspace.getWorkspaceFolder(flowUri);
-      const basePath = workspaceFolder?.uri.fsPath || path.dirname(flowUri.fsPath);
+
+      // Find the project-specific base path by looking for component directories
+      // This supports multi-project workspaces (e.g., workspace/loans/, workspace/credit-cards/)
+      const basePath = await this.findProjectBasePath(
+        flowUri.fsPath,
+        workspaceFolder?.uri.fsPath
+      );
 
       console.log('[ModelBridge] openWorkflow - workspaceFolder:', workspaceFolder?.uri.fsPath);
-      console.log('[ModelBridge] openWorkflow - basePath:', basePath);
+      console.log('[ModelBridge] openWorkflow - workflow file:', flowUri.fsPath);
+      console.log('[ModelBridge] openWorkflow - detected basePath:', basePath);
 
       // Load the model with all components preloaded
       const model = await this.integration.openWorkflow(flowUri.fsPath, {
