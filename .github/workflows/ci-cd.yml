@@ -21,11 +21,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0  # Fetch all history for version bumping
 
       - name: Configure Git
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -66,7 +65,7 @@ jobs:
 
       # Version bump - only on push to main
       - name: Determine version bump type
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         id: bump_type
         run: |
           # Get the commit message
@@ -107,7 +106,7 @@ jobs:
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Bump version
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         id: version
         run: |
           # Get current version
@@ -137,7 +136,7 @@ jobs:
           echo "previous=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         run: |
           git add -A
           git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
@@ -145,7 +144,7 @@ jobs:
 
       # Release steps - only run on push to main (not on PRs)
       - name: Stage extension assets
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         run: |
           rm -rf packages/extension/dist-web
           mkdir -p packages/extension/dist-web
@@ -158,11 +157,11 @@ jobs:
           fi
 
       - name: Package VSIX
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         run: npm run package
 
       - name: Locate VSIX artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         id: vsix
         run: |
           VSIX_FILE=$(find packages/extension -maxdepth 1 -name "*.vsix" -print -quit)
@@ -173,7 +172,7 @@ jobs:
           echo "file=$VSIX_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Compute release metadata
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         id: meta
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -191,17 +190,9 @@ jobs:
 
           # Generate body with version bump info
           BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
-          BODY="## Version ${VERSION}
 
-          - Previous version: ${{ steps.version.outputs.previous }}
-          - Bump type: ${BUMP_TYPE}
-          - Commit: ${GITHUB_SHA}
-
-          ### Installation
-          Download the VSIX file below and install it in VS Code using:
-          \`\`\`
-          code --install-extension amorphie-flow-studio-${VERSION}.vsix
-          \`\`\`"
+          # Create body as a single-line JSON-escaped string to avoid YAML issues
+          BODY="## Version ${VERSION}\n\n- Previous version: ${{ steps.version.outputs.previous }}\n- Bump type: ${BUMP_TYPE}\n- Commit: ${GITHUB_SHA}\n\n### Installation\nDownload the VSIX file below and install it in VS Code using:\n\`\`\`\ncode --install-extension amorphie-flow-studio-${VERSION}.vsix\n\`\`\`"
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -210,7 +201,7 @@ jobs:
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
