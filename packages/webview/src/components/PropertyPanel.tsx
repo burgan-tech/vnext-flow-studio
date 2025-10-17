@@ -589,40 +589,9 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       sanitized.onExits = encodeExecutionTaskMappings(sanitized.onExits);
     }
 
-    // Auto-create .csx files for execution tasks if they don't exist
-    const createMappingFiles = (tasks?: any[]) => {
-      if (!tasks) return;
-      console.log('🔍 Checking', tasks.length, 'execution tasks for file creation');
-      tasks.forEach((task, index) => {
-        console.log('🔍 Task', index, ':', {
-          hasMapping: !!task.mapping,
-          hasLocation: !!task.mapping?.location,
-          hasCode: !!task.mapping?.code,
-          location: task.mapping?.location,
-          codeLength: task.mapping?.code?.length
-        });
-
-        if (task.mapping && task.mapping.location && task.mapping.code) {
-          console.log('📁 Creating file for task', index, 'at', task.mapping.location);
-          postMessage({
-            type: 'mapping:createFile',
-            stateKey: stateDraft.key,
-            list: undefined, // Will be determined by context
-            index,
-            location: task.mapping.location,
-            code: task.mapping.code
-          });
-        }
-      });
-    };
-
-    // Create files for onEntries and onExits
-    if (stateDraft.onEntries) {
-      createMappingFiles(stateDraft.onEntries);
-    }
-    if (stateDraft.onExits) {
-      createMappingFiles(stateDraft.onExits);
-    }
+    // NOTE: Removed automatic file creation for mapping files
+    // Files should only be created with explicit user consent
+    // This prevents unwanted files in repositories and ensures user awareness
 
     postMessage({
       type: 'domain:updateState',

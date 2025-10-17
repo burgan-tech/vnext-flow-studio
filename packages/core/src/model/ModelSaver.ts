@@ -60,10 +60,11 @@ export class ModelSaver {
         result.modified.push(state.metadata.diagramPath);
       }
 
-      // Save modified script files
-      const savedScripts = await this.saveScripts(model, state.scripts);
+      // Only save EXISTING script files that have been modified
+      // Do NOT create new files automatically
+      const savedScripts = await this.saveExistingScriptsOnly(model, state.scripts);
       result.modified.push(...savedScripts.modified);
-      result.created.push(...savedScripts.created);
+      // Note: result.created is intentionally not populated here
 
       result.success = true;
     } catch (error: any) {
@@ -189,7 +190,40 @@ export class ModelSaver {
   }
 
   /**
-   * Save modified script files
+   * Save only existing script files that have been modified
+   * This method does NOT create new files - only updates existing ones
+   */
+  private static async saveExistingScriptsOnly(
+    model: WorkflowModel,
+    scripts: Map<string, ResolvedScript>
+  ): Promise<{ modified: string[] }> {
+    const modified: string[] = [];
+
+    for (const [absolutePath, script] of scripts) {
+      // Only process scripts that already exist on disk
+      if (script.exists) {
+        // Check if content changed
+        try {
+          const currentContent = await fs.readFile(absolutePath, 'utf-8');
+          if (currentContent !== script.content) {
+            await fs.writeFile(absolutePath, script.content, 'utf-8');
+            modified.push(absolutePath);
+          }
+        } catch {
+          // File was deleted externally, skip it
+          // Do NOT recreate it automatically
+          console.log(`Script file ${absolutePath} no longer exists, skipping save`);
+        }
+      }
+      // Explicitly skip non-existent files - no automatic creation
+    }
+
+    return { modified };
+  }
+
+  /**
+   * Save modified script files (DEPRECATED - creates files without consent)
+   * @deprecated Use saveExistingScriptsOnly instead
    */
   private static async saveScripts(
     model: WorkflowModel,

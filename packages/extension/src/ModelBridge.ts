@@ -753,10 +753,46 @@ export class ModelBridge {
       return;
     }
 
+    // Validate the location path
+    if (location.includes('..') || path.isAbsolute(location)) {
+      vscode.window.showErrorMessage(
+        `Invalid file location: ${location}\n` +
+        'Mapping files must use relative paths within the project directory.'
+      );
+      return;
+    }
+
     // Check if file exists
     const script = model.getScript(location);
     if (script?.exists) {
       return; // Don't overwrite existing files
+    }
+
+    // Get the absolute path for display to user
+    const basePath = path.dirname(model.getModelState().metadata.workflowPath);
+    const absolutePath = path.resolve(basePath, location);
+
+    // Ensure the path is within the project directory
+    const normalizedBasePath = path.normalize(basePath);
+    const normalizedAbsolutePath = path.normalize(absolutePath);
+    if (!normalizedAbsolutePath.startsWith(normalizedBasePath)) {
+      vscode.window.showErrorMessage(
+        `Security Error: Cannot create files outside of project directory.\n` +
+        `Attempted path: ${absolutePath}`
+      );
+      return;
+    }
+
+    // Ask for user confirmation before creating the file
+    const choice = await vscode.window.showWarningMessage(
+      `Create mapping file at:\n${absolutePath}?`,
+      { modal: true },
+      'Create File',
+      'Cancel'
+    );
+
+    if (choice !== 'Create File') {
+      return; // User cancelled
     }
 
     // Decode Base64 if needed
@@ -778,6 +814,9 @@ export class ModelBridge {
     }
 
     await this.saveModel(model);
+
+    // Show confirmation to user
+    vscode.window.showInformationMessage(`Mapping file created at: ${location}`);
   }
 
   /**
@@ -1199,7 +1238,7 @@ export class ModelBridge {
       backup: false,
       format: true,
       indent: 2,
-      updateScriptEncoding: true
+      updateScriptEncoding: false  // Disabled automatic script encoding to prevent unwanted file creation
     });
   }
 
