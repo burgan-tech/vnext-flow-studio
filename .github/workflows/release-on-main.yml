@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
@@ -39,7 +41,7 @@ jobs:
           cp -R packages/webview/dist-web/. packages/extension/dist-web/
           rm -rf packages/extension/schemas
           mkdir -p packages/extension/schemas
-          cp -R schemas/. packages/extension/schemas/
+          cp schemas/schemas/workflow-definition.schema.json packages/extension/schemas/
           if [ -f LICENSE ]; then
             cp LICENSE packages/extension/
           fi
