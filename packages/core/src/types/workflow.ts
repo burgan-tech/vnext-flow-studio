@@ -85,6 +85,7 @@ export interface State {
   key: string;
   stateType: StateType;
   stateSubType?: StateSubType;
+  xProfile?: 'Default' | 'ServiceTask' | 'HumanTask' | string;
   versionStrategy: VersionStrategy;
   labels: Label[];
   onEntries?: ExecutionTask[];
@@ -138,6 +139,7 @@ export interface Workflow {
   attributes: {
     type: 'C' | 'F' | 'S' | 'P';
     subFlowType?: 'S' | 'P';
+    xProfile?: 'Default' | 'ServiceTask' | 'HumanTask' | string;
     timeout?: TimeoutCfg | null;
     labels?: Label[];
     functions?: FunctionRef[];

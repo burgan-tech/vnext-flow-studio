@@ -10,6 +10,9 @@ import {
   toReactFlow,
   lint,
   autoLayout,
+  pluginManager,
+  ServiceTaskPlugin,
+  DesignHintsManager,
   type Workflow,
   type State,
   type Transition,
@@ -19,7 +22,9 @@ import {
   type MsgFromWebview,
   type MsgToWebview,
   type ValidationResult,
-  type Problem
+  type Problem,
+  type DesignHints,
+  type DiagramWithHints
 } from '@amorphie-flow-studio/core';
 
 /**
@@ -41,13 +46,58 @@ export class ModelBridge {
   private integration: VSCodeModelIntegration;
   private config: ModelBridgeConfig;
   private panelModelMap: Map<string, WorkflowModel> = new Map();
+  private hintsManagers: Map<string, DesignHintsManager> = new Map();
 
   constructor(config: ModelBridgeConfig) {
     this.config = config;
     this.integration = new VSCodeModelIntegration();
 
+    // Initialize plugin system
+    this.initializePlugins();
+
     // Set up integration event handlers
     this.setupEventHandlers();
+  }
+
+  /**
+   * Initialize the plugin system
+   */
+  private initializePlugins(): void {
+    // Register Service Task plugin
+    pluginManager.register(ServiceTaskPlugin);
+
+    // Set default profile
+    pluginManager.setActiveProfile('Default');
+
+    // Activate Service Task plugin (since it's enabled by default)
+    pluginManager.activate('ServiceTask');
+
+    // Refresh variants for active plugins
+    this.refreshPluginVariants();
+  }
+
+  /**
+   * Refresh plugin variants
+   */
+  private async refreshPluginVariants(model?: WorkflowModel): Promise<void> {
+    const activePlugins = pluginManager.getActivePlugins();
+
+    // Get registries from model if available
+    let registries = null;
+    if (model) {
+      const catalogs = this.getCatalogsFromModel(model);
+      registries = {
+        tasks: catalogs.task || [],
+        schemas: catalogs.schema || [],
+        views: catalogs.view || [],
+        functions: catalogs.function || [],
+        extensions: catalogs.extension || []
+      };
+    }
+
+    for (const plugin of activePlugins) {
+      await pluginManager.refreshVariants(plugin.id, registries);
+    }
   }
 
   /**
@@ -121,6 +171,20 @@ export class ModelBridge {
       const workflow = model.getWorkflow();
       let diagram = model.getDiagram();
 
+      // Check if any states have xProfile and activate corresponding plugins
+      const xProfiles = new Set(
+        workflow.attributes.states
+          .filter(state => state.xProfile && state.xProfile !== 'Default')
+          .map(state => state.xProfile!)
+      );
+
+      // Activate plugins for any xProfiles found
+      for (const profile of xProfiles) {
+        if (pluginManager.isRegistered(profile)) {
+          pluginManager.activate(profile);
+        }
+      }
+
       // Generate diagram if it doesn't exist
       let generatedDiagram = false;
       if (!diagram) {
@@ -133,14 +197,49 @@ export class ModelBridge {
       // Get tasks from the model
       const tasks = this.getTasksFromModel(model);
 
+      // Get design hints for this model
+      const modelKey = this.getModelKey(model);
+      let hintsManager = this.hintsManagers.get(modelKey);
+      if (!hintsManager) {
+        hintsManager = new DesignHintsManager();
+        this.hintsManagers.set(modelKey, hintsManager);
+      }
+      const allDesignHints = hintsManager.getAllHints();
+
       // Convert to React Flow format
-      const derived = toReactFlow(workflow, diagram, 'en');
+      const derived = toReactFlow(workflow, diagram, 'en', allDesignHints.states);
 
       // Get problems
       const problemsById = await this.getLintProblems(model);
 
       // Get catalogs from model
       const catalogs = this.getCatalogsFromModel(model);
+
+      // Refresh plugin variants with discovered tasks
+      await this.refreshPluginVariants(model);
+
+      // Get active plugins and their variants
+      const activePlugins = pluginManager.getActivePlugins();
+      const plugins = activePlugins.map(plugin => ({
+        id: plugin.id,
+        label: plugin.label,
+        description: plugin.description,
+        icon: plugin.icon,
+        keyPrefix: plugin.keyPrefix,
+        defaultLabel: plugin.defaultLabel,
+        terminals: plugin.terminals,
+        profiles: plugin.profiles
+      }));
+
+      // Get plugin variants
+      const pluginVariants: Record<string, any[]> = {};
+      for (const plugin of activePlugins) {
+        const variants = pluginManager.getVariants(plugin.id);
+        if (variants.length > 0) {
+          pluginVariants[plugin.id] = variants;
+        }
+      }
+
 
       // Send initial data to webview
       const initMessage: MsgToWebview = {
@@ -151,6 +250,9 @@ export class ModelBridge {
         problemsById,
         tasks,
         catalogs,
+        plugins,
+        pluginVariants,
+        designHints: allDesignHints.states,
         generatedDiagram
       };
 
@@ -226,7 +328,7 @@ export class ModelBridge {
           break;
 
         case 'domain:addState':
-          await this.addState(model, message.state, message.position);
+          await this.addState(model, message.state, message.position, message.pluginId, message.hints);
           break;
 
         case 'mapping:createFile':
@@ -251,6 +353,10 @@ export class ModelBridge {
 
         case 'navigate:subflow':
           await this.navigateToSubflow(model, message.stateKey);
+          break;
+
+        case 'confirm:unsavedChanges':
+          await this.handleUnsavedChangesConfirmation(panel, message.message || 'You have unsaved changes. Do you want to save them?');
           break;
       }
 
@@ -602,16 +708,39 @@ export class ModelBridge {
   private async addState(
     model: WorkflowModel,
     state: State,
-    position: { x: number; y: number }
+    position: { x: number; y: number },
+    pluginId?: string,
+    hints?: DesignHints
   ): Promise<void> {
     model.addState(state);
+
+    // The state already has xProfile set by the plugin's createState method
 
     // Update diagram
     const diagram = model.getDiagram() || { nodePos: {} };
     diagram.nodePos[state.key] = position;
     model.setDiagram(diagram);
 
+    // Store design hints if this is a plugin state
+    if (pluginId && hints) {
+      const modelKey = this.getModelKey(model);
+      let hintsManager = this.hintsManagers.get(modelKey);
+      if (!hintsManager) {
+        hintsManager = new DesignHintsManager();
+        this.hintsManagers.set(modelKey, hintsManager);
+      }
+      hintsManager.setStateHints(state.key, hints);
+    }
+
     await this.saveModel(model);
+  }
+
+  /**
+   * Get unique key for model
+   */
+  private getModelKey(model: WorkflowModel): string {
+    const workflow = model.getWorkflow();
+    return `${workflow.domain}/${workflow.flow}/${workflow.key}`;
   }
 
   /**
@@ -1093,7 +1222,12 @@ export class ModelBridge {
       return;
     }
 
-    const derived = toReactFlow(workflow, diagram, 'en');
+    // Get design hints for this model
+    const modelKey = this.getModelKey(model);
+    const hintsManager = this.hintsManagers.get(modelKey);
+    const designHints = hintsManager ? hintsManager.getAllHints().states : {};
+
+    const derived = toReactFlow(workflow, diagram, 'en', designHints);
     const problems = await this.getLintProblems(model);
 
     panel.webview.postMessage({
@@ -1331,6 +1465,27 @@ export class ModelBridge {
   /**
    * Dispose the bridge
    */
+  /**
+   * Handle unsaved changes confirmation
+   */
+  private async handleUnsavedChangesConfirmation(
+    panel: vscode.WebviewPanel,
+    message: string
+  ): Promise<void> {
+    const choice = await vscode.window.showWarningMessage(
+      message,
+      { modal: true },
+      'Save',
+      'Don\'t Save'
+    );
+
+    // Send response back to webview
+    panel.webview.postMessage({
+      type: 'confirm:response',
+      save: choice === 'Save'
+    });
+  }
+
   dispose(): void {
     // Clean up resources
     this.panelModelMap.clear();

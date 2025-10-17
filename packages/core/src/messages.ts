@@ -9,13 +9,18 @@ export type MsgToWebview =
       problemsById: Record<string, any>;
       tasks: TaskComponentDefinition[];
       catalogs?: Record<string, any[]>;
+      plugins?: any[];
+      pluginVariants?: Record<string, any[]>;
+      designHints?: Record<string, any>;
       generatedDiagram?: boolean;
     }
   | { type: 'workflow:update'; workflow: Workflow; derived: { nodes: any[]; edges: any[] } }
   | { type: 'diagram:update'; diagram: Diagram }
   | { type: 'lint:update'; problemsById: Record<string, any> }
   | { type: 'catalog:update'; tasks: TaskComponentDefinition[]; catalogs?: Record<string, any[]> }
-  | { type: 'select:node'; nodeId: string };
+  | { type: 'plugins:update'; plugins: any[]; variants: Record<string, any[]> }
+  | { type: 'select:node'; nodeId: string }
+  | { type: 'confirm:response'; save: boolean };
 
 export type MsgFromWebview =
   | { type: 'persist:diagram'; diagram: Diagram }
@@ -30,7 +35,7 @@ export type MsgFromWebview =
   | { type: 'domain:updateSharedTransition'; transitionKey: string; sharedTransition: SharedTransition }
   | { type: 'domain:convertSharedToRegular'; transitionKey: string; targetState: string }
   | { type: 'domain:removeFromSharedTransition'; transitionKey: string; stateKey: string }
-  | { type: 'domain:addState'; state: State; position: { x: number; y: number } }
+  | { type: 'domain:addState'; state: State; position: { x: number; y: number }; pluginId?: string; hints?: any }
   | { type: 'request:lint' }
   | {
       type: 'request:autoLayout';
@@ -65,4 +70,8 @@ export type MsgFromWebview =
   | {
       type: 'navigate:subflow';
       stateKey: string;
+    }
+  | {
+      type: 'confirm:unsavedChanges';
+      message?: string;
     };

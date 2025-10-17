@@ -5,6 +5,8 @@ import '@xyflow/react/dist/style.css';
 import './rf-theme.css';
 import './enhanced-editors.css';
 import './styles/reference-selector.css';
+import './styles/palette.css';
+import './styles/service-task-properties.css';
 
 function App() {
   return <Canvas />;

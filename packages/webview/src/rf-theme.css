@@ -608,6 +608,7 @@
 .flow-canvas__toolbar:hover {
   max-width: 500px;
   box-shadow: 0 14px 36px rgba(15, 23, 42, 0.22);
+  overflow: visible; /* Allow dropdown variants to show */
 }
 
 .flow-canvas__toolbar-section {
@@ -665,14 +666,15 @@
   max-height: 1000px;
   opacity: 1;
   pointer-events: all;
+  overflow: visible; /* Allow variants to show outside bounds */
 }
 
 .flow-canvas__palette-item {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center; /* Center the content instead of stretching */
   gap: 0;
-  padding: 0;
+  padding: 4px; /* Small padding for hover effect */
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
@@ -681,12 +683,13 @@
   font-weight: 500;
   cursor: grab;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-  overflow: hidden;
+  width: 100%; /* Fill available width */
+  box-sizing: border-box;
 }
 
 .flow-canvas__palette-item:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
 }
 
 .flow-canvas__palette-item:focus-visible {
@@ -703,7 +706,7 @@
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  min-width: 120px;
+  width: 180px; /* Fixed width for consistency */
   border-radius: 8px;
   border: 2px solid var(--state-color);
   background: #ffffff;

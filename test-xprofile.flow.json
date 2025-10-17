@@ -1,0 +1,73 @@
+{
+  "key": "test-xprofile",
+  "version": "1.0.0",
+  "domain": "test",
+  "flow": "test-flow",
+  "flowVersion": "1.0.0",
+  "attributes": {
+    "label": "Test xProfile Workflow",
+    "states": [
+      {
+        "key": "start",
+        "stateType": 0,
+        "versionStrategy": "Minor",
+        "labels": [],
+        "transitions": [
+          {
+            "key": "to-service",
+            "target": "service-1",
+            "triggerType": 1,
+            "versionStrategy": "Major"
+          }
+        ]
+      },
+      {
+        "key": "service-1",
+        "stateType": 2,
+        "xProfile": "ServiceTask",
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Process Payment",
+            "language": "en"
+          }
+        ],
+        "onEntries": [
+          {
+            "order": 1,
+            "task": {
+              "key": "process-payment",
+              "domain": "core",
+              "flow": "sys-tasks",
+              "version": "1.0.0"
+            },
+            "mapping": {
+              "location": "inline",
+              "code": "return { amount: context.amount };"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "key": "success",
+            "target": "end",
+            "triggerType": 1,
+            "versionStrategy": "Major"
+          }
+        ]
+      },
+      {
+        "key": "end",
+        "stateType": 1,
+        "versionStrategy": "Minor",
+        "labels": []
+      }
+    ],
+    "startTransition": {
+      "key": "start",
+      "target": "start",
+      "triggerType": 0,
+      "versionStrategy": "Major"
+    }
+  }
+}

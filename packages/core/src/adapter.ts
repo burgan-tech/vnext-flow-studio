@@ -27,7 +27,8 @@ export interface ReactFlowEdge {
 export function toReactFlow(
   workflow: Workflow,
   diagram: Diagram,
-  lang: string = 'en'
+  lang: string = 'en',
+  designHints?: Record<string, any>
 ): { nodes: ReactFlowNode[]; edges: ReactFlowEdge[] } {
   const nodes: ReactFlowNode[] = [];
   const edges: ReactFlowEdge[] = [];
@@ -85,6 +86,10 @@ export function toReactFlow(
     const contentWidth = Math.max(minContentWidth, titleWidth, stateKeyWidth);
     const calculatedWidth = iconColumnWidth + contentPadding + contentWidth + badgeWidth;
 
+    // Check if this is a plugin node based on xProfile
+    const stateHints = designHints?.[state.key];
+    const isPluginNode = state.xProfile && state.xProfile !== 'Default';
+
     nodes.push({
       id: state.key,
       position: pos,
@@ -93,10 +98,13 @@ export function toReactFlow(
         state: state,
         stateType: state.stateType,
         stateSubType: state.stateSubType,
+        xProfile: state.xProfile,
         width: calculatedWidth,
-        height: 80
+        height: 80,
+        hints: stateHints,
+        pluginId: state.xProfile // Use xProfile as plugin ID
       },
-      type: 'default',
+      type: isPluginNode ? 'plugin' : 'default',
       sourcePosition: 'right',
       targetPosition: 'left',
       style: { width: calculatedWidth, height: 80 }

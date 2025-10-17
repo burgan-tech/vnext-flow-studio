@@ -1,0 +1,183 @@
+/* Plugin Palette Styles */
+
+.flow-canvas__toolbar-section + .flow-canvas__toolbar-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e1e4e8;
+}
+
+.flow-canvas__plugin-group {
+  /* Match regular state button structure */
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+/* Plugin items use the same intermediate state colors as regular intermediate states */
+/* No custom overrides needed - they inherit from state-node--intermediate in rf-theme.css */
+
+.flow-canvas__variants {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  padding: 6px;
+  background: white;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  max-height: 400px; /* Increased height for more items */
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 220px; /* Slightly wider for better readability */
+  z-index: 100;
+
+  /* Hidden by default, shown on hover */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+}
+
+/* Show variants on plugin group hover */
+.flow-canvas__plugin-group:hover .flow-canvas__variants {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Subtle scrollbar styling */
+.flow-canvas__variants::-webkit-scrollbar {
+  width: 3px;
+}
+
+.flow-canvas__variants::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.flow-canvas__variants::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+  visibility: hidden;
+}
+
+.flow-canvas__variants:hover::-webkit-scrollbar-thumb {
+  visibility: visible;
+}
+
+.flow-canvas__variants::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Style variant items as secondary palette items */
+.flow-canvas__variant-item {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 8px 10px !important;
+  margin-bottom: 4px !important;
+  background: white !important;
+  color: #475569 !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+  text-align: left !important;
+  position: relative !important;
+  min-width: 0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Subtle left accent */
+.flow-canvas__variant-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #94a3b8;
+  opacity: 0.5;
+}
+
+.flow-canvas__variant-item:hover {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  transform: translateX(2px);
+  color: #1e293b !important;
+}
+
+.flow-canvas__variant-item:active {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+.flow-canvas__variant-icon {
+  margin-right: 6px !important;
+  margin-left: 4px !important; /* Space for the accent border */
+  font-size: 12px !important;
+  color: #64748b !important;
+}
+
+.flow-canvas__variant-label {
+  flex: 1 1 auto !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: inherit !important;
+  font-weight: 500 !important;
+  min-width: 0 !important;
+  padding-right: 4px !important;
+}
+
+/* Variant more text removed - now showing all variants in scrollable list */
+
+/* Plugin nodes on canvas use same state-node styling */
+.react-flow__node.plugin-servicetask {
+  /* Will inherit from state-node--intermediate class */
+}
+
+.react-flow__node.plugin-servicetask .state-node__plugin-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  background: #2563eb;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+/* Terminal styling for plugin nodes */
+.state-node__handle.terminal-success {
+  background: #10b981;
+  border-color: #059669;
+}
+
+.state-node__handle.terminal-timeout {
+  background: #f59e0b;
+  border-color: #d97706;
+}
+
+.state-node__handle.terminal-error {
+  background: #ef4444;
+  border-color: #dc2626;
+}
+
+/* Terminal labels */
+.state-node__terminal-label {
+  position: absolute;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}

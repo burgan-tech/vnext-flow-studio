@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import {
   type Workflow,
   type State,
@@ -11,6 +11,7 @@ import {
   type TaskComponentDefinition,
   type SchemaRef,
   type SharedTransition,
+  type MsgToWebview,
 } from '@amorphie-flow-studio/core';
 import { useBridge } from '../hooks/useBridge';
 import { decodeBase64, encodeBase64 } from '../utils/base64Utils';
@@ -28,6 +29,7 @@ import {
   type ComponentReference,
   type ScriptItem
 } from './editors';
+import { ServiceTaskProperties } from './properties/ServiceTaskProperties';
 
 export type PropertySelection =
   | { kind: 'state'; stateKey: string }
@@ -246,7 +248,7 @@ function sanitizeTransition(
 }
 
 export function PropertyPanel({ workflow, selection, collapsed, availableTasks, catalogs = {} }: PropertyPanelProps) {
-  const { postMessage } = useBridge();
+  const { postMessage, onMessage } = useBridge();
 
   const panelClassName = useMemo(() => {
     return ['property-panel', collapsed ? 'property-panel--collapsed' : '']
@@ -309,23 +311,192 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
   // Schema ref states removed - no longer needed since we don't support inline schemas
   const [ruleText, setRuleText] = useState('');
   const [sharedRuleText, setSharedRuleText] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const previousSelectionRef = useRef<PropertySelection>(selection);
+
+  // Check if there are unsaved changes
+  const checkForUnsavedChanges = useCallback(() => {
+    if (stateDraft && selectedState) {
+      return JSON.stringify(stateDraft) !== JSON.stringify(selectedState);
+    }
+    if (transitionDraft && selectedTransition) {
+      return JSON.stringify(transitionDraft) !== JSON.stringify(selectedTransition.transition);
+    }
+    if (sharedTransitionDraft && selectedSharedTransition) {
+      return JSON.stringify(sharedTransitionDraft) !== JSON.stringify(selectedSharedTransition);
+    }
+    return false;
+  }, [stateDraft, selectedState, transitionDraft, selectedTransition, sharedTransitionDraft, selectedSharedTransition]);
+
+  // Store pending selection when confirmation is needed
+  const [pendingSelection, setPendingSelection] = useState<PropertySelection | null>(null);
+  // Store the data to save when confirmation is needed
+  const [pendingSaveData, setPendingSaveData] = useState<{
+    selection: PropertySelection;
+    stateDraft?: State;
+    transitionDraft?: Transition;
+    sharedTransitionDraft?: SharedTransition;
+  } | null>(null);
+
+  // Handle confirmation response from extension
+  useEffect(() => {
+    return onMessage((message: MsgToWebview) => {
+      if (message.type === 'confirm:response') {
+        console.log('🔍 Confirmation response received:', {
+          save: message.save,
+          pendingSaveData,
+          pendingSelection
+        });
+
+        if (message.save && pendingSaveData) {
+          // Save the pending changes based on selection type
+          if (pendingSaveData.selection.kind === 'state' && pendingSaveData.stateDraft) {
+            // Check if it's a Service Task state that needs special handling
+            if (pendingSaveData.stateDraft.xProfile === 'ServiceTask') {
+              // For Service Task, manually save like ServiceTaskProperties does
+              const cleanState = { ...pendingSaveData.stateDraft };
+
+              // Ensure only one onEntry task for Service Task
+              if (cleanState.onEntries && cleanState.onEntries.length > 1) {
+                cleanState.onEntries = [cleanState.onEntries[0]];
+              }
+
+              // Send update
+              postMessage({
+                type: 'domain:updateState',
+                stateKey: pendingSaveData.selection.stateKey,
+                state: cleanState
+              });
+            } else {
+              // For regular states, send the sanitized state
+              const sanitized = sanitizeState(pendingSaveData.stateDraft);
+              postMessage({
+                type: 'domain:updateState',
+                stateKey: pendingSaveData.selection.stateKey,
+                state: sanitized
+              });
+            }
+          } else if (pendingSaveData.selection.kind === 'transition' && pendingSaveData.transitionDraft && pendingSaveData.selection.from) {
+            // Save transition
+            const sanitized = sanitizeTransition(pendingSaveData.transitionDraft);
+            postMessage({
+              type: 'domain:updateTransition',
+              from: pendingSaveData.selection.from,
+              transitionKey: pendingSaveData.selection.transitionKey,
+              transition: sanitized
+            });
+          } else if (pendingSaveData.selection.kind === 'sharedTransition' && pendingSaveData.sharedTransitionDraft) {
+            // Save shared transition
+            const { availableIn, ...transitionFields } = pendingSaveData.sharedTransitionDraft;
+            const sanitized = sanitizeTransition(transitionFields as Transition);
+            const updatedSharedTransition: SharedTransition = {
+              ...sanitized,
+              availableIn
+            };
+            postMessage({
+              type: 'domain:updateSharedTransition',
+              transitionKey: pendingSaveData.selection.transitionKey,
+              sharedTransition: updatedSharedTransition
+            });
+          }
+        }
+
+        // Now proceed with the selection change
+        if (pendingSelection) {
+          previousSelectionRef.current = pendingSelection;
+          setHasUnsavedChanges(false);
+          setPendingSelection(null);
+          setPendingSaveData(null);
+        }
+      }
+    });
+  }, [onMessage, pendingSelection, pendingSaveData, postMessage]);
+
+  // Handle selection change with unsaved changes check
+  useEffect(() => {
+    console.log('🔍 Selection change effect:', {
+      selection,
+      previousSelection: previousSelectionRef.current,
+      hasUnsavedChanges,
+      stateDraft: stateDraft?.key,
+      transitionDraft: transitionDraft?.key
+    });
+
+    // Check if selection is actually changing
+    if (JSON.stringify(selection) === JSON.stringify(previousSelectionRef.current)) {
+      return;
+    }
+
+    // If this is the first selection (previousSelectionRef is null), just set it
+    if (!previousSelectionRef.current) {
+      console.log('🔍 Setting initial selection:', selection);
+      previousSelectionRef.current = selection;
+      return;
+    }
+
+    // Check for unsaved changes before switching
+    if (hasUnsavedChanges) {
+      console.log('🔍 Unsaved changes detected, showing confirmation');
+      console.log('🔍 Previous selection before confirmation:', previousSelectionRef.current);
+
+      // Store the pending selection and current drafts
+      setPendingSelection(selection);
+      setPendingSaveData({
+        selection: previousSelectionRef.current,
+        stateDraft: stateDraft || undefined,
+        transitionDraft: transitionDraft || undefined,
+        sharedTransitionDraft: sharedTransitionDraft || undefined
+      });
+
+      // Request confirmation from the extension
+      postMessage({
+        type: 'confirm:unsavedChanges',
+        message: 'You have unsaved changes. Do you want to save them before switching?'
+      });
+
+      // Don't update selection yet - wait for response
+      return;
+    }
+
+    // Update the previous selection
+    console.log('🔍 Updating previousSelectionRef to:', selection);
+    previousSelectionRef.current = selection;
+    setHasUnsavedChanges(false);
+  }, [selection, hasUnsavedChanges, postMessage, stateDraft, transitionDraft, sharedTransitionDraft]);
 
   useEffect(() => {
+    // Don't update draft if we're waiting for confirmation
+    if (pendingSelection) {
+      return;
+    }
+
     if (selectedState) {
       const clone = JSON.parse(JSON.stringify(selectedState)) as State;
       if (!Array.isArray(clone.labels)) {
         clone.labels = [];
       }
       setStateDraft(clone);
+      setHasUnsavedChanges(false);
     } else {
       setStateDraft(null);
     }
-  }, [selectedState]);
+  }, [selectedState, pendingSelection]);
+
+  // Track changes in drafts
+  useEffect(() => {
+    setHasUnsavedChanges(checkForUnsavedChanges());
+  }, [stateDraft, transitionDraft, sharedTransitionDraft, checkForUnsavedChanges]);
 
   useEffect(() => {
+    // Don't update draft if we're waiting for confirmation
+    if (pendingSelection) {
+      return;
+    }
+
     if (selectedTransition) {
       const clone = JSON.parse(JSON.stringify(selectedTransition.transition)) as Transition;
       setTransitionDraft(clone);
+      setHasUnsavedChanges(false);
 
       // Schema mode will be derived from the schema value in the editor
 
@@ -340,11 +511,17 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       setTransitionDraft(null);
       setRuleText('');
     }
-  }, [selectedTransition]);
+  }, [selectedTransition, pendingSelection]);
 
   useEffect(() => {
+    // Don't update draft if we're waiting for confirmation
+    if (pendingSelection) {
+      return;
+    }
+
     if (selectedSharedTransition) {
       const clone = JSON.parse(JSON.stringify(selectedSharedTransition)) as SharedTransition;
+      setHasUnsavedChanges(false);
       // Clean up availableIn to ensure target is not included
       clone.availableIn = clone.availableIn.filter(s => s !== clone.target);
       setSharedTransitionDraft(clone);
@@ -362,7 +539,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       setSharedTransitionDraft(null);
       setSharedRuleText('');
     }
-  }, [selectedSharedTransition]);
+  }, [selectedSharedTransition, pendingSelection]);
 
   const handleStateSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     console.log('🔍 handleStateSubmit called!');
@@ -452,6 +629,9 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       stateKey: selection.stateKey,
       state: sanitized
     });
+
+    // Mark changes as saved
+    setHasUnsavedChanges(false);
   };
 
   const handleTransitionSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -541,6 +721,9 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       transition: sanitized
     });
     console.log('✅ postMessage sent successfully');
+
+    // Mark changes as saved
+    setHasUnsavedChanges(false);
   };
 
   const handleSharedTransitionSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -578,6 +761,9 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
       transitionKey: selection.transitionKey, // Use original key from selection
       sharedTransition: updatedSharedTransition
     });
+
+    // Mark changes as saved
+    setHasUnsavedChanges(false);
   };
 
   const stateLabels = stateDraft?.labels ?? [];
@@ -619,6 +805,17 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
         ) : null}
 
         {selection?.kind === 'state' && stateDraft ? (
+          // Use specialized component for Service Task states
+          stateDraft.xProfile === 'ServiceTask' ? (
+            <ServiceTaskProperties
+              state={stateDraft}
+              stateKey={selection.stateKey}
+              taskCatalog={availableTasks}
+              hasUnsavedChanges={hasUnsavedChanges}
+              onSave={() => setHasUnsavedChanges(false)}
+              onChange={(updatedState) => setStateDraft(updatedState)}
+            />
+          ) : (
           <form className="property-panel__section" onSubmit={handleStateSubmit}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
               <h3 className="property-panel__section-title">{stateDraft.key}</h3>
@@ -914,9 +1111,10 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               className="property-panel__save"
               onClick={() => console.log('🔍 Save state button clicked!')}
             >
-              Save state
+              {hasUnsavedChanges ? '● Save state' : 'Save state'}
             </button>
           </form>
+          )
         ) : null}
 
         {selection?.kind === 'transition' && transitionDraft ? (
@@ -1165,7 +1363,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               disabled={transitionHasErrors}
               onClick={() => console.log('🔍 Save transition button clicked!')}
             >
-              Save transition
+              {hasUnsavedChanges ? '● Save transition' : 'Save transition'}
             </button>
           </form>
         ) : null}
@@ -1459,7 +1657,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
             </p>
 
             <button type="submit" className="property-panel__submit">
-              Save shared transition
+              {hasUnsavedChanges ? '● Save shared transition' : 'Save shared transition'}
             </button>
           </form>
         ) : null}

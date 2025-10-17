@@ -22,6 +22,7 @@ import {
   OnSelectionChangeParams
 } from '@xyflow/react';
 import { StateNode } from './nodes/StateNode';
+import { PluggableStateNode } from './nodes/PluggableStateNode';
 import { PropertyPanel, type PropertySelection } from './PropertyPanel';
 import { TriggerTypeLegend } from './TriggerTypeLegend';
 import { useBridge } from '../hooks/useBridge';
@@ -33,12 +34,16 @@ import type {
   State,
   StateType,
   StateSubType,
-  TaskComponentDefinition
+  TaskComponentDefinition,
+  DesignHints,
+  StatePlugin,
+  StateVariant
 } from '@amorphie-flow-studio/core';
 
 const nodeTypes = {
   default: StateNode,
-  event: StateNode
+  event: StateNode,
+  plugin: PluggableStateNode
 };
 
 const edgeTypes = {
@@ -94,6 +99,9 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string; edgeId?: string } | null>(null);
   const [taskCatalog, setTaskCatalog] = useState<TaskComponentDefinition[]>([]);
   const [catalogs, setCatalogs] = useState<Record<string, any[]>>({});
+  const [plugins, setPlugins] = useState<StatePlugin[]>([]);
+  const [pluginVariants, setPluginVariants] = useState<Map<string, StateVariant[]>>(new Map());
+  const [designHints, setDesignHints] = useState<Map<string, DesignHints>>(new Map());
   const pendingMeasuredAutoLayout = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -168,6 +176,23 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           setTaskCatalog(message.tasks);
           if (message.catalogs) {
             setCatalogs(message.catalogs);
+          }
+          if (message.plugins) {
+            setPlugins(message.plugins);
+          }
+          if (message.pluginVariants) {
+            const variantsMap = new Map<string, StateVariant[]>();
+            Object.entries(message.pluginVariants).forEach(([pluginId, variants]) => {
+              variantsMap.set(pluginId, variants);
+            });
+            setPluginVariants(variantsMap);
+          }
+          if (message.designHints) {
+            const hintsMap = new Map<string, DesignHints>();
+            Object.entries(message.designHints).forEach(([stateKey, hints]) => {
+              hintsMap.set(stateKey, hints as DesignHints);
+            });
+            setDesignHints(hintsMap);
           }
           // If the diagram was generated on the host (no saved diagram),
           // trigger a measured-size auto layout once the canvas mounts.
@@ -547,6 +572,125 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     });
   }, [postMessage, workflow]);
 
+  const handleAddPluginState = useCallback((
+    plugin: any,
+    variant?: StateVariant,
+    positionOverride?: XYPosition
+  ) => {
+    if (!workflow) {
+      return;
+    }
+
+    const existingKeys = new Set(workflow.attributes.states.map((state) => state.key));
+
+    // Find the next available number for this prefix
+    let suffix = 1;
+    let stateKey = plugin.keyPrefix;
+
+    if (existingKeys.has(stateKey)) {
+      while (existingKeys.has(`${plugin.keyPrefix}-${suffix}`)) {
+        suffix += 1;
+      }
+      stateKey = `${plugin.keyPrefix}-${suffix}`;
+    } else {
+      suffix = 0;
+    }
+
+    const labelSuffix = suffix > 0 ? ` ${suffix}` : '';
+    const defaultLanguage =
+      workflow.attributes.states.find((state) => state.labels && state.labels.length > 0)?.labels?.[0]?.language ||
+      workflow.attributes.labels?.[0]?.language ||
+      'en';
+
+    const stateLabel = variant ? variant.label : `${plugin.defaultLabel}${labelSuffix}`.trim();
+
+    // Create state based on variant or plugin
+    let newState: State;
+    if (variant?.stateTemplate) {
+      // Use variant template (should already have xProfile set)
+      newState = { ...variant.stateTemplate };
+    } else {
+      // Create state for plugin - hardcode ServiceTask specific logic
+      if (plugin.id === 'ServiceTask') {
+        newState = {
+          key: stateKey,
+          stateType: 2, // Intermediate
+          xProfile: 'ServiceTask', // Mark as ServiceTask
+          versionStrategy: 'Minor',
+          labels: [
+            {
+              label: stateLabel,
+              language: defaultLanguage
+            }
+          ],
+          onEntries: [
+            {
+              order: 1,
+              task: { ref: '' }, // To be configured
+              mapping: {
+                location: 'inline',
+                code: '// Configure task input mapping'
+              }
+            }
+          ],
+          transitions: []
+        };
+      } else {
+        // Fallback for other plugins
+        newState = {
+          key: stateKey,
+          stateType: plugin.stateType || 2,
+          xProfile: plugin.id, // Set xProfile to plugin ID
+          versionStrategy: 'Minor',
+          labels: [
+            {
+              label: stateLabel,
+              language: defaultLanguage
+            }
+          ],
+          transitions: []
+        };
+      }
+    }
+
+    // Override key to ensure uniqueness and update labels
+    newState.key = stateKey;
+    if (newState.labels && newState.labels.length > 0) {
+      newState.labels[0].label = stateLabel;
+      newState.labels[0].language = defaultLanguage;
+    }
+
+    // Create design hints for this plugin state
+    const hints: DesignHints = {
+      kind: plugin.id,
+      terminals: plugin.terminals.map((t: any) => ({
+        id: t.id,
+        role: t.id,
+        visible: t.required || false
+      })),
+      terminalBindings: {},
+      variantId: variant?.id
+    };
+
+    const stateIndex = workflow.attributes.states.length;
+    const column = stateIndex % 4;
+    const row = Math.floor(stateIndex / 4);
+    const fallbackPosition: XYPosition = {
+      x: 200 + column * 220,
+      y: 120 + row * 160
+    };
+    const position = positionOverride ?? fallbackPosition;
+
+    // Send to extension with plugin info
+    postMessage({
+      type: 'domain:addState',
+      state: newState,
+      position,
+      pluginId: plugin.id,
+      hints
+    });
+  }, [postMessage, workflow]);
+
   const handleDragStart = useCallback((event: React.DragEvent, template: StateTemplate) => {
     event.dataTransfer.setData(
       'application/reactflow',
@@ -577,9 +721,29 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     }
 
     try {
-      const payload = JSON.parse(raw) as { type: StateType; stateSubType: StateSubType | null };
+      const payload = JSON.parse(raw) as any;
       console.log('🔍 Parsed payload:', payload);
 
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY
+      });
+
+      // Check if it's a plugin drop
+      if (payload.type === 'plugin') {
+        const plugin = plugins.find(p => p.id === payload.pluginId);
+        if (plugin) {
+          let variant = undefined;
+          if (payload.variantId) {
+            const variants = pluginVariants.get(plugin.id);
+            variant = variants?.find((v: any) => v.id === payload.variantId);
+          }
+          handleAddPluginState(plugin, variant, position);
+        }
+        return;
+      }
+
+      // Handle regular state template drop
       const template = stateTemplates.find((candidate) =>
         candidate.type === payload.type && (candidate.stateSubType ?? null) === payload.stateSubType
       );
@@ -590,18 +754,12 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
       }
 
       console.log('✅ Template found:', template.label);
-
-      const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY
-      });
-
       console.log('✅ Position calculated:', position);
       handleAddState(template, position);
     } catch (error) {
       console.warn('Failed to parse drag payload', error);
     }
-  }, [handleAddState, reactFlowInstance, stateTemplates]);
+  }, [handleAddState, handleAddPluginState, reactFlowInstance, stateTemplates, plugins, pluginVariants]);
 
   const handlePaneContextMenu = useCallback((event: MouseEvent | React.MouseEvent) => {
     event.preventDefault();
@@ -792,6 +950,104 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
                       </span>
                     </button>
                   );
+                })}
+
+                {/* Plugin States (added directly after regular states) */}
+                {plugins.map((plugin) => {
+                    // Get the appropriate state class based on the plugin's state type
+                    const pluginStateClass = getToolbarStateClass(plugin.stateType || 2); // Default to intermediate
+                    const hasVariants = pluginVariants.get(plugin.id) && pluginVariants.get(plugin.id)!.length > 0;
+
+                    // If has variants, wrap in group div, otherwise render button directly like regular states
+                    if (hasVariants) {
+                      return (
+                        <div key={plugin.id} className="flow-canvas__plugin-group">
+                          <button
+                            type="button"
+                            className="flow-canvas__palette-item"
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData(
+                                'application/reactflow',
+                                JSON.stringify({
+                                  type: 'plugin',
+                                  pluginId: plugin.id
+                                })
+                              );
+                              e.dataTransfer.effectAllowed = 'copy';
+                            }}
+                            onClick={() => handleAddPluginState(plugin)}
+                            title={plugin.description}
+                          >
+                            <span className={`flow-canvas__palette-preview ${pluginStateClass}`}>
+                              <span className="flow-canvas__palette-icon-column">
+                                <span className="flow-canvas__palette-type-icon">{plugin.icon || '⚙'}</span>
+                              </span>
+                              <span className="flow-canvas__palette-content">
+                                {plugin.label}
+                              </span>
+                            </span>
+                          </button>
+                          <div className="flow-canvas__variants">
+                            {pluginVariants.get(plugin.id)!.map((variant: any) => (
+                              <button
+                                key={variant.id}
+                                type="button"
+                                className="flow-canvas__variant-item"
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData(
+                                    'application/reactflow',
+                                    JSON.stringify({
+                                      type: 'plugin',
+                                      pluginId: plugin.id,
+                                      variantId: variant.id
+                                    })
+                                  );
+                                  e.dataTransfer.effectAllowed = 'copy';
+                                }}
+                                onClick={() => handleAddPluginState(plugin, variant)}
+                                title={variant.description}
+                              >
+                                <span className="flow-canvas__variant-icon">{'⚙'}</span>
+                                <span className="flow-canvas__variant-label">{variant.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      // Render button directly without wrapper, just like regular states
+                      return (
+                        <button
+                          key={plugin.id}
+                          type="button"
+                          className="flow-canvas__palette-item"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData(
+                              'application/reactflow',
+                              JSON.stringify({
+                                type: 'plugin',
+                                pluginId: plugin.id
+                              })
+                            );
+                            e.dataTransfer.effectAllowed = 'copy';
+                          }}
+                          onClick={() => handleAddPluginState(plugin)}
+                          title={plugin.description}
+                        >
+                          <span className={`flow-canvas__palette-preview ${pluginStateClass}`}>
+                            <span className="flow-canvas__palette-icon-column">
+                              <span className="flow-canvas__palette-type-icon">{plugin.icon || '⚙'}</span>
+                            </span>
+                            <span className="flow-canvas__palette-content">
+                              {plugin.label}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    }
                 })}
               </div>
             </div>
