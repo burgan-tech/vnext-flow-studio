@@ -19,6 +19,7 @@ import {
   type SharedTransition,
   type ExecutionTask,
   type TaskDefinition,
+  type TaskComponentDefinition,
   type MsgFromWebview,
   type MsgToWebview,
   type ValidationResult,
@@ -997,6 +998,13 @@ export class ModelBridge {
     }
 
     // Handle explicit reference - search in catalog
+    // At this point, we know subflowRef is not a ref-style, so it must have key, domain, flow, version
+    if (!('key' in subflowRef)) {
+      console.error('[ModelBridge] Invalid subflow reference - neither ref nor explicit format');
+      vscode.window.showWarningMessage('Invalid subflow reference format');
+      return;
+    }
+
     console.log('[ModelBridge] Searching catalog for subflow. Catalog size:', workflowCatalog.length);
     console.log('[ModelBridge] Search criteria - key:', subflowRef.key, 'domain:', subflowRef.domain, 'flow:', subflowRef.flow, 'version:', subflowRef.version);
 
@@ -1310,14 +1318,15 @@ export class ModelBridge {
   /**
    * Get tasks from model
    */
-  private getTasksFromModel(model: WorkflowModel): TaskDefinition[] {
+  private getTasksFromModel(model: WorkflowModel): TaskComponentDefinition[] {
     const state = model.getModelState();
     const tasks = Array.from(state.components.tasks.values());
     console.log('[ModelBridge] getTasksFromModel:', tasks.length, 'tasks found');
     if (tasks.length > 0) {
       console.log('[ModelBridge] First task sample:', tasks[0]);
     }
-    return tasks;
+    // Cast to TaskComponentDefinition[] as they should already have the attributes property
+    return tasks as TaskComponentDefinition[];
   }
 
   /**
