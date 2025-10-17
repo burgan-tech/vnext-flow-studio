@@ -65,6 +65,47 @@ jobs:
         run: npx tsc --noEmit --project packages/core/tsconfig.json
 
       # Version bump - only on push to main
+      - name: Determine version bump type
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: bump_type
+        run: |
+          # Get the commit message
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MSG"
+
+          # Determine version bump type based on commit message
+          # - Contains [major] or BREAKING CHANGE: -> major version
+          # - Contains [minor] or feat: -> minor version
+          # - Contains [beta] -> beta prerelease
+          # - Contains [alpha] -> alpha prerelease
+          # - Contains [rc] -> rc prerelease
+          # - Default -> patch version
+
+          if echo "$COMMIT_MSG" | grep -qiE '\[major\]|BREAKING CHANGE:'; then
+            BUMP_TYPE="major"
+            PRERELEASE=""
+          elif echo "$COMMIT_MSG" | grep -qiE '\[minor\]|^feat:'; then
+            BUMP_TYPE="minor"
+            PRERELEASE=""
+          elif echo "$COMMIT_MSG" | grep -qiE '\[beta\]'; then
+            BUMP_TYPE="prerelease"
+            PRERELEASE="beta"
+          elif echo "$COMMIT_MSG" | grep -qiE '\[alpha\]'; then
+            BUMP_TYPE="prerelease"
+            PRERELEASE="alpha"
+          elif echo "$COMMIT_MSG" | grep -qiE '\[rc\]'; then
+            BUMP_TYPE="prerelease"
+            PRERELEASE="rc"
+          else
+            BUMP_TYPE="patch"
+            PRERELEASE=""
+          fi
+
+          echo "Version bump type: $BUMP_TYPE"
+          echo "Prerelease type: $PRERELEASE"
+          echo "bump_type=$BUMP_TYPE" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+
       - name: Bump version
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: version
@@ -73,16 +114,24 @@ jobs:
           CURRENT_VERSION=$(node -p "require('./packages/extension/package.json').version")
           echo "Current version: $CURRENT_VERSION"
 
-          # Bump patch version using npm version (updates all workspace packages)
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          PRERELEASE="${{ steps.bump_type.outputs.prerelease }}"
+
+          # Bump version based on type
           cd packages/extension
-          npm version patch --no-git-tag-version
+          if [ "$BUMP_TYPE" = "prerelease" ]; then
+            # For prerelease versions
+            npm version prerelease --preid="$PRERELEASE" --no-git-tag-version
+          else
+            # For regular versions (major, minor, patch)
+            npm version "$BUMP_TYPE" --no-git-tag-version
+          fi
           cd ../..
 
-          # Also bump root package.json
-          npm version patch --no-git-tag-version
-
-          # Get new version
+          # Also bump root package.json to match
           NEW_VERSION=$(node -p "require('./packages/extension/package.json').version")
+          npm version "$NEW_VERSION" --no-git-tag-version --allow-same-version
+
           echo "New version: $NEW_VERSION"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "previous=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
@@ -129,12 +178,36 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="v${VERSION}"
-          NAME="${VERSION}"
-          BODY="Automatic release for version ${VERSION} from commit ${GITHUB_SHA}"
+
+          # Check if this is a prerelease
+          if echo "$VERSION" | grep -qE 'alpha|beta|rc'; then
+            PRERELEASE="true"
+            RELEASE_TYPE=$(echo "$VERSION" | grep -oE 'alpha|beta|rc')
+            NAME="${VERSION} (${RELEASE_TYPE} release)"
+          else
+            PRERELEASE="false"
+            NAME="${VERSION}"
+          fi
+
+          # Generate body with version bump info
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          BODY="## Version ${VERSION}
+
+          - Previous version: ${{ steps.version.outputs.previous }}
+          - Bump type: ${BUMP_TYPE}
+          - Commit: ${GITHUB_SHA}
+
+          ### Installation
+          Download the VSIX file below and install it in VS Code using:
+          \`\`\`
+          code --install-extension amorphie-flow-studio-${VERSION}.vsix
+          \`\`\`"
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "body=$BODY" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -144,5 +217,6 @@ jobs:
           name: Release ${{ steps.meta.outputs.name }}
           body: ${{ steps.meta.outputs.body }}
           files: ${{ steps.vsix.outputs.file }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
