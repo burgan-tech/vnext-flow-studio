@@ -1334,7 +1334,7 @@ export class ModelBridge {
   /**
    * Update webview for a model
    */
-  private async updateWebviewForModel(model: WorkflowModel, panel?: vscode.WebviewPanel): Promise<void> {
+  async updateWebviewForModel(model: WorkflowModel, panel?: vscode.WebviewPanel): Promise<void> {
     if (!panel) {
       panel = this.getPanelForModel(model);
     }

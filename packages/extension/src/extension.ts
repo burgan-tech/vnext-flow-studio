@@ -159,19 +159,37 @@ async function openFlowEditor(
 
         // Handle external changes to the workflow or diagram
         if (changedKey === flowUriKey || changedUri.path === diagramUri.path) {
-          // The model will detect and handle external changes
-          await model.load({
-            resolveReferences: true,
-            loadScripts: true,
-            validate: true
-          });
+          // Check if this is an external change by comparing file content with model
+          const fileContent = await vscode.workspace.fs.readFile(changedUri);
+          const fileText = new TextDecoder().decode(fileContent);
 
-          // Update the webview
-          await modelBridge.handleWebviewMessage(
-            { type: 'request:lint' },
-            model,
-            panel
-          );
+          let modelContent: string;
+          if (changedKey === flowUriKey) {
+            // Compare workflow content
+            const workflow = model.getWorkflow();
+            modelContent = JSON.stringify(workflow, null, 2);
+          } else {
+            // Compare diagram content
+            const diagram = model.getDiagram();
+            modelContent = diagram ? JSON.stringify(diagram, null, 2) : '';
+          }
+
+          // Only reload if content actually differs (external change)
+          if (fileText.trim() !== modelContent.trim()) {
+            console.log('External file change detected, reloading model:', changedUri.path);
+
+            // Reload the model
+            await model.load({
+              resolveReferences: true,
+              loadScripts: true,
+              validate: true
+            });
+
+            // Properly update the webview with the new model data
+            await modelBridge.updateWebviewForModel(model, panel);
+          } else {
+            console.log('File change from internal save, ignoring:', changedUri.path);
+          }
         }
       } catch (error) {
         console.warn('File change handling error:', error);
