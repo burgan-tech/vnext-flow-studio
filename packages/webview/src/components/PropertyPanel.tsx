@@ -348,9 +348,11 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
           pendingSelection
         });
 
-        if (message.save && pendingSaveData) {
+        if (message.save && pendingSaveData && pendingSaveData.selection) {
+          const selection = pendingSaveData.selection;
+
           // Save the pending changes based on selection type
-          if (pendingSaveData.selection.kind === 'state' && pendingSaveData.stateDraft) {
+          if (selection.kind === 'state' && pendingSaveData.stateDraft) {
             // Check if it's a Service Task state that needs special handling
             if (pendingSaveData.stateDraft.xProfile === 'ServiceTask') {
               // For Service Task, manually save like ServiceTaskProperties does
@@ -364,7 +366,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               // Send update
               postMessage({
                 type: 'domain:updateState',
-                stateKey: pendingSaveData.selection.stateKey,
+                stateKey: selection.stateKey,
                 state: cleanState
               });
             } else {
@@ -372,20 +374,20 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               const sanitized = sanitizeState(pendingSaveData.stateDraft);
               postMessage({
                 type: 'domain:updateState',
-                stateKey: pendingSaveData.selection.stateKey,
+                stateKey: selection.stateKey,
                 state: sanitized
               });
             }
-          } else if (pendingSaveData.selection.kind === 'transition' && pendingSaveData.transitionDraft && pendingSaveData.selection.from) {
+          } else if (selection.kind === 'transition' && pendingSaveData.transitionDraft) {
             // Save transition
             const sanitized = sanitizeTransition(pendingSaveData.transitionDraft);
             postMessage({
               type: 'domain:updateTransition',
-              from: pendingSaveData.selection.from,
-              transitionKey: pendingSaveData.selection.transitionKey,
+              from: selection.from,
+              transitionKey: selection.transitionKey,
               transition: sanitized
             });
-          } else if (pendingSaveData.selection.kind === 'sharedTransition' && pendingSaveData.sharedTransitionDraft) {
+          } else if (selection.kind === 'sharedTransition' && pendingSaveData.sharedTransitionDraft) {
             // Save shared transition
             const { availableIn, ...transitionFields } = pendingSaveData.sharedTransitionDraft;
             const sanitized = sanitizeTransition(transitionFields as Transition);
@@ -395,7 +397,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
             };
             postMessage({
               type: 'domain:updateSharedTransition',
-              transitionKey: pendingSaveData.selection.transitionKey,
+              transitionKey: selection.transitionKey,
               sharedTransition: updatedSharedTransition
             });
           }

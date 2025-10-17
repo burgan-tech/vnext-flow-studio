@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
-import type { State, StateType } from '@amorphie-flow-studio/core';
-import type { DesignHints, TerminalConfig } from '@amorphie-flow-studio/core/plugins/types';
+import type { State, StateType, DesignHints, TerminalConfig } from '@amorphie-flow-studio/core';
 import { useBridge } from '../../hooks/useBridge';
 
 interface PluggableStateNodeProps {

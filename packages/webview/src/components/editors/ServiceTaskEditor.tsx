@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import type { State, TaskRef } from '@amorphie-flow-studio/core';
-import type { DesignHints } from '@amorphie-flow-studio/core/plugins/types';
+import type { State, TaskRef, DesignHints, TerminalConfig } from '@amorphie-flow-studio/core';
 import { ReferenceSelector } from './ReferenceSelector';
-import { MappingEditor } from './MappingEditor';
+// import { MappingEditor } from './MappingEditor'; // TODO: MappingEditor component not implemented yet
 
 interface ServiceTaskEditorProps {
   state: State;
@@ -374,6 +373,7 @@ export function ServiceTaskEditor({ state, hints, onChange, registries }: Servic
                 {state.onEntries.slice(1).map((entry, index) => (
                   <div key={index + 1} className="mapping-entry">
                     <h5>Task #{entry.order} Mapping</h5>
+                    {/* TODO: Re-enable when MappingEditor is implemented
                     <MappingEditor
                       mapping={entry.mapping || { location: 'inline', code: '' }}
                       onChange={(mapping) => {
@@ -387,7 +387,10 @@ export function ServiceTaskEditor({ state, hints, onChange, registries }: Servic
                         availableVariables: ['context', 'input', 'state', `task${index + 1}Result`],
                         taskSchema: {}
                       }}
-                    />
+                    /> */}
+                    <div style={{ padding: '10px', background: '#f0f0f0', borderRadius: '4px' }}>
+                      MappingEditor component not yet implemented
+                    </div>
                   </div>
                 ))}
               </div>
