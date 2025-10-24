@@ -1,4 +1,8 @@
-# Amorphie Flow Studio v1.0.1 - Release Notes
+# Amorphie Flow Studio v1.1.0-alpha.0 - Release Notes
+
+## ⚠️ Alpha Release
+
+**This is an alpha release.** The Amorphie Mapper feature is functionally complete but may contain bugs or rough edges. We're releasing it early to gather feedback from the community. Please report any issues you encounter!
 
 ## 🎉 Introducing Amorphie Mapper
 
@@ -120,6 +124,6 @@ We'd love to hear your thoughts! Please report issues or suggestions at:
 
 **Full Changelog**: [CHANGELOG.md](./CHANGELOG.md)
 
-**Version**: 1.0.1
-**Release Date**: January 24, 2025
+**Version**: 1.1.0-alpha.0 (Alpha Release)
+**Release Date**: October 24, 2025
 **VS Code Compatibility**: 1.92.0 and above

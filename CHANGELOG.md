@@ -5,7 +5,11 @@ All notable changes to the Amorphie Flow Studio extension will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.1] - 2025-01-24
+## [1.1.0-alpha.0] - 2025-10-24
+
+### ⚠️ Alpha Release
+
+This is an alpha release of the Amorphie Mapper feature. The implementation is complete but may contain bugs. We welcome feedback and testing from early adopters.
 
 ### Added
 
