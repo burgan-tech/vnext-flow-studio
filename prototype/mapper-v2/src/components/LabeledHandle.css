@@ -1,0 +1,73 @@
+.labeled-handle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  width: 100%;
+}
+
+.labeled-handle-source {
+  justify-content: flex-end;
+  flex-direction: row;
+}
+
+.labeled-handle-target {
+  justify-content: flex-start;
+  flex-direction: row-reverse;
+}
+
+.labeled-handle-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  user-select: none;
+  font-family: 'Courier New', monospace;
+}
+
+.labeled-handle-source .labeled-handle-label {
+  text-align: right;
+}
+
+.labeled-handle-target .labeled-handle-label {
+  text-align: left;
+}
+
+.labeled-handle-connector {
+  width: 12px;
+  height: 12px;
+  background: white;
+  border: 3px solid #3b82f6;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.labeled-handle-target .labeled-handle-connector {
+  border-color: #10b981;
+}
+
+.labeled-handle-connector:hover {
+  width: 16px;
+  height: 16px;
+  background: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+  cursor: crosshair;
+}
+
+.labeled-handle-target .labeled-handle-connector:hover {
+  background: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+}
+
+.labeled-handle:hover .labeled-handle-label {
+  color: #3b82f6;
+  font-weight: 700;
+}
+
+.labeled-handle-target:hover .labeled-handle-label {
+  color: #10b981;
+}

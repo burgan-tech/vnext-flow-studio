@@ -1,0 +1,120 @@
+.custom-node {
+  border-radius: 8px;
+  border: 2px solid;
+  background: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  min-width: 120px;
+  font-family: system-ui, -apple-system, sans-serif;
+  transition: all 0.2s;
+}
+
+.custom-node:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+}
+
+.custom-node.selected {
+  border-width: 3px;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+.node-header {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.node-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.node-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  text-align: center;
+}
+
+.node-type {
+  font-size: 10px;
+  color: #6b7280;
+  font-family: 'Courier New', monospace;
+}
+
+.node-icon {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+/* Source Field Node */
+.source-field-node {
+  border-color: #3b82f6;
+}
+
+.source-field-node .node-header {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+/* Target Field Node */
+.target-field-node {
+  border-color: #10b981;
+}
+
+.target-field-node .node-header {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* Functoid Nodes */
+.functoid-node {
+  min-width: 80px;
+  min-height: 60px;
+}
+
+.functoid-math {
+  border-color: #10b981;
+}
+
+.functoid-math .node-header {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.functoid-string {
+  border-color: #3b82f6;
+}
+
+.functoid-logic {
+  border-color: #8b5cf6;
+}
+
+/* Custom Handle */
+.custom-handle {
+  width: 12px;
+  height: 12px;
+  background: white;
+  border: 2px solid #6b7280;
+  transition: all 0.2s;
+}
+
+.custom-handle:hover {
+  width: 16px;
+  height: 16px;
+  border-color: #3b82f6;
+  background: #3b82f6;
+}
+
+.custom-handle.connecting {
+  background: #3b82f6;
+  border-color: #1e40af;
+}

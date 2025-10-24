@@ -1,0 +1,128 @@
+.functoid-node {
+  background: white;
+  border: 3px solid;
+  border-radius: 10px;
+  min-width: 90px;
+  min-height: 70px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.functoid-node:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
+}
+
+.functoid-node.selected {
+  border-width: 4px;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+}
+
+.functoid-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+}
+
+.functoid-icon {
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.functoid-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Categories - Math (Amber) */
+.functoid-math {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+/* String (Blue) */
+.functoid-string {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+}
+
+/* Logical (Purple) */
+.functoid-logical {
+  border-color: #8b5cf6;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  color: #5b21b6;
+}
+
+/* Conditional (Indigo) */
+.functoid-conditional {
+  border-color: #6366f1;
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #3730a3;
+}
+
+/* Collection (Green) */
+.functoid-collection {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+}
+
+/* Aggregate (Teal) */
+.functoid-aggregate {
+  border-color: #14b8a6;
+  background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%);
+  color: #134e4a;
+}
+
+/* Conversion (Orange) */
+.functoid-conversion {
+  border-color: #f97316;
+  background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
+  color: #7c2d12;
+}
+
+/* DateTime (Pink) */
+.functoid-datetime {
+  border-color: #ec4899;
+  background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+  color: #831843;
+}
+
+/* Custom (Gray) */
+.functoid-custom {
+  border-color: #6b7280;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  color: #1f2937;
+}
+
+.functoid-handle {
+  width: 14px;
+  height: 14px;
+  background: white;
+  border: 3px solid #6b7280;
+  transition: all 0.2s;
+}
+
+.functoid-handle:hover {
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border-color: #1e40af;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+}
+
+.functoid-handle.connecting {
+  background: #3b82f6;
+  border-color: #1e40af;
+}

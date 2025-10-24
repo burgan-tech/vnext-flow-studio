@@ -26,7 +26,9 @@
   ],
   "activationEvents": [
     "onLanguage:json",
-    "onCommand:flowEditor.open"
+    "onCommand:flowEditor.open",
+    "onCommand:flowEditor.createMapper",
+    "onCommand:mapperEditor.open"
   ],
   "main": "./dist/extension.js",
   "files": [
@@ -49,6 +51,14 @@
       {
         "command": "flowEditor.freezeVersions",
         "title": "Freeze Versions (Lock)"
+      },
+      {
+        "command": "flowEditor.createMapper",
+        "title": "New Amorphie Mapper"
+      },
+      {
+        "command": "mapperEditor.open",
+        "title": "Open in Amorphie Mapper"
       }
     ],
     "menus": {
@@ -59,9 +69,19 @@
           "group": "navigation"
         },
         {
+          "when": "resourceFilename =~ /\\.mapper\\.json$/",
+          "command": "mapperEditor.open",
+          "group": "navigation"
+        },
+        {
           "when": "explorerResourceIsFolder",
           "command": "flowEditor.createWorkflow",
           "group": "2_workspace@1"
+        },
+        {
+          "when": "explorerResourceIsFolder",
+          "command": "flowEditor.createMapper",
+          "group": "2_workspace@2"
         }
       ],
       "editor/title": [
@@ -69,11 +89,20 @@
           "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceFilename =~ /-subflow\\.json$/ || resourceFilename =~ /-workflow\\.json$/ || resourceDirname =~ /(^|\\\\|\\/)workflows(\\\\|\\/|$)/ || resourceDirname =~ /(^|\\\\|\\/)Workflows(\\\\|\\/|$)/)",
           "command": "flowEditor.open",
           "group": "navigation"
+        },
+        {
+          "when": "resourceFilename =~ /\\.mapper\\.json$/",
+          "command": "mapperEditor.open",
+          "group": "navigation"
         }
       ],
       "commandPalette": [
         {
           "command": "flowEditor.createWorkflow",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "flowEditor.createMapper",
           "when": "workspaceFolderCount > 0"
         }
       ]
@@ -100,6 +129,16 @@
           }
         ],
         "priority": "option"
+      },
+      {
+        "viewType": "mapperEditor.canvas",
+        "displayName": "Amorphie Mapper",
+        "selector": [
+          {
+            "filenamePattern": "*.mapper.json"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "jsonValidation": [

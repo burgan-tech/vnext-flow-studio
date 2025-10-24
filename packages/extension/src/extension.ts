@@ -3,6 +3,7 @@ import { ModelBridge } from './ModelBridge';
 import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics';
 import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';
+import { registerMapperEditor } from './mapper/MapperEditorProvider';
 import {
   FLOW_AND_DIAGRAM_GLOBS,
   FLOW_FILE_GLOBS,
@@ -64,9 +65,13 @@ async function openFlowEditor(
       const indexHtmlContent = await vscode.workspace.fs.readFile(indexHtmlUri);
       let html = new TextDecoder().decode(indexHtmlContent);
 
-      // Fix asset paths for webview
+      // Fix asset paths for webview (handle both absolute /path and relative ./path)
       const webviewUri = panel.webview.asWebviewUri(webviewDistPath);
-      html = html.replace(/(src|href)="\//g, (_, attr) => `${attr}="${webviewUri}/`);
+      html = html.replace(/(src|href)="(\.?\/[^"]+)"/g, (_match, attr, path) => {
+        // Remove leading ./ or / from path
+        const cleanPath = path.replace(/^\.?\//, '');
+        return `${attr}="${webviewUri}/${cleanPath}"`;
+      });
 
       panel.webview.html = html;
     } catch (error) {
@@ -436,6 +441,9 @@ export function activate(context: vscode.ExtensionContext) {
   // Register other commands
   registerCommands(context);
   registerQuickFixCommands(context);
+
+  // Register mapper editor
+  registerMapperEditor(context);
 
   // Clean up on deactivation
   context.subscriptions.push({

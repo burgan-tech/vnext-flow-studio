@@ -1,0 +1,170 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.mapper-canvas-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  background: #fafafa;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Main Canvas Area (toolbar + flow + instructions) */
+.mapper-main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Toolbar */
+.mapper-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+
+.toolbar-button {
+  padding: 8px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.toolbar-button:hover {
+  background: #2563eb;
+}
+
+.toolbar-button:active {
+  transform: scale(0.98);
+}
+
+.toolbar-button-secondary {
+  background: #10b981;
+}
+
+.toolbar-button-secondary:hover {
+  background: #059669;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #e5e7eb;
+  margin: 0 8px;
+}
+
+.toolbar-info {
+  margin-left: auto;
+  font-size: 12px;
+  color: #6b7280;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+}
+
+/* React Flow Canvas */
+.mapper-flow {
+  flex: 1;
+  background: #f9fafb;
+  position: relative;
+}
+
+.react-flow {
+  background: #f9fafb;
+}
+
+.react-flow__edge-path {
+  stroke-width: 3;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  /* Removed dashed animation - keep solid */
+  stroke-width: 3;
+}
+
+/* Instructions */
+.mapper-instructions {
+  padding: 14px 20px;
+  background: white;
+  border-top: 2px solid #3b82f6;
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+
+.instructions-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.instructions-content strong {
+  color: #1e40af;
+  font-size: 14px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.instructions-content ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+}
+
+.instructions-content li {
+  font-size: 12px;
+  color: #1f2937;
+  background: #dbeafe;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #93c5fd;
+  white-space: nowrap;
+}
+
+/* Force light mode - override VS Code dark theme */
+body.vscode-dark .mapper-canvas-container,
+body.vscode-dark .mapper-flow,
+body.vscode-dark .react-flow {
+  background: #f9fafb !important;
+}
+
+body.vscode-dark .mapper-toolbar {
+  background: white !important;
+  border-color: #e5e7eb !important;
+}
+
+body.vscode-dark .toolbar-button {
+  background: #3b82f6 !important;
+}
+
+body.vscode-dark .toolbar-button:hover {
+  background: #2563eb !important;
+}
+
+body.vscode-dark .toolbar-button-secondary {
+  background: #10b981 !important;
+}
+
+body.vscode-dark .toolbar-button-secondary:hover {
+  background: #059669 !important;
+}
+
+body.vscode-dark .toolbar-info {
+  color: #6b7280 !important;
+}

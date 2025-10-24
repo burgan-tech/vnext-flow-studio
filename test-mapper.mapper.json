@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "Test Mapper",
+    "description": "A test mapper for integration testing",
+    "version": "1.0.0",
+    "source": "Customer Data",
+    "target": "Invoice System",
+    "createdAt": "2025-10-22T00:00:00.000Z",
+    "updatedAt": "2025-10-22T00:00:00.000Z"
+  },
+  "schemas": {
+    "source": "",
+    "target": ""
+  },
+  "nodes": [],
+  "edges": [],
+  "tests": []
+}

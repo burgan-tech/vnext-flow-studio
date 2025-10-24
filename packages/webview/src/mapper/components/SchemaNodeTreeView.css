@@ -1,0 +1,120 @@
+.schema-node-tree-view {
+  background: white;
+  border-radius: 12px;
+  min-width: 320px;
+  max-width: 380px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  border: 2px solid #3b82f6;
+}
+
+.schema-node-target {
+  border-color: #10b981;
+}
+
+/* Header */
+.schema-node-tree-header {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  padding: 16px;
+  color: white;
+}
+
+.schema-node-target .schema-node-tree-header {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.schema-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: 0.3px;
+}
+
+.schema-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #111827;
+  transition: all 0.2s;
+}
+
+.schema-search-input:focus {
+  outline: none;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+.schema-search-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Tree container */
+.schema-tree-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.schema-tree-body {
+  /* Remove max-height and overflow to allow dynamic resizing */
+  /* Let React Flow handle zooming/panning instead of internal scrolling */
+  padding: 8px 0;
+}
+
+/* Empty state */
+.schema-tree-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Footer */
+.schema-node-tree-footer {
+  padding: 10px 16px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.field-count {
+  color: #374151;
+  text-transform: capitalize;
+}
+
+.search-indicator {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Scrollbar */
+.schema-tree-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.schema-tree-body::-webkit-scrollbar-track {
+  background: #f9fafb;
+}
+
+.schema-tree-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.schema-tree-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Target-specific hover colors */
+.schema-node-target .tree-node-row.has-handle:hover {
+  background: #d1fae5;
+}

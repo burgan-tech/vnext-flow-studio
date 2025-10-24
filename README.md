@@ -1,10 +1,36 @@
-# VNext Flow Studio
+# Amorphie Flow Studio
 
-A VS Code extension for editing VNext Workflow Definitions.
+A comprehensive VS Code extension for visual workflow design and JSON transformation mapping.
 
 ## Features
 
-- **Visual Workflow Editor**: Interactive canvas with React Flow for designing complex workflows
+### 🎨 Visual Mapper - JSON-to-JSON Transformations
+
+**BizTalk-style visual mapper for building complex data transformations without code.**
+
+- **Visual 3-Panel Interface**: Source schema → Canvas → Target schema
+- **40+ Functoid Library**: String, math, logic, collections, aggregates, date/time, and more
+- **Schema Intelligence**: Automatic inference from JSON examples, or paste/link schemas
+- **Live Testing**: Execute transformations with sample data and see results instantly
+- **Code Generation**: Export to JSONata or C# for production use
+- **Free-Form Schemas**: Extend objects with custom properties at design time
+
+**Quick Start:**
+```bash
+# Command Palette (Ctrl+Shift+P)
+> New Amorphie Mapper
+
+# Or right-click a folder in Explorer
+> New Amorphie Mapper
+```
+
+See [mapper specification](./mapper_spec.md) for complete documentation.
+
+---
+
+### 🔀 Visual Workflow Editor
+
+- **Interactive Canvas**: React Flow-based visual designer for complex workflows
 - **Enhanced IntelliSense**: Advanced C# code completion with BBT Workflow integration (90+ suggestions)
 - **Schema Validation**: Real-time validation with AJV against workflow and task schemas
 - **Custom Linting**: Comprehensive diagnostics and error detection
@@ -36,9 +62,15 @@ npm run package
 
 ## File Types
 
+### Workflow Files
 - `*.flow.json` or `workflows/**/*.json`: Workflow definitions (source of truth)
 - `*.diagram.json`: Layout and positioning data
 - `*.flow.lock.json`: Deterministic build versions (optional)
+
+### Mapper Files
+- `*.mapper.json`: Mapper definition with nodes, edges, and transformation logic
+- `*.mapper.diagram.json`: Canvas layout and UI state (optional)
+- Tests stored in adjacent `tests/` directory
 
 ## Spell Checker Configuration
 

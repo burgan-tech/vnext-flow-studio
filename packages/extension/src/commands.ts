@@ -215,5 +215,115 @@ export function registerCommands(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(createWorkflowCommand, freezeVersionsCommand);
+  // Command to create a new mapper
+  const createMapperCommand = vscode.commands.registerCommand(
+    'flowEditor.createMapper',
+    async (uri?: vscode.Uri) => {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage('No workspace folder found. Please open a workspace first.');
+        return;
+      }
+
+      // Determine the target folder from context menu or use default
+      let targetFolder: string;
+      if (uri && uri.fsPath) {
+        // Called from context menu - use the selected folder
+        const stat = await vscode.workspace.fs.stat(uri);
+        if (stat.type === vscode.FileType.Directory) {
+          targetFolder = uri.fsPath;
+        } else {
+          // If a file was selected, use its parent directory
+          targetFolder = path.dirname(uri.fsPath);
+        }
+      } else {
+        // Called from command palette - use default
+        targetFolder = path.join(workspaceFolder.uri.fsPath, 'mappers');
+      }
+
+      // Ask for mapper name
+      const name = await vscode.window.showInputBox({
+        prompt: 'Enter mapper name',
+        placeHolder: 'order-to-invoice',
+        validateInput: (value) => {
+          if (!value) return 'Name is required';
+          if (!/^[a-z0-9-]+$/.test(value)) {
+            return 'Name must contain only lowercase letters, numbers, and dashes';
+          }
+          return null;
+        }
+      });
+
+      if (!name) {
+        return;
+      }
+
+      const description = await vscode.window.showInputBox({
+        prompt: 'Enter mapper description (optional)',
+        placeHolder: 'Maps order data to invoice format'
+      });
+
+      // Create the mapper template
+      const mapper = {
+        version: '1.0',
+        metadata: {
+          name,
+          description: description || `${name} mapper`,
+          version: '1.0.0',
+          source: 'none',
+          target: 'none',
+          createdAt: new Date().toISOString(),
+          tags: ['new']
+        },
+        schemas: {
+          source: 'none',
+          target: 'none'
+        },
+        nodes: [],
+        edges: []
+      };
+
+      // Ensure directory exists
+      await fs.mkdir(targetFolder, { recursive: true });
+
+      // Determine save location
+      const saveUri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(path.join(targetFolder, `${name}.mapper.json`)),
+        filters: {
+          'Mapper Files': ['json']
+        },
+        title: 'Save New Mapper'
+      });
+
+      if (!saveUri) {
+        return;
+      }
+
+      // Ensure directory exists
+      const saveDir = path.dirname(saveUri.fsPath);
+      await fs.mkdir(saveDir, { recursive: true });
+
+      // Write the mapper file
+      const content = JSON.stringify(mapper, null, 2);
+      await fs.writeFile(saveUri.fsPath, content, 'utf-8');
+
+      vscode.window.showInformationMessage(`Created mapper: ${name}`);
+
+      // Open in mapper editor
+      const openInEditor = await vscode.window.showQuickPick(['Yes', 'No'], {
+        placeHolder: 'Open in Mapper Editor?',
+        title: 'Open in Mapper Editor?'
+      });
+
+      if (openInEditor === 'Yes') {
+        await vscode.commands.executeCommand('mapperEditor.open', saveUri);
+      } else {
+        // Open as text document
+        const doc = await vscode.workspace.openTextDocument(saveUri);
+        await vscode.window.showTextDocument(doc);
+      }
+    }
+  );
+
+  context.subscriptions.push(createWorkflowCommand, freezeVersionsCommand, createMapperCommand);
 }
