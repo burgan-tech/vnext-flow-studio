@@ -1,7 +1,20 @@
 import { useState, useEffect } from 'react';
 import { functoidRegistry } from '../../../../core/src/mapper/registry';
-import type { NodeKind } from '../../../../core/src/mapper/types';
+import type { NodeKind, FunctoidCategory } from '../../../../core/src/mapper/types';
+import { getFunctoidIcon } from './functoidIcons';
 import './FunctoidConfigPanel.css';
+
+const CATEGORY_COLORS: Record<FunctoidCategory, string> = {
+  math: '#f59e0b',
+  string: '#3b82f6',
+  logical: '#8b5cf6',
+  conditional: '#6366f1',
+  collection: '#10b981',
+  aggregate: '#14b8a6',
+  conversion: '#f97316',
+  datetime: '#ec4899',
+  custom: '#6b7280'
+};
 
 /**
  * FunctoidConfigPanel - Configuration panel for functoid nodes
@@ -320,12 +333,17 @@ export function FunctoidConfigPanel({
     );
   };
 
+  const IconComponent = getFunctoidIcon(nodeKind);
+  const iconColor = CATEGORY_COLORS[functoid.category];
+
   return (
     <div className="functoid-config-panel">
       {/* Header */}
       <div className="config-header">
         <div className="config-title">
-          <span className="config-icon">{functoid.icon}</span>
+          <div className="config-icon" style={{ borderColor: iconColor }}>
+            <IconComponent size={24} strokeWidth={2.5} color={iconColor} />
+          </div>
           <div>
             <h3>{functoid.label}</h3>
             <p className="config-description">{functoid.description}</p>
