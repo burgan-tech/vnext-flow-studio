@@ -88,6 +88,7 @@ export const functoidIconMap: Record<NodeKind, LucideIcon> = {
   'String.Replace': Replace,
   'String.Split': Split,
   'String.Join': Combine,
+  'String.Template': Braces,
 
   // Logical functoids
   'Binary.And': GitBranch,
