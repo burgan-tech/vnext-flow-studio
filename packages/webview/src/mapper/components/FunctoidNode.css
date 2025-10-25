@@ -2,13 +2,15 @@
   background: white;
   border: 3px solid;
   border-radius: 10px;
-  min-width: 90px;
-  min-height: 70px;
+  min-width: 50px;
+  min-height: 50px;
+  padding: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
   transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .functoid-node:hover {
@@ -25,8 +27,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px;
+  gap: 0;
+  padding: 0;
 }
 
 .functoid-icon {
@@ -39,15 +41,37 @@
 }
 
 .functoid-icon svg {
+  color: inherit;
+  stroke: currentColor;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 .functoid-label {
+  display: none;
+}
+
+/* Tooltip on hover */
+.functoid-node::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
   font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 1000;
+}
+
+.functoid-node:hover::after {
+  opacity: 1;
 }
 
 /* Categories - Math (Amber) */

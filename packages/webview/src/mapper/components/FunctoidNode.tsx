@@ -35,7 +35,10 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
   });
 
   return (
-    <div className={`functoid-node functoid-${data.category} ${selected ? 'selected' : ''}`}>
+    <div
+      className={`functoid-node functoid-${data.category} ${selected ? 'selected' : ''}`}
+      data-label={data.label}
+    >
       {/* Input handles - only render if there are inputs */}
       {inputCount > 0 && inputPositions.map((topPercent, index) => (
         <Handle
@@ -50,7 +53,7 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
 
       <div className="functoid-content">
         <div className="functoid-icon">
-          <IconComponent size={18} strokeWidth={2.5} />
+          <IconComponent size={20} strokeWidth={2.5} />
         </div>
         <div className="functoid-label">{data.label}</div>
       </div>
