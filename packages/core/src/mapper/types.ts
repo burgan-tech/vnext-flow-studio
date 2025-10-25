@@ -139,7 +139,7 @@ export type NodeKind =
   | 'String.Replace'
   | 'String.Split'
   | 'String.Join'
-  | 'String.UrlTemplate'
+  | 'String.Template'
   // Conditional operations
   | 'Conditional.If'
   | 'Conditional.Switch'

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { functoidRegistry } from '../../../../core/src/mapper/registry';
-import { extractTemplateParams, validateUrlTemplate } from '../../../../core/src/mapper/urlTemplateUtils';
+import { extractTemplateParams, validateTemplate } from '../../../../core/src/mapper/templateUtils';
 import type { NodeKind } from '../../../../core/src/mapper/types';
 import './FunctoidConfigPanel.css';
 
@@ -218,21 +218,21 @@ export function FunctoidConfigPanel({
       );
     }
 
-    // URL Template - needs template string
-    if (nodeKind === 'String.UrlTemplate') {
+    // String Template - needs template string
+    if (nodeKind === 'String.Template') {
       const template = localConfig.template || '';
-      const validation = validateUrlTemplate(template);
+      const validation = validateTemplate(template);
       const params = template ? extractTemplateParams(template) : [];
 
       return (
         <>
           <div className="config-field">
-            <label className="config-label">URL Template:</label>
+            <label className="config-label">Template String:</label>
             <textarea
               className="config-textarea"
               value={template}
               onChange={(e) => handleChange('template', e.target.value)}
-              placeholder="http://{hostname}/api/{version}/users/{userId}"
+              placeholder="Hello {firstName} {lastName}!"
               rows={4}
               style={{
                 fontFamily: 'monospace',
@@ -241,7 +241,7 @@ export function FunctoidConfigPanel({
               }}
             />
             <div className="config-hint">
-              Use {'{paramName}'} for parameters. Example: http://{'{hostname}'}/accounts/customernumber?custno={'{custno}'}
+              Use {'{paramName}'} for parameters. Works with any string: URLs, paths, messages, etc.
             </div>
             {template && !validation.isValid && (
               <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
@@ -280,11 +280,11 @@ export function FunctoidConfigPanel({
               fontSize: '12px',
               lineHeight: '1.5'
             }}>
-              <strong>💡 How to use:</strong><br/>
-              1. Enter a URL template with named parameters<br/>
-              2. Parameters will automatically appear as inputs<br/>
-              3. Connect values to each parameter input<br/>
-              4. The functoid will output the complete URL
+              <strong>💡 Examples:</strong><br/>
+              • URL: http://{'{hostname}'}/api/users/{'{userId}'}<br/>
+              • Path: /data/{'{year}'}/{'{month}'}/{'{filename}'}<br/>
+              • Message: Hello {'{firstName}'} {'{lastName}'}!<br/>
+              • Query: SELECT * FROM {'{table}'} WHERE id={'{id}'}
             </div>
           </div>
         </>
