@@ -8,3 +8,4 @@ export * from './FunctoidPalette';
 export * from './FunctoidConfigPanel';
 export * from './ExecutionPreviewPanel';
 export * from './Tooltip';
+export * from './functoidIcons';

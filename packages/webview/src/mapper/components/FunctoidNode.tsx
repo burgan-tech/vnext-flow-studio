@@ -1,6 +1,7 @@
 import { Handle, Position } from '@xyflow/react';
 import type { FunctoidCategory, NodeKind } from '../../../../core/src/mapper/types';
 import { functoidRegistry } from '../../../../core/src/mapper/registry';
+import { getFunctoidIcon } from './functoidIcons';
 import './FunctoidNode.css';
 
 /**
@@ -24,6 +25,9 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
   const functoidDef = functoidRegistry[data.kind];
   const inputCount = functoidDef?.inputs?.length ?? 0;
 
+  // Get the icon component for this functoid
+  const IconComponent = getFunctoidIcon(data.kind);
+
   // Calculate vertical positions for inputs
   const inputPositions = Array.from({ length: inputCount }, (_, i) => {
     if (inputCount === 1) return 50; // Center for single input
@@ -45,7 +49,9 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
       ))}
 
       <div className="functoid-content">
-        <div className="functoid-icon">{data.icon}</div>
+        <div className="functoid-icon">
+          <IconComponent size={18} strokeWidth={2.5} />
+        </div>
         <div className="functoid-label">{data.label}</div>
       </div>
 

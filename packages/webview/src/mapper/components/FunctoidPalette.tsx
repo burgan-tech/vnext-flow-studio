@@ -7,6 +7,7 @@ import {
 } from '../../../../core/src/mapper/registry';
 import type { FunctoidDefinition, FunctoidCategory } from '../../../../core/src/mapper/types';
 import { Tooltip } from './Tooltip';
+import { getFunctoidIcon } from './functoidIcons';
 import {
   Calculator,
   Type,
@@ -174,29 +175,32 @@ export function FunctoidPalette() {
               {/* Functoid Items */}
               {isExpanded && (
                 <div className="palette-category-items">
-                  {functoids.map((functoid) => (
-                    <Tooltip
-                      key={functoid.kind}
-                      content={{
-                        label: functoid.label,
-                        description: functoid.description
-                      }}
-                    >
-                      <div
-                        className="palette-functoid-item"
-                        draggable
-                        onDragStart={(e) => onDragStart(e, functoid)}
-                        style={{ borderLeftColor: meta.color }}
+                  {functoids.map((functoid) => {
+                    const FunctoidIcon = getFunctoidIcon(functoid.kind);
+                    return (
+                      <Tooltip
+                        key={functoid.kind}
+                        content={{
+                          label: functoid.label,
+                          description: functoid.description
+                        }}
                       >
                         <div
-                          className="functoid-icon"
-                          style={{ backgroundColor: meta.color }}
+                          className="palette-functoid-item"
+                          draggable
+                          onDragStart={(e) => onDragStart(e, functoid)}
+                          style={{ borderLeftColor: meta.color }}
                         >
-                          {functoid.icon}
+                          <div
+                            className="functoid-icon"
+                            style={{ backgroundColor: meta.color }}
+                          >
+                            <FunctoidIcon size={12} strokeWidth={2.5} />
+                          </div>
                         </div>
-                      </div>
-                    </Tooltip>
-                  ))}
+                      </Tooltip>
+                    );
+                  })}
                 </div>
               )}
             </div>
