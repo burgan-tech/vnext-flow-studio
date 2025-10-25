@@ -43,6 +43,9 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
 
   // For Template functoid, dynamically determine inputs from config
   let inputCount = functoidDef?.inputs?.length ?? 0;
+
+  // Get the icon component for this functoid
+  const IconComponent = getFunctoidIcon(data.kind);
   let inputLabels = functoidDef?.inputs ?? [];
 
   if (data.kind === 'String.Template' && data.config?.template) {
@@ -82,7 +85,7 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
 
       <div className="functoid-content">
         <div className="functoid-icon">
-          <IconComponent size={20} strokeWidth={2.5} color={iconColor} />
+          <IconComponent size={18} strokeWidth={2.5} />
         </div>
         <div className="functoid-label">{data.label}</div>
       </div>
