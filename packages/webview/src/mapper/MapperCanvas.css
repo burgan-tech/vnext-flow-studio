@@ -26,56 +26,106 @@
 .mapper-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
-  background: white;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(to bottom, #ffffff, #f9fafb);
   border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
+  z-index: 10;
 }
 
 .toolbar-button {
-  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
   background: #3b82f6;
   color: white;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 6px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
   white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.toolbar-button:hover {
+.toolbar-button:hover:not(:disabled) {
   background: #2563eb;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
 }
 
-.toolbar-button:active {
-  transform: scale(0.98);
+.toolbar-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+.toolbar-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #9ca3af;
+}
+
+/* Secondary button - for import actions */
 .toolbar-button-secondary {
   background: #10b981;
+  color: white;
 }
 
-.toolbar-button-secondary:hover {
+.toolbar-button-secondary:hover:not(:disabled) {
   background: #059669;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+/* Neutral button - for save and layout actions */
+.toolbar-button-neutral {
+  background: white;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.toolbar-button-neutral:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Primary button - for execute action */
+.toolbar-button-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  font-weight: 600;
+}
+
+.toolbar-button-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 3px 6px rgba(59, 130, 246, 0.4);
 }
 
 .toolbar-divider {
   width: 1px;
-  height: 24px;
-  background: #e5e7eb;
-  margin: 0 8px;
+  height: 28px;
+  background: linear-gradient(to bottom, transparent, #d1d5db, transparent);
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 .toolbar-info {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   color: #6b7280;
-  font-family: 'Courier New', monospace;
-  font-weight: 600;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-weight: 500;
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
 }
 
 /* React Flow Canvas */
@@ -145,26 +195,50 @@ body.vscode-dark .react-flow {
 }
 
 body.vscode-dark .mapper-toolbar {
-  background: white !important;
+  background: linear-gradient(to bottom, #ffffff, #f9fafb) !important;
   border-color: #e5e7eb !important;
 }
 
 body.vscode-dark .toolbar-button {
   background: #3b82f6 !important;
+  color: white !important;
 }
 
-body.vscode-dark .toolbar-button:hover {
+body.vscode-dark .toolbar-button:hover:not(:disabled) {
   background: #2563eb !important;
 }
 
 body.vscode-dark .toolbar-button-secondary {
   background: #10b981 !important;
+  color: white !important;
 }
 
-body.vscode-dark .toolbar-button-secondary:hover {
+body.vscode-dark .toolbar-button-secondary:hover:not(:disabled) {
   background: #059669 !important;
+}
+
+body.vscode-dark .toolbar-button-neutral {
+  background: white !important;
+  color: #374151 !important;
+  border-color: #d1d5db !important;
+}
+
+body.vscode-dark .toolbar-button-neutral:hover:not(:disabled) {
+  background: #f9fafb !important;
+  border-color: #9ca3af !important;
+}
+
+body.vscode-dark .toolbar-button-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  color: white !important;
+}
+
+body.vscode-dark .toolbar-button-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
 }
 
 body.vscode-dark .toolbar-info {
   color: #6b7280 !important;
+  background: #f3f4f6 !important;
+  border-color: #e5e7eb !important;
 }

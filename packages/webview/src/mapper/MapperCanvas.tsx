@@ -14,6 +14,7 @@ import {
   type EdgeChange
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { Upload, Download, Save, LayoutGrid, Play, Info } from 'lucide-react';
 
 import {
   mapSpecToReactFlow,
@@ -1221,35 +1222,39 @@ function MapperCanvasInner() {
             className="toolbar-button toolbar-button-secondary"
             title="Import source schema from JSON"
           >
-            📤 Import Source
+            <Upload size={16} />
+            <span>Import Source</span>
           </button>
           <button
             onClick={() => handleOpenInference('target')}
             className="toolbar-button toolbar-button-secondary"
             title="Import target schema from JSON"
           >
-            📥 Import Target
+            <Download size={16} />
+            <span>Import Target</span>
           </button>
 
           <span className="toolbar-divider" />
 
           <button
             onClick={saveMapSpec}
-            className="toolbar-button"
+            className="toolbar-button toolbar-button-neutral"
             title="Save mapper"
           >
-            💾 Save
+            <Save size={16} />
+            <span>Save</span>
           </button>
 
           <span className="toolbar-divider" />
 
           <button
             onClick={handleAutoLayout}
-            className="toolbar-button"
+            className="toolbar-button toolbar-button-neutral"
             title="Automatically arrange nodes in a clean layout"
             disabled={!mapSpec || nodes.length === 0}
           >
-            🔄 Auto Layout
+            <LayoutGrid size={16} />
+            <span>Auto Layout</span>
           </button>
 
           <span className="toolbar-divider" />
@@ -1260,13 +1265,15 @@ function MapperCanvasInner() {
             title="Test mapper execution with sample data"
             disabled={!mapSpec || edges.length === 0}
           >
-            🚀 Test & Execute
+            <Play size={16} />
+            <span>Test & Execute</span>
           </button>
 
           <span className="toolbar-divider" />
 
           <span className="toolbar-info">
-            Nodes: {nodes.length} | Edges: {edges.length}
+            <Info size={14} />
+            <span>Nodes: {nodes.length} | Edges: {edges.length}</span>
           </span>
         </div>
 
