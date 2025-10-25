@@ -2,9 +2,8 @@
   background: white;
   border: 3px solid;
   border-radius: 10px;
-  min-width: 50px;
-  min-height: 50px;
-  padding: 10px;
+  width: 50px;
+  height: 50px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
   transition: all 0.2s;
   display: flex;
@@ -78,54 +77,63 @@
 .functoid-math {
   border-color: #f59e0b;
   background: white;
+  color: #f59e0b;
 }
 
 /* String (Blue) */
 .functoid-string {
   border-color: #3b82f6;
   background: white;
+  color: #3b82f6;
 }
 
 /* Logical (Purple) */
 .functoid-logical {
   border-color: #8b5cf6;
   background: white;
+  color: #8b5cf6;
 }
 
 /* Conditional (Indigo) */
 .functoid-conditional {
   border-color: #6366f1;
   background: white;
+  color: #6366f1;
 }
 
 /* Collection (Green) */
 .functoid-collection {
   border-color: #10b981;
   background: white;
+  color: #10b981;
 }
 
 /* Aggregate (Teal) */
 .functoid-aggregate {
   border-color: #14b8a6;
   background: white;
+  color: #14b8a6;
 }
 
 /* Conversion (Orange) */
 .functoid-conversion {
   border-color: #f97316;
   background: white;
+  color: #f97316;
 }
 
 /* DateTime (Pink) */
 .functoid-datetime {
   border-color: #ec4899;
   background: white;
+  color: #ec4899;
 }
 
 /* Custom (Gray) */
 .functoid-custom {
   border-color: #6b7280;
   background: white;
+  color: #6b7280;
 }
 
 .functoid-handle {
