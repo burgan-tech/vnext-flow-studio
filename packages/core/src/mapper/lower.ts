@@ -557,9 +557,11 @@ class MapSpecLowerer {
    * Helper: String Template
    * Builds a string by replacing template parameters with input values
    *
-   * Example: template = "Hello {firstName} {lastName}!"
-   *          inputs = [firstNameExpr, lastNameExpr]
-   *          Result: concat("Hello ", firstNameExpr, " ", lastNameExpr, "!")
+   * Correctly handles templates with multiple occurrences of the same parameter.
+   *
+   * Example: template = "Hello {name}, is your name really {name}?"
+   *          inputs = [nameExpr]
+   *          Result: concat("Hello ", nameExpr, ", is your name really ", nameExpr, "?")
    */
   private template(inputExprs: Expression[], config: Record<string, any>): Expression {
     const template = config.template || '';
@@ -568,44 +570,55 @@ class MapSpecLowerer {
       return this.literal('', 'string');
     }
 
-    // Extract parameter names from template
+    // Extract unique parameter names to build a mapping to input expressions
     const params = extractTemplateParams(template);
 
-    // Build parts by splitting the template on parameter placeholders
-    const parts: Expression[] = [];
-    let remainingTemplate = template;
-    let currentPos = 0;
-
+    // Build a map from parameter name to its input expression
+    const paramToExpr = new Map<string, Expression>();
     params.forEach((param, index) => {
-      const placeholder = `{${param}}`;
-      const placeholderPos = remainingTemplate.indexOf(placeholder, currentPos);
-
-      if (placeholderPos !== -1) {
-        // Add the literal string before this parameter
-        const literalPart = remainingTemplate.substring(currentPos, placeholderPos);
-        if (literalPart) {
-          parts.push(this.literal(literalPart, 'string'));
-        }
-
-        // Add the parameter value (from inputs)
-        if (inputExprs[index]) {
-          parts.push(inputExprs[index]);
-        } else {
-          // No input provided, use empty string
-          parts.push(this.literal('', 'string'));
-        }
-
-        currentPos = placeholderPos + placeholder.length;
+      if (inputExprs[index]) {
+        paramToExpr.set(param, inputExprs[index]);
+      } else {
+        // No input provided, use empty string
+        paramToExpr.set(param, this.literal('', 'string'));
       }
     });
 
+    // Build parts by finding ALL placeholder occurrences in the template
+    const parts: Expression[] = [];
+    const placeholderRegex = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
+    let lastPos = 0;
+    let match;
+
+    while ((match = placeholderRegex.exec(template)) !== null) {
+      const startPos = match.index;
+      const paramName = match[1];
+
+      // Add literal text before this placeholder
+      if (startPos > lastPos) {
+        const literalPart = template.substring(lastPos, startPos);
+        parts.push(this.literal(literalPart, 'string'));
+      }
+
+      // Add the parameter expression
+      const expr = paramToExpr.get(paramName);
+      if (expr) {
+        parts.push(expr);
+      } else {
+        // Parameter not found in inputs, use empty string
+        parts.push(this.literal('', 'string'));
+      }
+
+      lastPos = match.index + match[0].length;
+    }
+
     // Add any remaining literal text after the last parameter
-    const finalPart = remainingTemplate.substring(currentPos);
-    if (finalPart) {
+    if (lastPos < template.length) {
+      const finalPart = template.substring(lastPos);
       parts.push(this.literal(finalPart, 'string'));
     }
 
-    // If no parts, return empty string
+    // If no parts, return the template as-is (no placeholders found)
     if (parts.length === 0) {
       return this.literal(template, 'string');
     }
