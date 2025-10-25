@@ -11,6 +11,7 @@ export * from './lower';
 export * from './jsonataGenerator';
 export * from './csharpGenerator';
 export * from './mapperLayout';
+export * from './urlTemplateUtils';
 
 // Note: MapperModel is NOT exported here because it uses Node.js EventEmitter
 // and should only be used on the extension side (Node.js environment).

@@ -248,6 +248,17 @@ export const functoidRegistry: Record<NodeKind, FunctoidDefinition> = {
     inputTypes: ['array', 'string'],
     outputType: 'string'
   },
+  'String.UrlTemplate': {
+    kind: 'String.UrlTemplate',
+    label: 'URL Template',
+    icon: '🔗',
+    category: 'string',
+    inputs: [], // Dynamic inputs based on template config
+    output: 'URL',
+    description: 'Build URL from template with named parameters',
+    inputTypes: [],
+    outputType: 'string'
+  },
 
   // ========================================
   // LOGICAL FUNCTOIDS (Purple)
