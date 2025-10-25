@@ -1,6 +1,7 @@
 import { Handle, Position } from '@xyflow/react';
 import type { FunctoidCategory, NodeKind } from '../../../../core/src/mapper/types';
 import { functoidRegistry } from '../../../../core/src/mapper/registry';
+import { extractTemplateParams } from '../../../../core/src/mapper/urlTemplateUtils';
 import './FunctoidNode.css';
 
 /**
@@ -15,6 +16,7 @@ export interface FunctoidNodeProps {
     kind: NodeKind;
     inputs?: string[];
     output?: string;
+    config?: Record<string, any>;
   };
   selected?: boolean;
 }
@@ -22,7 +24,16 @@ export interface FunctoidNodeProps {
 export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
   // Get functoid definition to determine number of inputs
   const functoidDef = functoidRegistry[data.kind];
-  const inputCount = functoidDef?.inputs?.length ?? 0;
+
+  // For URL Template functoid, dynamically determine inputs from config
+  let inputCount = functoidDef?.inputs?.length ?? 0;
+  let inputLabels = functoidDef?.inputs ?? [];
+
+  if (data.kind === 'String.UrlTemplate' && data.config?.template) {
+    const params = extractTemplateParams(data.config.template);
+    inputCount = params.length;
+    inputLabels = params.map(param => param.charAt(0).toUpperCase() + param.slice(1));
+  }
 
   // Calculate vertical positions for inputs
   const inputPositions = Array.from({ length: inputCount }, (_, i) => {

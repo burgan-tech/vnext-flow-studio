@@ -17,6 +17,7 @@ import type {
 } from './ir';
 import { functoidRegistry } from './registry';
 import { applyOverlaysToSchema, stripSyntheticSegment } from './adapter';
+import { extractTemplateParams } from './urlTemplateUtils';
 
 /**
  * Check if a JSONPath handle exists in a schema (with overlays already applied)
@@ -355,6 +356,8 @@ class MapSpecLowerer {
         return this.call('split', inputExprs, config);
       case 'String.Join':
         return this.call('join', inputExprs, config);
+      case 'String.UrlTemplate':
+        return this.urlTemplate(inputExprs, config);
 
       // Conditional
       case 'Conditional.If':
@@ -548,6 +551,72 @@ class MapSpecLowerer {
     } catch {
       return this.literal(value, 'string');
     }
+  }
+
+  /**
+   * Helper: URL Template
+   * Builds a string by replacing template parameters with input values
+   *
+   * Example: template = "http://{hostname}/api/{version}"
+   *          inputs = [hostnameExpr, versionExpr]
+   *          Result: concat("http://", hostnameExpr, "/api/", versionExpr)
+   */
+  private urlTemplate(inputExprs: Expression[], config: Record<string, any>): Expression {
+    const template = config.template || '';
+
+    if (!template) {
+      return this.literal('', 'string');
+    }
+
+    // Extract parameter names from template
+    const params = extractTemplateParams(template);
+
+    // Build parts by splitting the template on parameter placeholders
+    const parts: Expression[] = [];
+    let remainingTemplate = template;
+    let currentPos = 0;
+
+    params.forEach((param, index) => {
+      const placeholder = `{${param}}`;
+      const placeholderPos = remainingTemplate.indexOf(placeholder, currentPos);
+
+      if (placeholderPos !== -1) {
+        // Add the literal string before this parameter
+        const literalPart = remainingTemplate.substring(currentPos, placeholderPos);
+        if (literalPart) {
+          parts.push(this.literal(literalPart, 'string'));
+        }
+
+        // Add the parameter value (from inputs)
+        if (inputExprs[index]) {
+          parts.push(inputExprs[index]);
+        } else {
+          // No input provided, use empty string
+          parts.push(this.literal('', 'string'));
+        }
+
+        currentPos = placeholderPos + placeholder.length;
+      }
+    });
+
+    // Add any remaining literal text after the last parameter
+    const finalPart = remainingTemplate.substring(currentPos);
+    if (finalPart) {
+      parts.push(this.literal(finalPart, 'string'));
+    }
+
+    // If no parts, return empty string
+    if (parts.length === 0) {
+      return this.literal(template, 'string');
+    }
+
+    // If only one part, return it directly
+    if (parts.length === 1) {
+      return parts[0];
+    }
+
+    // Chain concatenations
+    return this.concat(parts);
   }
 
   /**

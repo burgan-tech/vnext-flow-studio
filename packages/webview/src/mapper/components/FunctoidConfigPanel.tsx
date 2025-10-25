@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { functoidRegistry } from '../../../../core/src/mapper/registry';
+import { extractTemplateParams, validateUrlTemplate } from '../../../../core/src/mapper/urlTemplateUtils';
 import type { NodeKind } from '../../../../core/src/mapper/types';
 import './FunctoidConfigPanel.css';
 
@@ -214,6 +215,79 @@ export function FunctoidConfigPanel({
             Character(s) to join with
           </div>
         </div>
+      );
+    }
+
+    // URL Template - needs template string
+    if (nodeKind === 'String.UrlTemplate') {
+      const template = localConfig.template || '';
+      const validation = validateUrlTemplate(template);
+      const params = template ? extractTemplateParams(template) : [];
+
+      return (
+        <>
+          <div className="config-field">
+            <label className="config-label">URL Template:</label>
+            <textarea
+              className="config-textarea"
+              value={template}
+              onChange={(e) => handleChange('template', e.target.value)}
+              placeholder="http://{hostname}/api/{version}/users/{userId}"
+              rows={4}
+              style={{
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                borderColor: template && !validation.isValid ? '#ef4444' : undefined
+              }}
+            />
+            <div className="config-hint">
+              Use {'{paramName}'} for parameters. Example: http://{'{hostname}'}/accounts/customernumber?custno={'{custno}'}
+            </div>
+            {template && !validation.isValid && (
+              <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
+                ⚠️ {validation.error}
+              </div>
+            )}
+          </div>
+
+          {params.length > 0 && (
+            <div className="config-field">
+              <label className="config-label">Detected Parameters:</label>
+              <div style={{
+                padding: '8px',
+                backgroundColor: '#f3f4f6',
+                borderRadius: '4px',
+                fontSize: '13px',
+                fontFamily: 'monospace'
+              }}>
+                {params.map((param, index) => (
+                  <div key={param} style={{ marginBottom: index < params.length - 1 ? '4px' : 0 }}>
+                    {index + 1}. <strong>{param}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="config-hint">
+                These will appear as input terminals on the functoid node
+              </div>
+            </div>
+          )}
+
+          <div className="config-field">
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#dbeafe',
+              borderRadius: '4px',
+              fontSize: '12px',
+              lineHeight: '1.5'
+            }}>
+              <strong>💡 How to use:</strong><br/>
+              1. Enter a URL template with named parameters<br/>
+              2. Parameters will automatically appear as inputs<br/>
+              3. Connect values to each parameter input<br/>
+              4. The functoid will output the complete URL
+            </div>
+          </div>
+        </>
       );
     }
 
