@@ -17,7 +17,7 @@ import type {
 } from './ir';
 import { functoidRegistry } from './registry';
 import { applyOverlaysToSchema, stripSyntheticSegment } from './adapter';
-import { extractTemplateParams } from './urlTemplateUtils';
+import { extractTemplateParams } from './templateUtils';
 
 /**
  * Check if a JSONPath handle exists in a schema (with overlays already applied)
@@ -356,8 +356,8 @@ class MapSpecLowerer {
         return this.call('split', inputExprs, config);
       case 'String.Join':
         return this.call('join', inputExprs, config);
-      case 'String.UrlTemplate':
-        return this.urlTemplate(inputExprs, config);
+      case 'String.Template':
+        return this.template(inputExprs, config);
 
       // Conditional
       case 'Conditional.If':
@@ -554,14 +554,14 @@ class MapSpecLowerer {
   }
 
   /**
-   * Helper: URL Template
+   * Helper: String Template
    * Builds a string by replacing template parameters with input values
    *
-   * Example: template = "http://{hostname}/api/{version}"
-   *          inputs = [hostnameExpr, versionExpr]
-   *          Result: concat("http://", hostnameExpr, "/api/", versionExpr)
+   * Example: template = "Hello {firstName} {lastName}!"
+   *          inputs = [firstNameExpr, lastNameExpr]
+   *          Result: concat("Hello ", firstNameExpr, " ", lastNameExpr, "!")
    */
-  private urlTemplate(inputExprs: Expression[], config: Record<string, any>): Expression {
+  private template(inputExprs: Expression[], config: Record<string, any>): Expression {
     const template = config.template || '';
 
     if (!template) {

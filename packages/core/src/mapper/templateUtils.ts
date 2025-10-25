@@ -1,15 +1,25 @@
 /**
- * URL Template Utilities
+ * String Template Utilities
  *
- * Provides parsing and processing for URL templates with named parameters.
- * Example: "http://{hostname}/accounts/customernumber?custno={custno}"
+ * Provides parsing and processing for string templates with named parameters.
+ * Can be used for URLs, paths, messages, or any other string interpolation needs.
+ *
+ * Examples:
+ * - URLs: "http://{hostname}/accounts/customernumber?custno={custno}"
+ * - Paths: "/api/v{version}/users/{userId}/profile"
+ * - Messages: "Hello {firstName} {lastName}, welcome to {siteName}!"
+ * - SQL: "SELECT * FROM {tableName} WHERE id = {userId}"
  */
 
 /**
- * Extract parameter names from a URL template
+ * Extract parameter names from a string template
  *
- * @param template - URL template string with {paramName} placeholders
+ * @param template - Template string with {paramName} placeholders
  * @returns Array of unique parameter names in order of appearance
+ *
+ * @example
+ * extractTemplateParams("Hello {firstName} {lastName}!")
+ * // Returns: ["firstName", "lastName"]
  *
  * @example
  * extractTemplateParams("http://{hostname}/api/{version}/users/{userId}")
@@ -37,12 +47,12 @@ export function extractTemplateParams(template: string): string[] {
 }
 
 /**
- * Validate a URL template
+ * Validate a string template
  *
- * @param template - URL template string
+ * @param template - Template string
  * @returns Object with isValid flag and optional error message
  */
-export function validateUrlTemplate(template: string): { isValid: boolean; error?: string } {
+export function validateTemplate(template: string): { isValid: boolean; error?: string } {
   if (!template || template.trim() === '') {
     return { isValid: false, error: 'Template cannot be empty' };
   }
@@ -72,12 +82,16 @@ export function validateUrlTemplate(template: string): { isValid: boolean; error
 }
 
 /**
- * Build a string expression by replacing template parameters with values
- * This is used during code generation to create the final URL
+ * Build a string by replacing template parameters with values
+ * This is used during code generation or runtime evaluation
  *
- * @param template - URL template string
+ * @param template - Template string
  * @param paramValues - Map of parameter names to their values
- * @returns The resolved URL string
+ * @returns The resolved string with all parameters replaced
+ *
+ * @example
+ * resolveTemplate("Hello {name}!", { name: "World" })
+ * // Returns: "Hello World!"
  */
 export function resolveTemplate(template: string, paramValues: Record<string, any>): string {
   let result = template;
@@ -100,6 +114,7 @@ export function resolveTemplate(template: string, paramValues: Record<string, an
  * @example
  * getParamDisplayName("hostname") // Returns: "Hostname"
  * getParamDisplayName("userId") // Returns: "UserId"
+ * getParamDisplayName("firstName") // Returns: "FirstName"
  */
 export function getParamDisplayName(paramName: string): string {
   if (!paramName) return '';
