@@ -7,21 +7,33 @@ import {
 } from '../../../../core/src/mapper/registry';
 import type { FunctoidDefinition, FunctoidCategory } from '../../../../core/src/mapper/types';
 import { Tooltip } from './Tooltip';
+import { getFunctoidIcon } from './functoidIcons';
+import {
+  Calculator,
+  Type,
+  GitBranch,
+  GitMerge,
+  Layers,
+  Sigma,
+  RefreshCw,
+  Calendar,
+  Settings
+} from 'lucide-react';
 import './FunctoidPalette.css';
 
 /**
- * Category display metadata
+ * Category display metadata with Lucide icons
  */
-const CATEGORY_META: Record<FunctoidCategory, { label: string; color: string; emoji: string }> = {
-  math: { label: 'Math', color: '#f59e0b', emoji: '🔢' },
-  string: { label: 'String', color: '#3b82f6', emoji: '📝' },
-  logical: { label: 'Logical', color: '#8b5cf6', emoji: '🔀' },
-  conditional: { label: 'Conditional', color: '#6366f1', emoji: '❓' },
-  collection: { label: 'Collection', color: '#10b981', emoji: '📦' },
-  aggregate: { label: 'Aggregate', color: '#14b8a6', emoji: '∑' },
-  conversion: { label: 'Conversion', color: '#f97316', emoji: '🔄' },
-  datetime: { label: 'Date/Time', color: '#ec4899', emoji: '📅' },
-  custom: { label: 'Custom', color: '#6b7280', emoji: '⚙️' }
+const CATEGORY_META: Record<FunctoidCategory, { label: string; color: string; icon: typeof Calculator }> = {
+  math: { label: 'Math', color: '#f59e0b', icon: Calculator },
+  string: { label: 'String', color: '#3b82f6', icon: Type },
+  logical: { label: 'Logical', color: '#8b5cf6', icon: GitBranch },
+  conditional: { label: 'Conditional', color: '#6366f1', icon: GitMerge },
+  collection: { label: 'Collection', color: '#10b981', icon: Layers },
+  aggregate: { label: 'Aggregate', color: '#14b8a6', icon: Sigma },
+  conversion: { label: 'Conversion', color: '#f97316', icon: RefreshCw },
+  datetime: { label: 'Date/Time', color: '#ec4899', icon: Calendar },
+  custom: { label: 'Custom', color: '#6b7280', icon: Settings }
 };
 
 /**
@@ -144,6 +156,7 @@ export function FunctoidPalette() {
         {filteredFunctoids.map(({ category, functoids }) => {
           const meta = CATEGORY_META[category];
           const isExpanded = searchQuery.trim() !== '' || expandedCategories.has(category);
+          const CategoryIcon = meta.icon;
 
           return (
             <div key={category} className="palette-category">
@@ -154,7 +167,7 @@ export function FunctoidPalette() {
                 style={{ borderLeftColor: meta.color }}
               >
                 <span className="category-icon">{isExpanded ? '▼' : '▶'}</span>
-                <span className="category-emoji">{meta.emoji}</span>
+                <CategoryIcon className="category-icon-svg" size={12} style={{ color: meta.color }} />
                 <span className="category-label">{meta.label}</span>
                 <span className="category-count">{functoids.length}</span>
               </button>
@@ -162,29 +175,29 @@ export function FunctoidPalette() {
               {/* Functoid Items */}
               {isExpanded && (
                 <div className="palette-category-items">
-                  {functoids.map((functoid) => (
-                    <Tooltip
-                      key={functoid.kind}
-                      content={{
-                        label: functoid.label,
-                        description: functoid.description
-                      }}
-                    >
-                      <div
-                        className="palette-functoid-item"
-                        draggable
-                        onDragStart={(e) => onDragStart(e, functoid)}
-                        style={{ borderLeftColor: meta.color }}
+                  {functoids.map((functoid) => {
+                    const FunctoidIcon = getFunctoidIcon(functoid.kind);
+                    return (
+                      <Tooltip
+                        key={functoid.kind}
+                        content={{
+                          label: functoid.label,
+                          description: functoid.description
+                        }}
                       >
                         <div
-                          className="functoid-icon"
-                          style={{ backgroundColor: meta.color }}
+                          className="palette-functoid-item"
+                          draggable
+                          onDragStart={(e) => onDragStart(e, functoid)}
+                          style={{ borderColor: meta.color }}
                         >
-                          {functoid.icon}
+                          <div className="functoid-icon">
+                            <FunctoidIcon size={14} strokeWidth={2.5} color={meta.color} />
+                          </div>
                         </div>
-                      </div>
-                    </Tooltip>
-                  ))}
+                      </Tooltip>
+                    );
+                  })}
                 </div>
               )}
             </div>

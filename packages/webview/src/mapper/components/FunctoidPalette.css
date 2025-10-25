@@ -10,7 +10,9 @@
   overflow: hidden;
   transition: width 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 3px 0 12px rgba(0, 0, 0, 0.06);
+  position: relative;
+  z-index: 5;
 }
 
 .functoid-palette.collapsed {
@@ -19,13 +21,16 @@
 
 /* Header */
 .palette-header {
-  padding: 6px;
+  padding: 8px 6px;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   gap: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 2;
 }
 
 .functoid-palette.collapsed .palette-header {
@@ -138,23 +143,23 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px 5px;
+  gap: 4px;
+  padding: 4px 6px;
   background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
   border: 1px solid #e2e8f0;
-  border-left: 2px solid transparent;
-  border-radius: 4px;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
   font-family: inherit;
   font-size: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .palette-category-header:hover {
   background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%);
   border-color: #cbd5e1;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
   transform: translateY(-1px);
 }
 
@@ -164,11 +169,18 @@
   width: 6px;
   text-align: center;
   transition: transform 0.2s;
+  flex-shrink: 0;
 }
 
-.category-emoji {
-  font-size: 10px;
+.category-icon-svg {
+  flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.palette-category-header:hover .category-icon-svg {
+  transform: scale(1.15);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
 }
 
 .category-label {
@@ -203,26 +215,41 @@
   justify-content: center;
   aspect-ratio: 1;
   padding: 0;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 1.5px solid #e2e8f0;
-  border-radius: 10px;
+  background: white;
+  border: 2px solid;
+  border-radius: 8px;
   cursor: grab;
   transition: all 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
   position: relative;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.palette-functoid-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.25s;
 }
 
 .palette-functoid-item:hover {
   border-color: #cbd5e1;
-  transform: scale(1.15) translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  transform: scale(1.2) translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
   z-index: 10;
   background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
 }
 
+.palette-functoid-item:hover::before {
+  opacity: 1;
+}
+
 .palette-functoid-item:active {
   cursor: grabbing;
-  transform: scale(1.05) translateY(-1px);
+  transform: scale(1.1) translateY(-1px);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
 }
 
 .functoid-icon {
@@ -231,16 +258,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  color: white;
-  font-weight: 700;
-  font-size: 10px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s;
+  border-radius: 6px;
+  background: white;
+  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  position: relative;
+  z-index: 1;
+}
+
+.functoid-icon svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 .palette-functoid-item:hover .functoid-icon {
-  transform: scale(1.1);
+  transform: scale(1.15);
+}
+
+.palette-functoid-item:hover .functoid-icon svg {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
 }
 
 /* Removed .functoid-info, .functoid-label, .functoid-description - using icon-only with tooltips */

@@ -1,7 +1,23 @@
 import { Handle, Position } from '@xyflow/react';
 import type { FunctoidCategory, NodeKind } from '../../../../core/src/mapper/types';
 import { functoidRegistry } from '../../../../core/src/mapper/registry';
+import { getFunctoidIcon } from './functoidIcons';
 import './FunctoidNode.css';
+
+/**
+ * Category color mapping
+ */
+const CATEGORY_COLORS: Record<FunctoidCategory, string> = {
+  math: '#f59e0b',
+  string: '#3b82f6',
+  logical: '#8b5cf6',
+  conditional: '#6366f1',
+  collection: '#10b981',
+  aggregate: '#14b8a6',
+  conversion: '#f97316',
+  datetime: '#ec4899',
+  custom: '#6b7280'
+};
 
 /**
  * FunctoidNode - Visual representation of a transformation function
@@ -24,6 +40,12 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
   const functoidDef = functoidRegistry[data.kind];
   const inputCount = functoidDef?.inputs?.length ?? 0;
 
+  // Get the icon component for this functoid
+  const IconComponent = getFunctoidIcon(data.kind);
+
+  // Get the color for this category
+  const iconColor = CATEGORY_COLORS[data.category];
+
   // Calculate vertical positions for inputs
   const inputPositions = Array.from({ length: inputCount }, (_, i) => {
     if (inputCount === 1) return 50; // Center for single input
@@ -31,7 +53,10 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
   });
 
   return (
-    <div className={`functoid-node functoid-${data.category} ${selected ? 'selected' : ''}`}>
+    <div
+      className={`functoid-node functoid-${data.category} ${selected ? 'selected' : ''}`}
+      data-label={data.label}
+    >
       {/* Input handles - only render if there are inputs */}
       {inputCount > 0 && inputPositions.map((topPercent, index) => (
         <Handle
@@ -45,7 +70,9 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
       ))}
 
       <div className="functoid-content">
-        <div className="functoid-icon">{data.icon}</div>
+        <div className="functoid-icon">
+          <IconComponent size={20} strokeWidth={2.5} color={iconColor} />
+        </div>
         <div className="functoid-label">{data.label}</div>
       </div>
 
