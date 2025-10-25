@@ -189,10 +189,13 @@ export function FunctoidPalette() {
                           className="palette-functoid-item"
                           draggable
                           onDragStart={(e) => onDragStart(e, functoid)}
-                          style={{ borderColor: meta.color }}
+                          style={{ borderLeftColor: meta.color }}
                         >
-                          <div className="functoid-icon">
-                            <FunctoidIcon size={14} strokeWidth={2.5} color={meta.color} />
+                          <div
+                            className="functoid-icon"
+                            style={{ backgroundColor: meta.color }}
+                          >
+                            <FunctoidIcon size={12} strokeWidth={2.5} />
                           </div>
                         </div>
                       </Tooltip>
