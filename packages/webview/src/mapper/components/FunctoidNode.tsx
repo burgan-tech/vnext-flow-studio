@@ -46,12 +46,10 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
 
   // Get the icon component for this functoid
   const IconComponent = getFunctoidIcon(data.kind);
-  let inputLabels = functoidDef?.inputs ?? [];
 
   if (data.kind === 'String.Template' && data.config?.template) {
     const params = extractTemplateParams(data.config.template);
     inputCount = params.length;
-    inputLabels = params.map(param => param.charAt(0).toUpperCase() + param.slice(1));
   }
 
   // Get the color for this category

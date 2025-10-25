@@ -52,7 +52,6 @@ import {
   CalendarCheck,
   CalendarPlus,
   CalendarClock,
-  Timer,
   Box,
   Code2,
   ChevronDown,
