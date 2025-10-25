@@ -85,7 +85,7 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
 
       <div className="functoid-content">
         <div className="functoid-icon">
-          <IconComponent size={18} strokeWidth={2.5} />
+          <IconComponent size={20} strokeWidth={2.5} />
         </div>
         <div className="functoid-label">{data.label}</div>
       </div>
