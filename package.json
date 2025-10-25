@@ -1,6 +1,6 @@
 {
   "name": "amorphie-flow-studio",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Visual editor for Amorphie Workflow Projects - A VS Code extension for designing and managing workflow definitions",
   "private": true,
   "license": "MIT",
