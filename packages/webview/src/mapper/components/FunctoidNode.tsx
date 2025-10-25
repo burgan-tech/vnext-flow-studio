@@ -54,9 +54,6 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
     inputLabels = params.map(param => param.charAt(0).toUpperCase() + param.slice(1));
   }
 
-  // Get the icon component for this functoid
-  const IconComponent = getFunctoidIcon(data.kind);
-
   // Get the color for this category
   const iconColor = CATEGORY_COLORS[data.category];
 
@@ -85,7 +82,7 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
 
       <div className="functoid-content">
         <div className="functoid-icon">
-          <IconComponent size={20} strokeWidth={2.5} />
+          <IconComponent size={20} strokeWidth={2.5} color={iconColor} />
         </div>
         <div className="functoid-label">{data.label}</div>
       </div>
