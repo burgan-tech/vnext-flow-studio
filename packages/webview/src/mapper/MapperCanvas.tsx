@@ -332,6 +332,7 @@ function MapperCanvasInner() {
       isLoadingRef.current = false;
       hasInitializedRef.current = true;
     }, 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceSchema, targetSchema, setNodes, setEdges, handleSourceCollapsedHandlesChange, handleTargetCollapsedHandlesChange]);
 
   /**
@@ -578,6 +579,7 @@ function MapperCanvasInner() {
     }
 
     return () => window.removeEventListener('message', handleMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initializeFromMapSpec]);
 
   /**
@@ -666,7 +668,7 @@ function MapperCanvasInner() {
    * E.g., buildPathToProperty(['attributes', 'config', 'headers'], 'Authorization')
    * -> { attributes: { properties: { config: { properties: { headers: { properties: { Authorization: {...} } } } } } } }
    */
-  const buildNestedSchema = (pathSegments: string[], propertyName: string, propertySchema: JSONSchema): JSONSchema => {
+  const buildNestedSchema = useCallback((pathSegments: string[], propertyName: string, propertySchema: JSONSchema): JSONSchema => {
     if (pathSegments.length === 0) {
       // Base case: return the property
       return {
@@ -685,7 +687,7 @@ function MapperCanvasInner() {
         [head]: buildNestedSchema(tail, propertyName, propertySchema)
       }
     };
-  };
+  }, []);
 
   /**
    * Add a user-defined property to a free-form object
@@ -776,7 +778,7 @@ function MapperCanvasInner() {
         [side]: [...sideOverlays, overlay]
       };
     });
-  }, []);
+  }, [buildNestedSchema]);
 
   /**
    * Edit a user-defined property
@@ -838,7 +840,7 @@ function MapperCanvasInner() {
         [side]: updatedOverlays
       };
     });
-  }, []);
+  }, [buildNestedSchema]);
 
   /**
    * Remove a user-defined property
@@ -934,7 +936,7 @@ function MapperCanvasInner() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [nodes, saveGraphLayout, fileUri, vscodeApi]);
+  }, [nodes, saveGraphLayout, fileUri]);
 
   /**
    * Handle node changes
@@ -970,7 +972,7 @@ function MapperCanvasInner() {
   const onConnect: OnConnect = useCallback((params) => {
     setEdges((eds) => addReactFlowEdge({
       ...params,
-      type: 'smoothstep',
+      type: 'default',
       animated: false,
       style: { stroke: '#3b82f6', strokeWidth: 3 }
     }, eds));
@@ -1187,7 +1189,7 @@ function MapperCanvasInner() {
       currentPositions: positionMap,
       handlePositions: handlePositionsMap
     });
-  }, [nodes, vscodeApi, getViewport, screenToFlowPosition]);
+  }, [nodes, getViewport, screenToFlowPosition]);
 
   const handleSchemaInferred = useCallback((schema: JSONSchema | any, side: 'source' | 'target') => {
     // Check if this is a file reference
@@ -1258,7 +1260,7 @@ function MapperCanvasInner() {
     setNodes(rfNodes);
     setEdges(rfEdges);
     // Auto-save will trigger from useEffect watching nodes/edges
-  }, [mapSpec, nodes, edges, sourceSchema, targetSchema, schemaOverlays, setNodes, setEdges, vscodeApi]);
+  }, [mapSpec, nodes, edges, sourceSchema, targetSchema, schemaOverlays, setNodes, setEdges]);
 
   return (
     <div className="mapper-canvas-container">

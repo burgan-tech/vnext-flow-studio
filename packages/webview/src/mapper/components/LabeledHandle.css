@@ -17,7 +17,7 @@
 }
 
 .labeled-handle-label {
-  font-size: 20px;
+  font-size: 30px;
   font-weight: 700;
   color: #111827;
   white-space: nowrap;
@@ -112,7 +112,7 @@
 .collapsed-parent-handle .labeled-handle-label {
   font-style: italic;
   opacity: 0.85;
-  font-size: 13px;
+  font-size: 20px;
   font-weight: 600;
 }
 

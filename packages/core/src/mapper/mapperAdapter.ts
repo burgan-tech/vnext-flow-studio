@@ -129,7 +129,7 @@ export function mapSpecToReactFlow(
       sourceHandle: mapSpecEdge.sourceHandle,
       target: mapSpecEdge.target,
       targetHandle: mapSpecEdge.targetHandle,
-      type: 'smoothstep',
+      type: 'default',
       animated: false,
       style: { stroke: '#3b82f6', strokeWidth: 3 }
     });
