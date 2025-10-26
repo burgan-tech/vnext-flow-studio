@@ -148,6 +148,21 @@
   stroke-width: 3;
 }
 
+/* Highlighted edges (contributing to hovered target) */
+.react-flow__edge-highlighted .react-flow__edge-path {
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.6));
+  animation: pulse-edge 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-edge {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.6));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.8));
+  }
+}
+
 /* Instructions */
 .mapper-instructions {
   padding: 14px 20px;

@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react';
 
 import type { Node as RFNode } from '@xyflow/react';
+import { useHighlight } from '../mapper/contexts/HighlightContext';
 
 type FloatingEdgeProps = {
   id: string;
@@ -137,9 +138,13 @@ export function FloatingEdge(props: FloatingEdgeProps) {
   const { id, source, target, markerEnd, style, className, label, labelStyle, labelBgStyle, labelBgPadding = [10, 8], labelBgBorderRadius = 6 } = props;
   const nodes = useNodes();
   const edges = useEdges();
+  const { highlightedEdges } = useHighlight();
 
   const sourceNode = useMemo(() => nodes.find((n) => n.id === source), [nodes, source]);
   const targetNode = useMemo(() => nodes.find((n) => n.id === target), [nodes, target]);
+
+  // Check if this edge is highlighted
+  const isHighlighted = highlightedEdges.has(id);
 
   // Check if there's a reverse edge (bidirectional connection)
   const hasReverseEdge = useMemo(() => {
@@ -257,9 +262,18 @@ export function FloatingEdge(props: FloatingEdgeProps) {
     }
   }
 
+  // Apply highlight styles
+  const edgeStyle = isHighlighted
+    ? { ...style, stroke: '#10b981', strokeWidth: 4, filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.6))' }
+    : style;
+
+  const edgeClassName = isHighlighted
+    ? `${className || ''} highlighted`
+    : className;
+
   return (
     <>
-      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style} className={className} />
+      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={edgeStyle} className={edgeClassName} />
       {label ? (
         <EdgeLabelRenderer>
           <div

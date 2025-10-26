@@ -124,3 +124,27 @@
 .collapsed-parent-handle.labeled-handle-target .labeled-handle-connector:hover {
   background: #10b981;
 }
+
+/* Highlighted source handles (contributing to hovered target) */
+.labeled-handle-highlighted .labeled-handle-connector {
+  width: 16px;
+  height: 16px;
+  background: #10b981;
+  border-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3), 0 0 12px rgba(16, 185, 129, 0.5);
+  animation: pulse-highlight 1.5s ease-in-out infinite;
+}
+
+.labeled-handle-highlighted .labeled-handle-label {
+  color: #10b981;
+  font-weight: 800;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3), 0 0 12px rgba(16, 185, 129, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.4), 0 0 16px rgba(16, 185, 129, 0.6);
+  }
+}

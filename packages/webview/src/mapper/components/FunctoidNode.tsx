@@ -1,8 +1,9 @@
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useNodeId } from '@xyflow/react';
 import type { FunctoidCategory, NodeKind } from '../../../../core/src/mapper/types';
 import { functoidRegistry } from '../../../../core/src/mapper/registry';
 import { getFunctoidIcon } from './functoidIcons';
 import { extractTemplateParams } from '../../../../core/src/mapper/templateUtils';
+import { useHighlight } from '../contexts/HighlightContext';
 import './FunctoidNode.css';
 
 /**
@@ -38,6 +39,9 @@ export interface FunctoidNodeProps {
 }
 
 export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
+  const nodeId = useNodeId();
+  const { highlightedNodes } = useHighlight();
+
   // Get functoid definition to determine number of inputs
   const functoidDef = functoidRegistry[data.kind];
 
@@ -61,9 +65,12 @@ export function FunctoidNode({ data, selected }: FunctoidNodeProps) {
     return (100 / (inputCount + 1)) * (i + 1); // Evenly space multiple inputs
   });
 
+  // Check if this node is highlighted
+  const isHighlighted = nodeId && highlightedNodes.has(nodeId);
+
   return (
     <div
-      className={`functoid-node functoid-${data.category} ${selected ? 'selected' : ''}`}
+      className={`functoid-node functoid-${data.category} ${selected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}`}
       data-label={data.label}
     >
       {/* Input handles - only render if there are inputs */}

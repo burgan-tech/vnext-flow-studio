@@ -1,4 +1,5 @@
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useNodeId } from '@xyflow/react';
+import { useHighlight } from '../contexts/HighlightContext';
 import './LabeledHandle.css';
 
 /**
@@ -32,8 +33,31 @@ export function LabeledHandle({
   handleClassName = '',
   labelClassName = ''
 }: LabeledHandleProps) {
+  const nodeId = useNodeId();
+  const { highlightedSourceHandles, onTargetHandleHover, onTargetHandleHoverEnd } = useHighlight();
+
+  // Check if this source handle is highlighted
+  const isHighlighted = type === 'source' && nodeId && highlightedSourceHandles.has(`${nodeId}:${id}`);
+
+  // Handle hover events for target handles
+  const handleMouseEnter = () => {
+    if (type === 'target' && nodeId) {
+      onTargetHandleHover(nodeId, id);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (type === 'target') {
+      onTargetHandleHoverEnd();
+    }
+  };
+
   return (
-    <div className={`labeled-handle labeled-handle-${type} ${className}`}>
+    <div
+      className={`labeled-handle labeled-handle-${type} ${isHighlighted ? 'labeled-handle-highlighted' : ''} ${className}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <span className={`labeled-handle-label ${labelClassName}`}>
         {title}
       </span>

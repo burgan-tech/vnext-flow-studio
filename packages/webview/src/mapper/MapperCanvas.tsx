@@ -8,6 +8,7 @@ import {
   useReactFlow,
   ReactFlowProvider,
   type Node,
+  type Edge,
   type OnConnect,
   type NodeTypes,
   type NodeChange,
@@ -31,6 +32,8 @@ import {
 } from '../../../core/src/mapper';
 import type { JSONSchema, MapSpec, NodeKind, GraphLayout, SchemaOverlays, SchemaOverlay } from '../../../core/src/mapper';
 import { SchemaNodeTreeView, FunctoidNode, SchemaInferenceDialog, FunctoidPalette, FunctoidConfigPanel, ExecutionPreviewPanel } from './components';
+import { traceUpstreamDependencies } from './utils/highlightTracer';
+import { HighlightContext } from './contexts/HighlightContext';
 // Sample schemas removed - users must import or reference schemas explicitly
 import './MapperCanvas.css';
 
@@ -103,6 +106,11 @@ function MapperCanvasInner() {
   const [sourceParentMap, setSourceParentMap] = useState<Map<string, string>>(new Map());
   const [targetParentMap, setTargetParentMap] = useState<Map<string, string>>(new Map());
 
+  // Highlighting state for target handle hover
+  const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
+  const [highlightedEdges, setHighlightedEdges] = useState<Set<string>>(new Set());
+  const [highlightedSourceHandles, setHighlightedSourceHandles] = useState<Set<string>>(new Set());
+
   // Track if we're loading to prevent save during init
   const isLoadingRef = useRef(false);
   const hasInitializedRef = useRef(false);
@@ -120,6 +128,31 @@ function MapperCanvasInner() {
   const handleTargetCollapsedHandlesChange = useCallback((handleIds: string[], parentMap: Map<string, string>) => {
     setCollapsedTargetHandles(new Set(handleIds));
     setTargetParentMap(parentMap);
+  }, []);
+
+  /**
+   * Handle hover on target handles to highlight contributing elements
+   */
+  const handleTargetHandleHover = useCallback((nodeId: string, handleId: string) => {
+    const { nodeIds, edgeIds, sourceHandles } = traceUpstreamDependencies(
+      nodeId,
+      handleId,
+      nodes,
+      edges
+    );
+
+    setHighlightedNodes(nodeIds);
+    setHighlightedEdges(edgeIds);
+    setHighlightedSourceHandles(sourceHandles);
+  }, [nodes, edges]);
+
+  /**
+   * Clear highlighting when hover ends
+   */
+  const handleTargetHandleHoverEnd = useCallback(() => {
+    setHighlightedNodes(new Set());
+    setHighlightedEdges(new Set());
+    setHighlightedSourceHandles(new Set());
   }, []);
 
   /**
@@ -143,6 +176,7 @@ function MapperCanvasInner() {
 
   /**
    * Redirect edges to visible parent handles when children are collapsed
+   * Also apply highlighting styles to contributing edges
    */
   const redirectedEdges = useMemo(() => {
     console.log('🔄 Recalculating redirected edges...');
@@ -160,8 +194,11 @@ function MapperCanvasInner() {
       const sourceIsCollapsed = collapsedSourceHandles.has(sourceHandle);
       const targetIsCollapsed = collapsedTargetHandles.has(targetHandle);
 
-      if (!sourceIsCollapsed && !targetIsCollapsed) {
-        // No redirection needed
+      // Check if this edge should be highlighted
+      const isHighlighted = highlightedEdges.has(edge.id);
+
+      if (!sourceIsCollapsed && !targetIsCollapsed && !isHighlighted) {
+        // No redirection or highlighting needed
         return edge;
       }
 
@@ -169,11 +206,13 @@ function MapperCanvasInner() {
       const newSourceHandle = sourceIsCollapsed ? findVisibleParent(sourceHandle, true) : sourceHandle;
       const newTargetHandle = targetIsCollapsed ? findVisibleParent(targetHandle, false) : targetHandle;
 
-      console.log('  📌 Redirecting edge:', {
-        id: edge.id,
-        from: { original: sourceHandle, redirected: newSourceHandle, wasCollapsed: sourceIsCollapsed },
-        to: { original: targetHandle, redirected: newTargetHandle, wasCollapsed: targetIsCollapsed }
-      });
+      if (sourceIsCollapsed || targetIsCollapsed) {
+        console.log('  📌 Redirecting edge:', {
+          id: edge.id,
+          from: { original: sourceHandle, redirected: newSourceHandle, wasCollapsed: sourceIsCollapsed },
+          to: { original: targetHandle, redirected: newTargetHandle, wasCollapsed: targetIsCollapsed }
+        });
+      }
 
       // Create redirected edge with visual indicators
       // Force React Flow to re-validate by adding a unique key suffix when redirected
@@ -181,17 +220,31 @@ function MapperCanvasInner() {
         ? `${edge.id}-redirected-${newSourceHandle}-${newTargetHandle}`
         : edge.id;
 
+      // Build style with redirection and highlighting
+      const baseStyle = edge.style || {};
+      let edgeStyle = { ...baseStyle };
+
+      // Apply redirection styling
+      if (sourceIsCollapsed || targetIsCollapsed) {
+        edgeStyle.strokeDasharray = '5,5';
+        edgeStyle.opacity = 0.6;
+      }
+
+      // Apply highlighting styling (overrides redirection if both apply)
+      if (isHighlighted) {
+        edgeStyle.stroke = '#10b981';
+        edgeStyle.strokeWidth = 4;
+        edgeStyle.opacity = 1;
+      }
+
       return {
         ...edge,
         id: redirectedId,
         sourceHandle: newSourceHandle,
         targetHandle: newTargetHandle,
-        // Add visual indicator that this edge is redirected
-        style: {
-          ...edge.style,
-          strokeDasharray: (sourceIsCollapsed || targetIsCollapsed) ? '5,5' : undefined,
-          opacity: (sourceIsCollapsed || targetIsCollapsed) ? 0.6 : 1
-        },
+        style: edgeStyle,
+        // Add class for additional CSS styling
+        className: isHighlighted ? 'react-flow__edge-highlighted' : edge.className,
         // Add data to track original handles (for saving)
         data: {
           ...edge.data,
@@ -201,7 +254,7 @@ function MapperCanvasInner() {
         }
       };
     });
-  }, [edges, collapsedSourceHandles, collapsedTargetHandles, sourceParentMap, targetParentMap, findVisibleParent]);
+  }, [edges, collapsedSourceHandles, collapsedTargetHandles, sourceParentMap, targetParentMap, findVisibleParent, highlightedEdges]);
 
   /**
    * Initialize from MapSpec
@@ -1279,26 +1332,36 @@ function MapperCanvasInner() {
 
         {/* React Flow Canvas */}
         <div className="mapper-flow">
-          <ReactFlow
-            nodes={nodes}
-            edges={redirectedEdges}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={handleNodeClick}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            isValidConnection={isValidConnection}
-            nodeTypes={nodeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
-            minZoom={0.1}
-            maxZoom={2}
-            panOnDrag
-            zoomOnScroll
+          <HighlightContext.Provider
+            value={{
+              highlightedNodes,
+              highlightedEdges,
+              highlightedSourceHandles,
+              onTargetHandleHover: handleTargetHandleHover,
+              onTargetHandleHoverEnd: handleTargetHandleHoverEnd
+            }}
           >
-            <Background variant="dots" gap={16} size={1} color="#cbd5e1" />
-          </ReactFlow>
+            <ReactFlow
+              nodes={nodes}
+              edges={redirectedEdges}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={handleNodeClick}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              isValidConnection={isValidConnection}
+              nodeTypes={nodeTypes}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+              minZoom={0.1}
+              maxZoom={2}
+              panOnDrag
+              zoomOnScroll
+            >
+              <Background variant="dots" gap={16} size={1} color="#cbd5e1" />
+            </ReactFlow>
+          </HighlightContext.Provider>
         </div>
       </div>
 

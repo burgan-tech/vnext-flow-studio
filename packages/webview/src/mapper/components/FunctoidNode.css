@@ -145,3 +145,20 @@
   background: #3b82f6;
   border-color: #1e40af;
 }
+
+/* Highlighted functoid node (contributing to hovered target) */
+.functoid-node.highlighted {
+  border-width: 4px;
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.4), 0 0 20px rgba(16, 185, 129, 0.6);
+  transform: scale(1.08);
+  animation: pulse-functoid 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-functoid {
+  0%, 100% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.4), 0 0 20px rgba(16, 185, 129, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.5), 0 0 24px rgba(16, 185, 129, 0.7);
+  }
+}
