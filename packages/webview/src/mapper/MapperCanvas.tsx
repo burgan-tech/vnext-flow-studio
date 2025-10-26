@@ -8,7 +8,6 @@ import {
   useReactFlow,
   ReactFlowProvider,
   type Node,
-  type Edge,
   type OnConnect,
   type NodeTypes,
   type NodeChange,
@@ -222,20 +221,20 @@ function MapperCanvasInner() {
 
       // Build style with redirection and highlighting
       const baseStyle = edge.style || {};
-      let edgeStyle = { ...baseStyle };
-
-      // Apply redirection styling
-      if (sourceIsCollapsed || targetIsCollapsed) {
-        edgeStyle.strokeDasharray = '5,5';
-        edgeStyle.opacity = 0.6;
-      }
-
-      // Apply highlighting styling (overrides redirection if both apply)
-      if (isHighlighted) {
-        edgeStyle.stroke = '#10b981';
-        edgeStyle.strokeWidth = 4;
-        edgeStyle.opacity = 1;
-      }
+      const edgeStyle = {
+        ...baseStyle,
+        // Apply redirection styling
+        ...(sourceIsCollapsed || targetIsCollapsed ? {
+          strokeDasharray: '5,5',
+          opacity: 0.6
+        } : {}),
+        // Apply highlighting styling (overrides redirection if both apply)
+        ...(isHighlighted ? {
+          stroke: '#10b981',
+          strokeWidth: 4,
+          opacity: 1
+        } : {})
+      };
 
       return {
         ...edge,
