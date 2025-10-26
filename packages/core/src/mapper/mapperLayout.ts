@@ -25,7 +25,7 @@ export interface MapperAutoLayoutOptions {
   useElk?: boolean;
 }
 
-const DEFAULT_COLUMN_SPACING = 80;
+const _DEFAULT_COLUMN_SPACING = 80;
 
 // Default node sizes
 const SCHEMA_NODE_SIZE = { width: 300, height: 400 };
@@ -40,13 +40,13 @@ const ELK_LAYOUT_OPTIONS: Record<string, string> = {
   'elk.edgeRouting': 'ORTHOGONAL',
   'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
   'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
-  'elk.layered.spacing.nodeNodeBetweenLayers': '80',
-  'elk.spacing.nodeNode': '40',
-  'elk.layered.spacing.edgeNodeBetweenLayers': '40',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '50',  // Reduced from 80 - horizontal spacing between layers
+  'elk.spacing.nodeNode': '25',  // Reduced from 40 - vertical spacing between nodes
+  'elk.layered.spacing.edgeNodeBetweenLayers': '30',  // Reduced from 40
   'elk.layered.compaction.postCompaction.strategy': 'EDGE_LENGTH',
   'elk.layered.nodePlacement.favorStraightEdges': 'true',
   'elk.layered.thoroughness': '50',
-  'elk.spacing.edgeNode': '20',
+  'elk.spacing.edgeNode': '15',  // Reduced from 20
   'elk.spacing.edgeEdge': '10',
   'elk.spacing.portPort': '10',
   'elk.portConstraints': 'FIXED_SIDE',
@@ -107,34 +107,11 @@ export async function autoLayoutMapper(
     };
   }
 
-  // Build ELK graph with all nodes (schemas + functoids)
+  // Build ELK graph with functoid nodes only (schemas are excluded and positioned separately)
   const elkNodes: ElkNode[] = [];
   const elkEdges: ElkExtendedEdge[] = [];
 
-  // Add schema nodes as fixed anchors
-  elkNodes.push({
-    id: 'source-schema',
-    width: sourceSchemaSize.width,
-    height: sourceSchemaSize.height,
-    x: sourceSchemaPos.x,
-    y: sourceSchemaPos.y,
-    properties: {
-      'elk.layered.layerConstraint': 'FIRST'
-    }
-  });
-
-  elkNodes.push({
-    id: 'target-schema',
-    width: targetSchemaSize.width,
-    height: targetSchemaSize.height,
-    x: targetSchemaPos.x,
-    y: targetSchemaPos.y,
-    properties: {
-      'elk.layered.layerConstraint': 'LAST'
-    }
-  });
-
-  // Add functoid nodes
+  // Add functoid nodes only
   for (const node of mapSpec.nodes) {
     const nodeSize = nodeSizes[node.id] ?? FUNCTOID_NODE_SIZE;
     elkNodes.push({
@@ -144,13 +121,19 @@ export async function autoLayoutMapper(
     });
   }
 
-  // Add all edges
+  // Add only edges between functoids (filter out schema edges)
   for (const edge of mapSpec.edges) {
-    elkEdges.push({
-      id: edge.id,
-      sources: [edge.source],
-      targets: [edge.target]
-    });
+    // Only include edges between functoids
+    const sourceFunctoid = mapSpec.nodes.find(n => n.id === edge.source);
+    const targetFunctoid = mapSpec.nodes.find(n => n.id === edge.target);
+
+    if (sourceFunctoid && targetFunctoid) {
+      elkEdges.push({
+        id: edge.id,
+        sources: [edge.source],
+        targets: [edge.target]
+      });
+    }
   }
 
   // Create ELK graph
@@ -171,31 +154,53 @@ export async function autoLayoutMapper(
     dimensions: { width: number; height: number };
   }> = [];
 
+  // Add schema nodes at their fixed positions (not computed by ELK)
+  nodeLayouts.push({
+    id: 'source-schema',
+    position: sourceSchemaPos,
+    dimensions: sourceSchemaSize
+  });
+
+  nodeLayouts.push({
+    id: 'target-schema',
+    position: targetSchemaPos,
+    dimensions: targetSchemaSize
+  });
+
+  // Calculate offset to position functoids between schemas
+  const elkBounds = layoutedGraph.children && layoutedGraph.children.length > 0
+    ? {
+        minX: Math.min(...layoutedGraph.children.map(n => n.x ?? 0)),
+        maxX: Math.max(...layoutedGraph.children.map(n => (n.x ?? 0) + (n.width ?? 0))),
+        minY: Math.min(...layoutedGraph.children.map(n => n.y ?? 0)),
+        maxY: Math.max(...layoutedGraph.children.map(n => (n.y ?? 0) + (n.height ?? 0)))
+      }
+    : null;
+
+  // Calculate transform to position functoids between the schemas
+  let offsetX = sourceSchemaPos.x + sourceSchemaSize.width + 50; // Start 50px after source schema
+  let offsetY = sourceSchemaPos.y;
+
+  if (elkBounds) {
+    // Center functoids vertically relative to source schema
+    const elkHeight = elkBounds.maxY - elkBounds.minY;
+    offsetY = sourceSchemaPos.y + (sourceSchemaSize.height - elkHeight) / 2 - elkBounds.minY;
+    offsetX = offsetX - elkBounds.minX; // Align left edge with start position
+  }
+
+  // Add ELK-computed functoid positions with offset
   for (const elkNode of layoutedGraph.children ?? []) {
-    if (elkNode.id === 'source-schema' || elkNode.id === 'target-schema') {
-      // Keep schema nodes at their original positions
-      nodeLayouts.push({
-        id: elkNode.id,
-        position: elkNode.id === 'source-schema' ? sourceSchemaPos : targetSchemaPos,
-        dimensions: {
-          width: elkNode.width ?? SCHEMA_NODE_SIZE.width,
-          height: elkNode.height ?? SCHEMA_NODE_SIZE.height
-        }
-      });
-    } else {
-      // Use ELK-computed positions for functoids
-      nodeLayouts.push({
-        id: elkNode.id,
-        position: {
-          x: elkNode.x ?? 0,
-          y: elkNode.y ?? 0
-        },
-        dimensions: {
-          width: elkNode.width ?? FUNCTOID_NODE_SIZE.width,
-          height: elkNode.height ?? FUNCTOID_NODE_SIZE.height
-        }
-      });
-    }
+    nodeLayouts.push({
+      id: elkNode.id,
+      position: {
+        x: (elkNode.x ?? 0) + offsetX,
+        y: (elkNode.y ?? 0) + offsetY
+      },
+      dimensions: {
+        width: elkNode.width ?? FUNCTOID_NODE_SIZE.width,
+        height: elkNode.height ?? FUNCTOID_NODE_SIZE.height
+      }
+    });
   }
 
   return {
