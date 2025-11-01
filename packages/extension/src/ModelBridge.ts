@@ -50,6 +50,8 @@ export class ModelBridge {
   private config: ModelBridgeConfig;
   private panelModelMap: Map<string, WorkflowModel> = new Map();
   private hintsManagers: Map<string, DesignHintsManager> = new Map();
+  private autosaveTimers: Map<string, NodeJS.Timeout> = new Map();
+  private lastSavedContent: Map<string, string> = new Map();
 
   constructor(config: ModelBridgeConfig) {
     this.config = config;
@@ -362,55 +364,68 @@ export class ModelBridge {
       switch (message.type) {
         case 'persist:diagram':
           model.setDiagram(message.diagram);
+          // Immediate save for explicit diagram persistence
           await this.saveModel(model);
           break;
 
         case 'domain:setStart':
           await this.setStartTransition(model, message.target);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:addTransition':
           await this.addTransition(model, message.from, message.target, message.triggerType);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:moveTransition':
           await this.moveTransition(model, message.oldFrom, message.tKey, message.newFrom, message.newTarget);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:removeTransition':
           await this.removeTransition(model, message.from, message.tKey);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:removeState':
           await this.removeState(model, message.stateKey);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:updateState':
           await this.updateState(model, message.stateKey, message.state);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:updateTransition':
           await this.updateTransition(model, message.from, message.transitionKey, message.transition);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:makeTransitionShared':
           await this.makeTransitionShared(model, message.from, message.transitionKey);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:updateSharedTransition':
           await this.updateSharedTransition(model, message.transitionKey, message.sharedTransition);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:convertSharedToRegular':
           await this.convertSharedToRegular(model, message.transitionKey, message.targetState);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:removeFromSharedTransition':
           await this.removeFromSharedTransition(model, message.transitionKey, message.stateKey);
+          this.scheduleAutosave(model);
           break;
 
         case 'domain:addState':
           await this.addState(model, message.state, message.position, message.pluginId, message.hints);
+          this.scheduleAutosave(model);
           break;
 
         case 'mapping:createFile':
@@ -463,7 +478,7 @@ export class ModelBridge {
       versionStrategy: 'Major',
       triggerType: 0
     };
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -502,7 +517,7 @@ export class ModelBridge {
       triggerType
     });
 
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -546,7 +561,7 @@ export class ModelBridge {
     transition.target = newTarget;
     newSource.transitions.push(transition);
 
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -568,7 +583,7 @@ export class ModelBridge {
       }
     }
 
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -584,7 +599,7 @@ export class ModelBridge {
       model.setDiagram(diagram);
     }
 
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -614,7 +629,7 @@ export class ModelBridge {
 
     // Update the state
     model.updateState(stateKey, state);
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -638,7 +653,7 @@ export class ModelBridge {
       state.transitions[index] = transition;
     }
 
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -677,7 +692,7 @@ export class ModelBridge {
     };
 
     workflow.attributes.sharedTransitions.push(sharedTransition);
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -699,7 +714,7 @@ export class ModelBridge {
       workflow.attributes.sharedTransitions[index] = sharedTransition;
     }
 
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -739,7 +754,7 @@ export class ModelBridge {
     const { availableIn, ...regularTransition } = sharedTransition;
     state.transitions.push(regularTransition as Transition);
 
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -781,7 +796,7 @@ export class ModelBridge {
       transition.availableIn = transition.availableIn.filter(s => s !== stateKey);
     }
 
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -814,7 +829,7 @@ export class ModelBridge {
       hintsManager.setStateHints(state.key, hints);
     }
 
-    await this.saveModel(model);
+    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -1322,13 +1337,59 @@ export class ModelBridge {
   /**
    * Save the model
    */
-  private async saveModel(_model: WorkflowModel): Promise<void> {
+  private async saveModel(model: WorkflowModel): Promise<void> {
+    // Store content before save to prevent false positive external change detection
+    const workflow = model.getWorkflow();
+    const diagram = model.getDiagram();
+    const modelKey = this.getModelKey(model);
+
+    this.lastSavedContent.set(`${modelKey}:workflow`, JSON.stringify(workflow, null, 2));
+    if (diagram) {
+      this.lastSavedContent.set(`${modelKey}:diagram`, JSON.stringify(diagram, null, 2));
+    }
+
     await this.integration.save({
       backup: false,
       format: true,
       indent: 2,
       updateScriptEncoding: false  // Disabled automatic script encoding to prevent unwanted file creation
     });
+  }
+
+  /**
+   * Schedule autosave for a model
+   */
+  private scheduleAutosave(model: WorkflowModel, delayMs: number = 2000): void {
+    const modelKey = this.getModelKey(model);
+
+    // Clear existing timer if any
+    const existingTimer = this.autosaveTimers.get(modelKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Schedule new save
+    const timer = setTimeout(async () => {
+      try {
+        console.log('[ModelBridge] Autosaving model:', modelKey);
+        await this.saveModel(model);
+
+        // Find panel for this model and send save confirmation
+        const panel = this.getPanelForModel(model);
+        if (panel) {
+          panel.webview.postMessage({
+            type: 'autosave:complete',
+            timestamp: Date.now()
+          });
+        }
+      } catch (error) {
+        console.error('[ModelBridge] Autosave failed:', error);
+      } finally {
+        this.autosaveTimers.delete(modelKey);
+      }
+    }, delayMs);
+
+    this.autosaveTimers.set(modelKey, timer);
   }
 
   /**
@@ -1639,7 +1700,24 @@ export class ModelBridge {
   }
 
   dispose(): void {
+    // Clear all autosave timers
+    for (const timer of this.autosaveTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.autosaveTimers.clear();
+
     // Clean up resources
     this.panelModelMap.clear();
+    this.lastSavedContent.clear();
+    this.hintsManagers.clear();
+  }
+
+  /**
+   * Check if file content matches last saved content
+   */
+  isLastSavedContent(modelKey: string, type: 'workflow' | 'diagram', content: string): boolean {
+    const key = `${modelKey}:${type}`;
+    const lastSaved = this.lastSavedContent.get(key);
+    return lastSaved !== undefined && lastSaved.trim() === content.trim();
   }
 }

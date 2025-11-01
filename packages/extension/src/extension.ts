@@ -164,23 +164,38 @@ async function openFlowEditor(
 
         // Handle external changes to the workflow or diagram
         if (changedKey === flowUriKey || changedUri.path === diagramUri.path) {
-          // Check if this is an external change by comparing file content with model
+          // Check if this is an external change
           const fileContent = await vscode.workspace.fs.readFile(changedUri);
           const fileText = new TextDecoder().decode(fileContent);
 
-          let modelContent: string;
+          // Get model key for checking saved content
+          const workflow = model.getWorkflow();
+          const modelKey = `${workflow.domain}/${workflow.flow}/${workflow.key}`;
+
+          let isInternalChange = false;
           if (changedKey === flowUriKey) {
-            // Compare workflow content
-            const workflow = model.getWorkflow();
-            modelContent = JSON.stringify(workflow, null, 2);
+            // Check if this matches our last saved content
+            isInternalChange = modelBridge.isLastSavedContent(modelKey, 'workflow', fileText);
+
+            // If not tracked, fallback to comparing with current model
+            if (!isInternalChange) {
+              const modelContent = JSON.stringify(workflow, null, 2);
+              isInternalChange = fileText.trim() === modelContent.trim();
+            }
           } else {
-            // Compare diagram content
-            const diagram = model.getDiagram();
-            modelContent = diagram ? JSON.stringify(diagram, null, 2) : '';
+            // Check diagram
+            isInternalChange = modelBridge.isLastSavedContent(modelKey, 'diagram', fileText);
+
+            // If not tracked, fallback to comparing with current model
+            if (!isInternalChange) {
+              const diagram = model.getDiagram();
+              const modelContent = diagram ? JSON.stringify(diagram, null, 2) : '';
+              isInternalChange = fileText.trim() === modelContent.trim();
+            }
           }
 
-          // Only reload if content actually differs (external change)
-          if (fileText.trim() !== modelContent.trim()) {
+          // Only reload if this is an external change
+          if (!isInternalChange) {
             console.log('External file change detected, reloading model:', changedUri.path);
 
             // Reload the model

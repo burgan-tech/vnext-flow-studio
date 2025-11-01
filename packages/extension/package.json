@@ -25,9 +25,6 @@
     "monaco-editor"
   ],
   "activationEvents": [
-    "onLanguage:json",
-    "onCommand:flowEditor.open",
-    "onCommand:flowEditor.createMapper",
     "onCommand:mapperEditor.open"
   ],
   "main": "./dist/extension.js",
