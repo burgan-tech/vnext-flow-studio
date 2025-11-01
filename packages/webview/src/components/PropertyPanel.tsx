@@ -1379,7 +1379,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                   }}
                 />
                 <small className="property-panel__help">
-                  The state that all shared instances will transition to. Use "$self" to make each state transition to itself.
+                  The state that all shared instances will transition to. Use &quot;$self&quot; to make each state transition to itself.
                 </small>
               </label>
 
