@@ -3,6 +3,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  Panel,
   Node,
   Edge,
   Connection,
@@ -24,6 +25,7 @@ import {
 import { PluggableStateNode } from './nodes/PluggableStateNode';
 import { PropertyPanel, type PropertySelection } from './PropertyPanel';
 import { TriggerTypeLegend } from './TriggerTypeLegend';
+import { LayerControlButton } from './LayerControlButton';
 import { useBridge } from '../hooks/useBridge';
 import { FloatingEdge } from '../edges/FloatingEdge';
 import type {
@@ -73,12 +75,14 @@ const decorateEdges = (edges: Edge[]): Edge[] =>
     const triggerClass = triggerType !== undefined ? triggerClassMap[triggerType] : undefined;
     const dash = edge.style?.strokeDasharray;
     const sharedClass = dash === '4 4' ? 'shared-transition' : undefined;
+    const isShared = dash === '4 4';
     const className = [edge.className, triggerClass, sharedClass].filter(Boolean).join(' ');
 
     // Force our floating edge renderer for consistent visuals
     const type = 'floating' as const;
 
-    return className ? { ...edge, className, type } : { ...edge, type };
+    // Add edge type to data for filtering
+    return className ? { ...edge, className, type, data: { ...edge.data, isShared } } : { ...edge, type, data: { ...edge.data, isShared } };
   });
 
 interface CanvasProps {
@@ -89,7 +93,8 @@ interface CanvasProps {
 export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const { postMessage, onMessage } = useBridge();
   const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  const [allEdges, setAllEdges] = useState<Edge[]>([]); // Store all edges, unfiltered
+  const [edges, setEdges] = useState<Edge[]>([]); // Displayed edges after filtering
   const [workflow, setWorkflow] = useState<Workflow | null>(initialWorkflow || null);
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
   const [selection, setSelection] = useState<PropertySelection>(null);
@@ -103,6 +108,103 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [_designHints, setDesignHints] = useState<Map<string, DesignHints>>(new Map());
   const pendingMeasuredAutoLayout = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Layer visibility state - use diagram settings if available, otherwise localStorage
+  const [showRegularTransitions, setShowRegularTransitions] = useState(() => {
+    if (initialDiagram?.layerVisibility?.regularTransitions !== undefined) {
+      return initialDiagram.layerVisibility.regularTransitions;
+    }
+    const stored = localStorage.getItem('flow-layer-regular');
+    return stored === null ? true : stored === 'true';
+  });
+  const [showSharedTransitions, setShowSharedTransitions] = useState(() => {
+    if (initialDiagram?.layerVisibility?.sharedTransitions !== undefined) {
+      return initialDiagram.layerVisibility.sharedTransitions;
+    }
+    const stored = localStorage.getItem('flow-layer-shared');
+    return stored === null ? true : stored === 'true';
+  });
+
+  // Filter edges based on layer visibility
+  const filterEdgesByVisibility = useCallback((edges: Edge[]) => {
+    return edges.filter((edge) => {
+      const isShared = edge.data?.isShared === true;
+      if (isShared) {
+        return showSharedTransitions;
+      } else {
+        return showRegularTransitions;
+      }
+    });
+  }, [showRegularTransitions, showSharedTransitions]);
+
+  // Toggle handlers
+  const toggleRegularTransitions = useCallback(() => {
+    const newValue = !showRegularTransitions;
+    setShowRegularTransitions(newValue);
+    localStorage.setItem('flow-layer-regular', String(newValue));
+  }, [showRegularTransitions]);
+
+  const toggleSharedTransitions = useCallback(() => {
+    const newValue = !showSharedTransitions;
+    setShowSharedTransitions(newValue);
+    localStorage.setItem('flow-layer-shared', String(newValue));
+  }, [showSharedTransitions]);
+
+  // Apply edge filtering whenever visibility settings or allEdges change
+  useEffect(() => {
+    setEdges(filterEdgesByVisibility(allEdges));
+  }, [allEdges, filterEdgesByVisibility]);
+
+  // Update diagram with layer visibility settings when they change
+  useEffect(() => {
+    setDiagram(prev => ({
+      ...prev,
+      layerVisibility: {
+        regularTransitions: showRegularTransitions,
+        sharedTransitions: showSharedTransitions
+      }
+    }));
+  }, [showRegularTransitions, showSharedTransitions]);
+
+  // Keyboard shortcuts for layer toggling
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl+Shift key combination
+      if (e.ctrlKey && e.shiftKey) {
+        switch (e.key.toUpperCase()) {
+          case 'R':
+            e.preventDefault();
+            toggleRegularTransitions();
+            break;
+          case 'S':
+            e.preventDefault();
+            toggleSharedTransitions();
+            break;
+          case 'A':
+            e.preventDefault();
+            // Show all transitions
+            if (!showRegularTransitions || !showSharedTransitions) {
+              setShowRegularTransitions(true);
+              setShowSharedTransitions(true);
+              localStorage.setItem('flow-layer-regular', 'true');
+              localStorage.setItem('flow-layer-shared', 'true');
+            } else {
+              // If all are visible, hide all (toggle behavior)
+              setShowRegularTransitions(false);
+              setShowSharedTransitions(false);
+              localStorage.setItem('flow-layer-regular', 'false');
+              localStorage.setItem('flow-layer-shared', 'false');
+            }
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [toggleRegularTransitions, toggleSharedTransitions, showRegularTransitions, showSharedTransitions]);
 
   // Legacy state templates are no longer used - all states come from plugins
   const stateTemplates = useMemo<StateTemplate[]>(() => [], []);
@@ -142,8 +244,17 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           setWorkflow(message.workflow);
           setDiagram(message.diagram);
           setNodes(message.derived.nodes);
-          setEdges(decorateEdges(message.derived.edges));
+          setAllEdges(decorateEdges(message.derived.edges));
           setTaskCatalog(message.tasks);
+          // Update layer visibility from diagram if available
+          if (message.diagram.layerVisibility) {
+            if (message.diagram.layerVisibility.regularTransitions !== undefined) {
+              setShowRegularTransitions(message.diagram.layerVisibility.regularTransitions);
+            }
+            if (message.diagram.layerVisibility.sharedTransitions !== undefined) {
+              setShowSharedTransitions(message.diagram.layerVisibility.sharedTransitions);
+            }
+          }
           if (message.catalogs) {
             setCatalogs(message.catalogs);
           }
@@ -173,7 +284,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
         case 'workflow:update':
           setWorkflow(message.workflow);
           setNodes(message.derived.nodes);
-          setEdges(decorateEdges(message.derived.edges));
+          setAllEdges(decorateEdges(message.derived.edges));
           break;
         case 'diagram:update':
           setDiagram(message.diagram);
@@ -201,7 +312,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           if (nodeToSelect) {
             // Clear existing selection
             setNodes(nds => nds.map(n => ({ ...n, selected: n.id === message.nodeId })));
-            setEdges(eds => eds.map(e => ({ ...e, selected: false })));
+            setAllEdges(eds => eds.map(e => ({ ...e, selected: false })));
 
             // Set the selection for property panel
             if (workflow) {
@@ -251,7 +362,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
   // Handle edge changes
   const onEdgesChange: OnEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setEdges((eds) => applyEdgeChanges(changes, eds));
+    setAllEdges((eds) => applyEdgeChanges(changes, eds));
   }, []);
 
   // Handle connection start
@@ -584,7 +695,14 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     let newState: State;
     if (variant?.stateTemplate) {
       // Use variant template (should already have xProfile set)
-      newState = { ...variant.stateTemplate };
+      // Ensure all required properties are defined
+      newState = {
+        key: stateKey, // Default key, will be overridden below
+        stateType: 2 as StateType, // Default to Intermediate if not provided
+        labels: [],
+        versionStrategy: 'Major' as const, // Default to Major if not provided
+        ...variant.stateTemplate
+      };
     } else {
       // Use the plugin's createState method if available, otherwise create manually
       if (plugin.createState && typeof plugin.createState === 'function') {
@@ -662,14 +780,6 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
       hints
     });
   }, [postMessage, workflow]);
-
-  const _handleDragStart = useCallback((event: React.DragEvent, template: StateTemplate) => {
-    event.dataTransfer.setData(
-      'application/reactflow',
-      JSON.stringify({ type: template.type, stateSubType: template.stateSubType ?? null })
-    );
-    event.dataTransfer.effectAllowed = 'copy';
-  }, []);
 
   const onDragOverCanvas = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -854,21 +964,6 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     };
   }, [contextMenu]);
 
-  const _getToolbarStateClass = useCallback((type: StateType) => {
-    switch (type) {
-      case 1:
-        return 'state-node--initial';
-      case 2:
-        return 'state-node--intermediate';
-      case 3:
-        return 'state-node--final';
-      case 4:
-        return 'state-node--subflow';
-      default:
-        return '';
-    }
-  }, []);
-
   if (!workflow) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1029,7 +1124,16 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             onPaneClick={handlePaneClick}
           >
             <Background />
-            <Controls />
+            <Controls position="bottom-left" >
+              <LayerControlButton
+                showRegularTransitions={showRegularTransitions}
+                showSharedTransitions={showSharedTransitions}
+                onToggleRegular={toggleRegularTransitions}
+                onToggleShared={toggleSharedTransitions}
+              />
+            </Controls>
+            <Panel position="bottom-left" style={{ left: 20, bottom: 158 }}>
+            </Panel>
             <TriggerTypeLegend />
           </ReactFlow>
         </div>

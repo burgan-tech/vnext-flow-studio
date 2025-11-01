@@ -159,4 +159,8 @@ export interface Workflow {
 export interface Diagram {
   nodePos: Record<string, { x: number; y: number }>;
   collapsed?: Record<string, boolean>;
+  layerVisibility?: {
+    regularTransitions?: boolean;
+    sharedTransitions?: boolean;
+  };
 }
