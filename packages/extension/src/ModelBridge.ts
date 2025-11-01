@@ -501,14 +501,16 @@ export class ModelBridge {
       sourceState.transitions = [];
     }
 
-    // Check for duplicate
-    if (sourceState.transitions.find(t => t.target === target)) {
+    // Check for duplicate - for self-loops, allow multiple (they can have different conditions)
+    // For regular transitions, prevent exact duplicates
+    const isSelfLoop = from === target;
+    if (!isSelfLoop && sourceState.transitions.find(t => t.target === target)) {
       vscode.window.showInformationMessage(`A transition from ${from} to ${target} already exists`);
       return;
     }
 
-    // Generate unique key
-    const key = this.generateTransitionKey(from, target);
+    // Generate unique key - pass existing transitions to ensure uniqueness
+    const key = this.generateTransitionKey(from, target, sourceState.transitions || []);
 
     sourceState.transitions.push({
       key,
@@ -686,8 +688,13 @@ export class ModelBridge {
       workflow.attributes.sharedTransitions = [];
     }
 
+    // Check if this is a self-loop transition
+    const isSelfLoop = transition.target === from;
+
     const sharedTransition: SharedTransition = {
       ...transition,
+      // If it's a self-loop, use "$self" as the target
+      target: isSelfLoop ? '$self' : transition.target,
       availableIn: [from]
     };
 
@@ -1645,10 +1652,26 @@ export class ModelBridge {
    * Generate a unique transition key
    * Must match pattern ^[a-z0-9-]+$ as required by schema
    */
-  private generateTransitionKey(from: string, target: string): string {
+  private generateTransitionKey(from: string, target: string, existingTransitions: any[]): string {
     // Use the same pattern as the plugin system for consistency
     // This matches the schema requirement: lowercase letters, numbers, and hyphens only
-    return `${from}-to-${target}`;
+    const baseKey = `${from}-to-${target}`;
+
+    // Check if this key already exists
+    const existingKeys = existingTransitions.map(t => t.key);
+    if (!existingKeys.includes(baseKey)) {
+      return baseKey;
+    }
+
+    // If it exists, append a counter to make it unique
+    let counter = 2;
+    let uniqueKey = `${baseKey}-${counter}`;
+    while (existingKeys.includes(uniqueKey)) {
+      counter++;
+      uniqueKey = `${baseKey}-${counter}`;
+    }
+
+    return uniqueKey;
   }
 
   /**

@@ -150,15 +150,18 @@ export async function autoLayout(
   }
 
   for (const sharedTransition of workflow.attributes.sharedTransitions ?? []) {
-    if (!stateKeys.has(sharedTransition.target)) {
+    // Skip validation for "$self" target as it will be resolved per source state
+    if (sharedTransition.target !== '$self' && !stateKeys.has(sharedTransition.target)) {
       continue;
     }
 
-    const targetNode = sharedTransition.target;
     for (const from of sharedTransition.availableIn) {
       if (!stateKeys.has(from)) {
         continue;
       }
+
+      // Resolve "$self" target to the actual source state
+      const targetNode = sharedTransition.target === '$self' ? from : sharedTransition.target;
 
       edges.push({
         id: `shared:${sharedTransition.key}:${from}`,

@@ -1366,8 +1366,10 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                     const newTarget = event.target.value;
                     setSharedTransitionDraft((prev) => {
                       if (!prev) return prev;
-                      // Remove new target from availableIn if it exists there
-                      const filteredAvailableIn = prev.availableIn.filter(s => s !== newTarget);
+                      // Only filter out target from availableIn if it's not "$self"
+                      const filteredAvailableIn = newTarget === '$self'
+                        ? prev.availableIn
+                        : prev.availableIn.filter(s => s !== newTarget);
                       return {
                         ...prev,
                         target: newTarget,
@@ -1377,7 +1379,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                   }}
                 />
                 <small className="property-panel__help">
-                  The state that all shared instances will transition to
+                  The state that all shared instances will transition to. Use "$self" to make each state transition to itself.
                 </small>
               </label>
 
@@ -1584,7 +1586,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                     workflow.attributes.states
                       .filter((state) =>
                         state.stateType !== 3 && // Exclude final states (they can't have outgoing transitions)
-                        state.key !== sharedTransitionDraft.target // Exclude target state (can't transition to itself via shared transition)
+                        (sharedTransitionDraft.target === '$self' || state.key !== sharedTransitionDraft.target) // Allow all states when target is "$self"
                       )
                       .map((state) => (
                       <label key={state.key} className="property-panel__checkbox">

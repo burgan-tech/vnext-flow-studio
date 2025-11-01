@@ -194,10 +194,13 @@ export function toReactFlow(
                         sharedTransition.key;
 
     for (const from of sharedTransition.availableIn) {
+      // Resolve "$self" target to the actual source state
+      const resolvedTarget = sharedTransition.target === '$self' ? from : sharedTransition.target;
+
       edges.push({
         id: `t:shared:${sharedTransition.key}:${from}`,
         source: from,
-        target: sharedTransition.target,
+        target: resolvedTarget,
         label: sharedLabel,
         style: { strokeDasharray: '4 4' },
         data: {

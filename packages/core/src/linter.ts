@@ -368,11 +368,21 @@ export function lint(
   for (const sharedTransition of (workflow.attributes.sharedTransitions || [])) {
     registerTransitionKey(sharedTransition.key);
 
-    if (!stateKeys.has(sharedTransition.target)) {
+    // Skip target validation for "$self" as it will be resolved to each source state
+    if (sharedTransition.target !== '$self' && !stateKeys.has(sharedTransition.target)) {
       push('__shared__', {
         id: 'E_BAD_TARGET',
         severity: 'error',
         message: `shared transition '${sharedTransition.key}' targets missing state '${sharedTransition.target}'`
+      });
+    }
+
+    // For "$self" transitions, ensure availableIn is not empty
+    if (sharedTransition.target === '$self' && sharedTransition.availableIn.length === 0) {
+      push('__shared__', {
+        id: 'E_SELF_TRANSITION_NO_STATES',
+        severity: 'error',
+        message: `shared transition '${sharedTransition.key}' with target "$self" must have at least one state in availableIn`
       });
     }
 

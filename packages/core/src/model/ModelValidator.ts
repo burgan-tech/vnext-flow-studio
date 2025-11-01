@@ -187,10 +187,20 @@ export class ModelValidator {
 
     // Check shared transition targets and availability
     for (const sharedTransition of (workflow.attributes.sharedTransitions || [])) {
-      if (!stateKeys.has(sharedTransition.target)) {
+      // Skip target validation for "$self" as it will be resolved to each source state
+      if (sharedTransition.target !== '$self' && !stateKeys.has(sharedTransition.target)) {
         errors.push({
           type: 'referential',
           message: `Shared transition '${sharedTransition.key}' targets non-existent state: ${sharedTransition.target}`,
+          location: `sharedTransitions.${sharedTransition.key}`
+        });
+      }
+
+      // For "$self" transitions, ensure availableIn is not empty
+      if (sharedTransition.target === '$self' && sharedTransition.availableIn.length === 0) {
+        errors.push({
+          type: 'structural',
+          message: `Shared transition '${sharedTransition.key}' with target "$self" must have at least one state in availableIn`,
           location: `sharedTransitions.${sharedTransition.key}`
         });
       }

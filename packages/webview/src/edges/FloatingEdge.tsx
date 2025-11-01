@@ -135,7 +135,7 @@ const getSideForPoint = (pt: Point, rect: { x: number; y: number; width: number;
 // getSideForCircle removed - all nodes are now rectangles
 
 export function FloatingEdge(props: FloatingEdgeProps) {
-  const { id, source, target, markerEnd, style, className, label, labelStyle, labelBgStyle, labelBgPadding = [10, 8], labelBgBorderRadius = 6 } = props;
+  const { id, source, target, markerEnd, style, className, selected, label, labelStyle, labelBgStyle, labelBgPadding = [10, 8], labelBgBorderRadius = 6 } = props;
   const nodes = useNodes();
   const edges = useEdges();
   const { highlightedEdges } = useHighlight();
@@ -163,14 +163,46 @@ export function FloatingEdge(props: FloatingEdgeProps) {
   let sourcePosition: Position, targetPosition: Position;
   let curvature = 0.25; // Default curvature for bezier
 
+  // For self-loops, calculate index and total count for dynamic positioning
+  let selfLoopOffset = 40; // Default offset
+  let selfLoopExitRatio = 0.3; // Default exit point
+  let selfLoopEntryRatio = 0.7; // Default entry point
+
   if (isSelfConnection) {
-    // Self-loop: exit from right, enter from bottom (creates a larger visible loop)
+    // Find all self-loops for this node and get the index of current edge
+    const selfLoops = edges.filter(e => e.source === source && e.target === source)
+      .sort((a, b) => a.id.localeCompare(b.id)); // Consistent ordering
+
+    const selfLoopIndex = selfLoops.findIndex(e => e.id === id);
+    const totalSelfLoops = selfLoops.length;
+
+    // Apply dynamic positioning based on index
+    if (totalSelfLoops > 1) {
+      // Stack loops with increasing offset (30px between each)
+      const baseOffset = 40;
+      const offsetIncrement = 30;
+      selfLoopOffset = baseOffset + (selfLoopIndex * offsetIncrement);
+
+      // Vary exit and entry points slightly to create visual separation
+      // Distribute along the right edge
+      const exitSpread = 0.15; // How much to spread the exit points
+      const entrySpread = 0.15; // How much to spread the entry points
+
+      // Center the distribution around the default ratios
+      const exitOffset = ((selfLoopIndex - (totalSelfLoops - 1) / 2) * exitSpread) / Math.max(1, totalSelfLoops - 1);
+      const entryOffset = ((selfLoopIndex - (totalSelfLoops - 1) / 2) * entrySpread) / Math.max(1, totalSelfLoops - 1);
+
+      selfLoopExitRatio = 0.3 + exitOffset;
+      selfLoopEntryRatio = 0.7 + entryOffset;
+    }
+
+    // Self-loop: exit from right, enter from right (creates a visible loop)
     sourceX = srcRect.x + srcRect.width;
-    sourceY = srcRect.y + srcRect.height * 0.3; // Exit from upper-right
+    sourceY = srcRect.y + srcRect.height * selfLoopExitRatio;
     sourcePosition = Position.Right;
 
     targetX = srcRect.x + srcRect.width;
-    targetY = srcRect.y + srcRect.height * 0.7; // Enter at lower-right
+    targetY = srcRect.y + srcRect.height * selfLoopEntryRatio;
     targetPosition = Position.Right;
   } else {
     // Normal connection between different nodes
@@ -208,15 +240,30 @@ export function FloatingEdge(props: FloatingEdgeProps) {
       sourcePosition,
       targetPosition,
       borderRadius: 20,
-      offset: 40 // Push the loop out 40px from the node
+      offset: selfLoopOffset // Use dynamic offset based on self-loop index
     });
     edgePath = path;
     // Position label to the right of the loop (at the rightmost point of the loop path)
     // Use measured position relative to the viewport
     const measuredWidth = sourceNode.measured?.width ?? srcRect.width;
     const posAbsolute = (sourceNode as any).internals?.positionAbsolute ?? (sourceNode as any).positionAbsolute ?? { x: srcRect.x, y: srcRect.y };
-    labelX = posAbsolute.x + measuredWidth + 80;
-    labelY = posAbsolute.y + srcRect.height / 2;
+
+    // For multiple self-loops, stagger the label positions vertically
+    const selfLoops = edges.filter(e => e.source === source && e.target === source)
+      .sort((a, b) => a.id.localeCompare(b.id));
+    const selfLoopIndex = selfLoops.findIndex(e => e.id === id);
+    const totalSelfLoops = selfLoops.length;
+
+    // Position labels at different vertical positions based on index
+    const verticalSpacing = 25; // Pixels between labels
+    const centerY = posAbsolute.y + srcRect.height / 2;
+    const totalHeight = (totalSelfLoops - 1) * verticalSpacing;
+    const startY = centerY - totalHeight / 2;
+
+    labelX = posAbsolute.x + measuredWidth + 50 + selfLoopOffset;
+    labelY = totalSelfLoops > 1
+      ? startY + (selfLoopIndex * verticalSpacing)
+      : centerY;
   } else {
     // For bidirectional edges, apply offset to control points
     if (hasReverseEdge) {
@@ -271,6 +318,19 @@ export function FloatingEdge(props: FloatingEdgeProps) {
     ? `${className || ''} highlighted`
     : className;
 
+  // For self-loops, use a semi-transparent white background with subtle shadow for better readability
+  const finalLabelBgStyle = isSelfConnection
+    ? {
+        ...labelBgStyle,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+        border: '1px solid rgba(0, 0, 0, 0.05)'
+      }
+    : labelBgStyle;
+
+  // Apply higher z-index for selected or highlighted edges to ensure their labels appear on top
+  const labelZIndex = selected || isHighlighted ? 1000 : 0;
+
   return (
     <>
       <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={edgeStyle} className={edgeClassName} />
@@ -283,7 +343,8 @@ export function FloatingEdge(props: FloatingEdgeProps) {
               pointerEvents: 'all',
               padding: `${labelBgPadding[1]}px ${labelBgPadding[0]}px`,
               borderRadius: `${labelBgBorderRadius}px`,
-              ...labelBgStyle,
+              zIndex: labelZIndex,
+              ...finalLabelBgStyle,
               ...labelStyle
             }}
             className="react-flow__edge-text"

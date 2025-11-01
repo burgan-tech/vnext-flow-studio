@@ -308,14 +308,20 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     }
 
     // Check for duplicate connections
-    const isDuplicate = edges.some(existingEdge =>
-      existingEdge.source === connection.source &&
-      existingEdge.target === connection.target &&
-      existingEdge.id !== (edge as Edge).id // Allow reconnecting existing edges
-    );
+    // For self-loops, allow multiple (they can have different conditions/rules)
+    // For regular edges, prevent exact duplicates
+    const isSelfLoop = connection.source === connection.target;
 
-    if (isDuplicate) {
-      return false;
+    if (!isSelfLoop) {
+      const isDuplicate = edges.some(existingEdge =>
+        existingEdge.source === connection.source &&
+        existingEdge.target === connection.target &&
+        existingEdge.id !== (edge as Edge)?.id // Allow reconnecting existing edges
+      );
+
+      if (isDuplicate) {
+        return false;
+      }
     }
 
     // Special handling for start node

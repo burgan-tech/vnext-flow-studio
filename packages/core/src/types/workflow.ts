@@ -60,7 +60,7 @@ export interface ExecutionTask {
 
 export interface TransitionBase {
   key: string;
-  target: string;
+  target: string; // Can be a state key or special value "$self"
   triggerType: TriggerType;
   versionStrategy: VersionStrategy;
   labels?: Label[];
@@ -69,6 +69,11 @@ export interface TransitionBase {
   timer?: TimerConfig | null;
   view?: ViewRef | null;
   onExecutionTasks?: ExecutionTask[];
+}
+
+// Type guard to check if target is the special "$self" marker
+export function isSelfTarget(target: string): boolean {
+  return target === '$self';
 }
 
 // Regular transitions inherit all fields from TransitionBase
