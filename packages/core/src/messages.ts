@@ -23,6 +23,7 @@ export type MsgToWebview =
   | { type: 'confirm:response'; save: boolean };
 
 export type MsgFromWebview =
+  | { type: 'ready' }
   | { type: 'persist:diagram'; diagram: Diagram }
   | { type: 'domain:setStart'; target: string }
   | { type: 'domain:addTransition'; from: string; target: string; triggerType?: 1 | 3 }

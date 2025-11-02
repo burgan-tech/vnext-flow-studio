@@ -1196,15 +1196,44 @@ export class ModelBridge {
       const indexHtmlContent = await vscode.workspace.fs.readFile(indexHtmlUri);
       let html = new TextDecoder().decode(indexHtmlContent);
 
-      // Fix asset paths for webview
+      // Fix asset paths for webview (handle both absolute /path and relative ./path)
       const webviewUri = panel.webview.asWebviewUri(webviewDistPath);
-      html = html.replace(/(src|href)="\//g, (_, attr) => `${attr}="${webviewUri}/`);
+      html = html.replace(/(src|href)="(\.?\/[^"]+)"/g, (_match, attr, path) => {
+        // Remove leading ./ or / from path
+        const cleanPath = path.replace(/^\.?\//, '');
+        return `${attr}="${webviewUri}/${cleanPath}"`;
+      });
 
       panel.webview.html = html;
     } catch (error) {
       console.error('Failed to load webview content:', error);
       panel.dispose();
       throw error;
+    }
+
+    // Wait for the webview to signal it's ready before sending init message
+    console.log('[ModelBridge] Waiting for webview ready signal...');
+    const readyPromise = new Promise<void>((resolve) => {
+      const disposable = panel.webview.onDidReceiveMessage((message: MsgFromWebview) => {
+        if (message.type === 'ready') {
+          console.log('[ModelBridge] Webview ready signal received');
+          disposable.dispose();
+          resolve();
+        }
+      });
+    });
+
+    // Set a timeout in case the ready message never arrives
+    const timeoutPromise = new Promise<void>((_, reject) => {
+      setTimeout(() => reject(new Error('Webview ready timeout')), 10000);
+    });
+
+    try {
+      await Promise.race([readyPromise, timeoutPromise]);
+      console.log('[ModelBridge] Webview is ready, proceeding to load workflow');
+    } catch (error) {
+      console.warn('[ModelBridge] Webview ready timeout, loading workflow anyway:', error);
+      // Continue anyway - the webview might still work
     }
 
     // Open the subflow using the model bridge

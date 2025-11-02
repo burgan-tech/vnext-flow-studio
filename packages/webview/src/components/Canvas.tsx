@@ -236,6 +236,12 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     interactionWidth: 20 // Larger area for edge interaction
   }), []);
 
+  // Send ready signal to extension when component mounts
+  useEffect(() => {
+    console.log('[Canvas] Sending ready signal to extension');
+    postMessage({ type: 'ready' });
+  }, [postMessage]);
+
   // Handle messages from host
   useEffect(() => {
     return onMessage((message: MsgToWebview) => {
