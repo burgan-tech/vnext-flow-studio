@@ -1,0 +1,26 @@
+{
+  "key": "cache-manager",
+  "version": "1.0.0",
+  "domain": "caching",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": ["task", "binding", "redis", "cache"],
+  "attributes": {
+    "type": "2",
+    "config": {
+      "bindingName": "redis-cache",
+      "operation": "create",
+      "bindingType": "redis",
+      "metadata": {
+        "key": "session:user:abc123",
+        "command": "SET",
+        "ttl": 3600
+      },
+      "data": {
+        "sessionId": "abc123",
+        "userId": "user-456",
+        "expiresAt": "2024-01-01T01:00:00Z"
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "key": "user-db-writer",
+  "version": "1.0.0",
+  "domain": "database",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": ["task", "binding", "postgresql", "database"],
+  "attributes": {
+    "type": "2",
+    "config": {
+      "bindingName": "postgres-db",
+      "operation": "exec",
+      "bindingType": "postgresql",
+      "metadata": {
+        "table": "users",
+        "sql": "INSERT INTO users (id, name, email, created_at) VALUES ($1, $2, $3, $4)",
+        "operation": "insert"
+      },
+      "data": {
+        "values": ["user-789", "John Doe", "john@example.com", "2024-01-01T00:00:00Z"]
+      }
+    }
+  }
+}

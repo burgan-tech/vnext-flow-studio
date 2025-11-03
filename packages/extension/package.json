@@ -56,6 +56,16 @@
       {
         "command": "mapperEditor.open",
         "title": "Open in Amorphie Mapper"
+      },
+      {
+        "command": "taskEditor.openAsJson",
+        "title": "Open Task as JSON",
+        "icon": "$(json)"
+      },
+      {
+        "command": "taskEditor.newTask",
+        "title": "New Task Definition",
+        "icon": "$(add)"
       }
     ],
     "menus": {
@@ -79,6 +89,11 @@
           "when": "explorerResourceIsFolder",
           "command": "flowEditor.createMapper",
           "group": "2_workspace@2"
+        },
+        {
+          "when": "explorerResourceIsFolder && resourceDirname =~ /(^|\\\\|\\/)Tasks(\\\\|\\/|$)/ || resourceFilename == 'Tasks'",
+          "command": "taskEditor.newTask",
+          "group": "2_workspace@3"
         }
       ],
       "editor/title": [
@@ -136,6 +151,19 @@
           }
         ],
         "priority": "default"
+      },
+      {
+        "viewType": "vnext.taskQuickEditor",
+        "displayName": "vNext Task Quick Config",
+        "selector": [
+          {
+            "filenamePattern": "**/Tasks/*.json"
+          },
+          {
+            "filenamePattern": "**/Tasks/**/*.json"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "jsonValidation": [
@@ -148,6 +176,13 @@
           "**/Workflows/**/*.json"
         ],
         "url": "./schemas/workflow-definition.schema.json"
+      },
+      {
+        "fileMatch": [
+          "**/Tasks/*.json",
+          "**/Tasks/**/*.json"
+        ],
+        "url": "../../schemas/schemas/task-definition.schema.json"
       }
     ]
   },

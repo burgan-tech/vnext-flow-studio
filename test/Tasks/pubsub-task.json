@@ -1,0 +1,17 @@
+{
+  "key": "publish-order-event",
+  "domain": "order-service",
+  "version": "1.0.0",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": ["task", "pubsub", "events"],
+  "attributes": {
+    "type": "4",
+    "config": {
+      "pubSubName": "order-events",
+      "topic": "order-created",
+      "orderingKey": "orderId",
+      "ttlInSeconds": 3600
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "key": "get-user-data",
+  "domain": "user-service",
+  "version": "1.0.0",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": ["task", "http", "user"],
+  "attributes": {
+    "type": "1",
+    "config": {
+      "endpointName": "user-api",
+      "path": "/api/users/{userId}",
+      "method": "GET",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "dapr": {
+        "retry": {
+          "maxRetries": 3,
+          "initialIntervalMs": 1000
+        },
+        "auth": {
+          "apiTokenSecretRef": "user-api-token"
+        }
+      }
+    }
+  }
+}

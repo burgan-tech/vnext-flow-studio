@@ -1,0 +1,20 @@
+{
+  "key": "webhook-notifier",
+  "version": "1.0.0",
+  "domain": "notifications",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": ["task", "binding", "http", "webhook"],
+  "attributes": {
+    "type": "2",
+    "config": {
+      "bindingName": "http-webhook",
+      "operation": "create",
+      "bindingType": "http",
+      "metadata": {
+        "url": "https://webhook.site/unique-id",
+        "method": "POST"
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics
 import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';
 import { registerMapperEditor } from './mapper/MapperEditorProvider';
+import { TaskQuickEditorProvider } from './taskEditor/TaskQuickEditorProvider';
 import {
   FLOW_AND_DIAGRAM_GLOBS,
   FLOW_FILE_GLOBS,
@@ -459,6 +460,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register mapper editor
   registerMapperEditor(context);
+
+  // Register task quick editor
+  context.subscriptions.push(TaskQuickEditorProvider.register(context));
 
   // Clean up on deactivation
   context.subscriptions.push({

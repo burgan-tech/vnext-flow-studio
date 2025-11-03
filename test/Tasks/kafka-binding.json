@@ -1,0 +1,30 @@
+{
+  "key": "event-publisher",
+  "version": "1.0.0",
+  "domain": "messaging",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": ["task", "binding", "kafka", "events"],
+  "attributes": {
+    "type": "2",
+    "config": {
+      "bindingName": "kafka-events",
+      "operation": "create",
+      "bindingType": "kafka",
+      "metadata": {
+        "topic": "user-events",
+        "key": "user-123",
+        "partition": 0,
+        "headers": {
+          "trace-id": "abc123",
+          "event-type": "user.created"
+        }
+      },
+      "data": {
+        "userId": "123",
+        "action": "created",
+        "timestamp": "2024-01-01T00:00:00Z"
+      }
+    }
+  }
+}

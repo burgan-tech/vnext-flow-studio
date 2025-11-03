@@ -1,0 +1,20 @@
+{
+  "key": "document-review",
+  "version": "1.0.0",
+  "domain": "workflow",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": ["task", "human", "approval"],
+  "attributes": {
+    "type": "5",
+    "config": {
+      "title": "Review Document",
+      "instructions": "Please review the attached document and provide your approval or feedback",
+      "assignedTo": "john.doe@example.com",
+      "dueDate": "2024-12-31T23:59:59Z",
+      "reminderIntervalMinutes": 60,
+      "escalationTimeoutMinutes": 1440,
+      "escalationAssignee": "manager@example.com"
+    }
+  }
+}

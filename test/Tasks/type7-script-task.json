@@ -1,0 +1,12 @@
+{
+  "key": "data-transform",
+  "version": "1.0.0",
+  "domain": "processing",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": ["task", "script", "transform"],
+  "attributes": {
+    "type": "7",
+    "config": {}
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "key": "applicant-application-active",
+  "version": "1.0.0",
+  "domain": "core",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": [
+    "nextcredit",
+    "applicant",
+    "loan",
+    "overdraft"
+  ],
+  "attributes": {
+    "type": "6",
+    "config": {
+      "url": "https://nonprod-apisix.burgan.com.tr/nextcredit/applicant/application/active",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "timeoutSeconds": 10,
+      "validateSsl": false
+    }
+  }
+}
