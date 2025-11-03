@@ -1,3 +1,4 @@
+/* global acquireVsCodeApi, document, window */
 // VS Code API
 const vscode = acquireVsCodeApi();
 
@@ -30,19 +31,20 @@ const typeFields = {
 };
 
 // Binding-specific field mappings
-const bindingFields = {
-  'http': ['httpBindingUrl', 'httpBindingMethod'],
-  'kafka': ['kafkaTopic', 'kafkaKey', 'kafkaPartition', 'kafkaHeaders'],
-  'redis': ['redisKey', 'redisCommand', 'redisTtl'],
-  'postgresql': ['postgresqlTable', 'postgresqlQuery', 'postgresqlOperation']
-};
+// Note: These define the UI field mappings but aren't directly referenced
+// const bindingFields = {
+//   'http': ['httpBindingUrl', 'httpBindingMethod'],
+//   'kafka': ['kafkaTopic', 'kafkaKey', 'kafkaPartition', 'kafkaHeaders'],
+//   'redis': ['redisKey', 'redisCommand', 'redisTtl'],
+//   'postgresql': ['postgresqlTable', 'postgresqlQuery', 'postgresqlOperation']
+// };
 
-const advancedFields = {
-  common: ['maxRetries', 'initialIntervalMs', 'apiTokenSecretRef', 'mtlsRequired'],
-  '4': ['orderingKey', 'ttlInSeconds'],
-  '5': ['reminderIntervalMinutes', 'escalationTimeoutMinutes', 'escalationAssignee'],
-  '6': ['timeoutSeconds', 'validateSsl']
-};
+// const advancedFields = {
+//   common: ['maxRetries', 'initialIntervalMs', 'apiTokenSecretRef', 'mtlsRequired'],
+//   '4': ['orderingKey', 'ttlInSeconds'],
+//   '5': ['reminderIntervalMinutes', 'escalationTimeoutMinutes', 'escalationAssignee'],
+//   '6': ['timeoutSeconds', 'validateSsl']
+// };
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -532,14 +534,15 @@ function collectTaskData() {
 
       // Collect binding-specific fields
       switch (bindingType) {
-        case 'http':
+        case 'http': {
           const httpUrl = getFieldValue('httpBindingUrl');
           const httpMethod = getFieldValue('httpBindingMethod');
           if (httpUrl) config.metadata.url = httpUrl;
           if (httpMethod) config.metadata.method = httpMethod;
           break;
+        }
 
-        case 'kafka':
+        case 'kafka': {
           const kafkaTopic = getFieldValue('kafkaTopic');
           const kafkaKey = getFieldValue('kafkaKey');
           const kafkaPartition = getFieldValue('kafkaPartition');
@@ -556,8 +559,9 @@ function collectTaskData() {
             }
           }
           break;
+        }
 
-        case 'redis':
+        case 'redis': {
           const redisKey = getFieldValue('redisKey');
           const redisCommand = getFieldValue('redisCommand');
           const redisTtl = getFieldValue('redisTtl');
@@ -566,8 +570,9 @@ function collectTaskData() {
           if (redisCommand) config.metadata.command = redisCommand;
           if (redisTtl !== undefined) config.metadata.ttl = redisTtl;
           break;
+        }
 
-        case 'postgresql':
+        case 'postgresql': {
           const table = getFieldValue('postgresqlTable');
           const query = getFieldValue('postgresqlQuery');
           const operation = getFieldValue('postgresqlOperation');
@@ -576,6 +581,7 @@ function collectTaskData() {
           if (query) config.metadata.sql = query;
           if (operation) config.metadata.operation = operation;
           break;
+        }
       }
 
       // Clean up empty metadata
@@ -768,10 +774,10 @@ function showToast(message, type = 'info') {
   }, 3000);
 }
 
-// Log helper
-function log(message) {
-  vscode.postMessage({
-    type: 'log',
-    message: message
-  });
-}
+// Log helper (available for debugging if needed)
+// function log(message) {
+//   vscode.postMessage({
+//     type: 'log',
+//     message: message
+//   });
+// }
