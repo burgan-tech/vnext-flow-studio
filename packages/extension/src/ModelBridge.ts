@@ -1174,6 +1174,17 @@ export class ModelBridge {
    * Open a subflow in a new webview panel
    */
   private async openSubflowInNewPanel(workflowUri: vscode.Uri): Promise<void> {
+    // Check if this workflow is already open in a panel
+    const panelKey = workflowUri.toString();
+    const existingPanel = this.config.activePanels.get(panelKey);
+
+    if (existingPanel) {
+      // Workflow is already open, just focus the existing panel
+      console.log('[ModelBridge] Workflow already open, focusing existing panel:', panelKey);
+      existingPanel.reveal();
+      return;
+    }
+
     // Open the subflow in a new editor
     const panel = vscode.window.createWebviewPanel(
       'amorphieFlow',

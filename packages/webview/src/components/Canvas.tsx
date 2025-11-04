@@ -24,7 +24,6 @@ import {
 } from '@xyflow/react';
 import { PluggableStateNode } from './nodes/PluggableStateNode';
 import { PropertyPanel, type PropertySelection } from './PropertyPanel';
-import { TriggerTypeLegend } from './TriggerTypeLegend';
 import { LayerControlButton } from './LayerControlButton';
 import { useBridge } from '../hooks/useBridge';
 import { FloatingEdge } from '../edges/FloatingEdge';
@@ -1140,7 +1139,6 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             </Controls>
             <Panel position="bottom-left" style={{ left: 20, bottom: 158 }}>
             </Panel>
-            <TriggerTypeLegend />
           </ReactFlow>
         </div>
       </div>

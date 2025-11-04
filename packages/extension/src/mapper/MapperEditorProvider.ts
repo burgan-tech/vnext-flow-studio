@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { autoLayoutMapper } from '../../../core/src/mapper/mapperLayout';
 
 /**
@@ -148,14 +149,40 @@ async function openMapperEditor(
       try {
         let schemaUri: vscode.Uri;
 
-        // Handle relative paths relative to the mapper file
-        if (!schemaPath.startsWith('/')) {
-          const mapperDir = vscode.Uri.joinPath(mapperUri, '..');
-          schemaUri = vscode.Uri.joinPath(mapperDir, schemaPath);
+        // Handle relative paths relative to the workspace root or mapper file
+        if (!path.isAbsolute(schemaPath)) {
+          // Remove leading ./ if present
+          const cleanPath = schemaPath.replace(/^\.\//, '');
+
+          // First try to resolve relative to workspace root
+          const workspaceFolder = vscode.workspace.getWorkspaceFolder(mapperUri);
+          if (workspaceFolder) {
+            const workspaceRelativePath = path.join(workspaceFolder.uri.fsPath, cleanPath);
+            try {
+              // Check if file exists in workspace
+              await vscode.workspace.fs.stat(vscode.Uri.file(workspaceRelativePath));
+              schemaUri = vscode.Uri.file(workspaceRelativePath);
+              console.log(`Resolved schema path relative to workspace: ${schemaUri.fsPath}`);
+            } catch {
+              // File not found in workspace root, try relative to mapper file
+              const mapperDir = path.dirname(mapperUri.fsPath);
+              const resolvedPath = path.resolve(mapperDir, cleanPath);
+              schemaUri = vscode.Uri.file(resolvedPath);
+              console.log(`Resolved schema path relative to mapper: ${schemaUri.fsPath}`);
+            }
+          } else {
+            // No workspace, resolve relative to mapper file
+            const mapperDir = path.dirname(mapperUri.fsPath);
+            const resolvedPath = path.resolve(mapperDir, cleanPath);
+            schemaUri = vscode.Uri.file(resolvedPath);
+            console.log(`Resolved schema path relative to mapper (no workspace): ${schemaUri.fsPath}`);
+          }
         } else {
           schemaUri = vscode.Uri.file(schemaPath);
+          console.log(`Using absolute schema path: ${schemaUri.fsPath}`);
         }
 
+        console.log(`Loading schema from resolved path: ${schemaUri.fsPath}`);
         const schemaContent = await vscode.workspace.fs.readFile(schemaUri);
         const schemaText = new TextDecoder().decode(schemaContent);
         return JSON.parse(schemaText);
@@ -338,13 +365,40 @@ async function openMapperEditor(
               const schemaPath = message.path;
               let schemaUri: vscode.Uri;
 
-              // Handle relative paths relative to the mapper file
-              if (!schemaPath.startsWith('/')) {
-                const mapperDir = vscode.Uri.joinPath(mapperUri, '..');
-                schemaUri = vscode.Uri.joinPath(mapperDir, schemaPath);
+              // Handle relative paths relative to workspace root or mapper file
+              if (!path.isAbsolute(schemaPath)) {
+                // Remove leading ./ if present
+                const cleanPath = schemaPath.replace(/^\.\//, '');
+
+                // First try to resolve relative to workspace root
+                const workspaceFolder = vscode.workspace.getWorkspaceFolder(mapperUri);
+                if (workspaceFolder) {
+                  const workspaceRelativePath = path.join(workspaceFolder.uri.fsPath, cleanPath);
+                  try {
+                    // Check if file exists in workspace
+                    await vscode.workspace.fs.stat(vscode.Uri.file(workspaceRelativePath));
+                    schemaUri = vscode.Uri.file(workspaceRelativePath);
+                    console.log(`Resolved schema path relative to workspace: ${schemaUri.fsPath}`);
+                  } catch {
+                    // File not found in workspace root, try relative to mapper file
+                    const mapperDir = path.dirname(mapperUri.fsPath);
+                    const resolvedPath = path.resolve(mapperDir, cleanPath);
+                    schemaUri = vscode.Uri.file(resolvedPath);
+                    console.log(`Resolved schema path relative to mapper: ${schemaUri.fsPath}`);
+                  }
+                } else {
+                  // No workspace, resolve relative to mapper file
+                  const mapperDir = path.dirname(mapperUri.fsPath);
+                  const resolvedPath = path.resolve(mapperDir, cleanPath);
+                  schemaUri = vscode.Uri.file(resolvedPath);
+                  console.log(`Resolved schema path relative to mapper (no workspace): ${schemaUri.fsPath}`);
+                }
               } else {
                 schemaUri = vscode.Uri.file(schemaPath);
+                console.log(`Using absolute schema path: ${schemaUri.fsPath}`);
               }
+
+              console.log(`Loading schema from resolved path: ${schemaUri.fsPath}`);
 
               // Load the schema file
               const schemaContent = await vscode.workspace.fs.readFile(schemaUri);

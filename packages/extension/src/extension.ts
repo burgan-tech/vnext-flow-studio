@@ -20,7 +20,8 @@ async function openFlowEditor(
   context: vscode.ExtensionContext,
   _diagnosticsProvider: FlowDiagnosticsProvider,
   activePanels: Map<string, vscode.WebviewPanel>,
-  modelBridge: ModelBridge
+  modelBridge: ModelBridge,
+  providedPanel?: vscode.WebviewPanel
 ) {
   try {
     if (!isFlowDefinitionUri(flowUri)) {
@@ -30,24 +31,34 @@ async function openFlowEditor(
       return;
     }
 
-    // Create webview panel
-    const panel = vscode.window.createWebviewPanel(
-      'amorphieFlow',
-      'Loading...', // Will be updated after model loads
-      vscode.ViewColumn.Active,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(context.extensionUri, 'dist-web')
-        ]
-      }
-    );
+    let panel: vscode.WebviewPanel;
 
-    // Check if we already have a panel for this file and close it
-    const existingPanel = activePanels.get(flowUri.toString());
-    if (existingPanel) {
-      existingPanel.dispose();
+    if (providedPanel) {
+      // Use the panel provided by CustomTextEditor
+      panel = providedPanel;
+    } else {
+      // Check if we already have a panel for this file and close it
+      const existingPanel = activePanels.get(flowUri.toString());
+      if (existingPanel) {
+        console.log('[Extension] Disposing existing panel for:', flowUri.toString());
+        existingPanel.dispose();
+        // Wait for cleanup to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Create webview panel
+      panel = vscode.window.createWebviewPanel(
+        'amorphieFlow',
+        'Loading...', // Will be updated after model loads
+        vscode.ViewColumn.Active,
+        {
+          enableScripts: true,
+          retainContextWhenHidden: true,
+          localResourceRoots: [
+            vscode.Uri.joinPath(context.extensionUri, 'dist-web')
+          ]
+        }
+      );
     }
 
     // Track this panel
@@ -55,6 +66,7 @@ async function openFlowEditor(
 
     // Clean up when panel is disposed
     panel.onDidDispose(() => {
+      console.log('[Extension] Panel disposed, cleaning up for:', flowUri.toString());
       activePanels.delete(flowUri.toString());
     });
 
@@ -299,14 +311,23 @@ class FlowEditorProvider implements vscode.CustomTextEditorProvider {
 
   async resolveCustomTextEditor(
     document: vscode.TextDocument,
-    _webviewPanel: vscode.WebviewPanel
+    webviewPanel: vscode.WebviewPanel
   ): Promise<void> {
+    // Configure the provided webview panel
+    webviewPanel.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [
+        vscode.Uri.joinPath(this.context.extensionUri, 'dist-web')
+      ]
+    };
+
     await openFlowEditor(
       document.uri,
       this.context,
       this.diagnosticsProvider,
       this.activePanels,
-      this.modelBridge
+      this.modelBridge,
+      webviewPanel
     );
   }
 }

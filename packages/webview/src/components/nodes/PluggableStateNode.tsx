@@ -94,30 +94,30 @@ const getPositionFromRole = (position?: string): Position => {
 const getTerminalStyle = (position?: string): React.CSSProperties => {
   const baseStyle: React.CSSProperties = {
     background: 'var(--state-color)',
-    border: '2px solid var(--state-surface)',
-    width: 12,
-    height: 12
+    border: '4px solid var(--state-surface)',
+    width: 18,
+    height: 18
   };
 
   switch (position) {
     case 'top':
       return {
         ...baseStyle,
-        top: -6,
+        top: -9,
         left: '50%',
         transform: 'translate(-50%, -50%)'
       };
     case 'bottom':
       return {
         ...baseStyle,
-        bottom: -6,
+        bottom: -9,
         left: '50%',
         transform: 'translate(-50%, 50%)'
       };
     case 'left':
       return {
         ...baseStyle,
-        left: -6,
+        left: -9,
         top: '50%',
         transform: 'translate(-50%, -50%)'
       };
@@ -125,7 +125,7 @@ const getTerminalStyle = (position?: string): React.CSSProperties => {
     default:
       return {
         ...baseStyle,
-        right: -6,
+        right: -9,
         top: '50%',
         transform: 'translate(50%, -50%)'
       };
@@ -303,11 +303,11 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
               <span className="state-node__key">{state.key}</span>
             </div>
           )}
-          {hasSubflowReference && (
+          {hasSubflowReference && state.subFlow && (
             <button
               className="state-node__navigate-btn"
               onClick={handleNavigateToSubflow}
-              title={`Open subflow: ${state.subFlow?.process.key}`}
+              title={`Open subflow: ${'ref' in state.subFlow.process ? state.subFlow.process.ref : state.subFlow.process.key}`}
               aria-label="Navigate to subflow definition"
             >
               →

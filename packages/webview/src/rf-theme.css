@@ -269,12 +269,12 @@
 
 .state-node__handle {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
   background: var(--state-color);
-  border: 2px solid var(--state-surface);
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.2);
+  border: 3px solid var(--state-surface);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.25);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -315,8 +315,8 @@
 .react-flow__handle-right,
 .react-flow__handle-top,
 .react-flow__handle-bottom {
-  width: 16px;
-  height: 16px;
+  width: 60px;
+  height: 60px;
 }
 
 /* Layer ordering for proper interaction */
