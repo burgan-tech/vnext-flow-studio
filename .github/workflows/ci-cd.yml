@@ -203,13 +203,43 @@ jobs:
             NAME="${VERSION}"
           fi
 
-          # Create simple release body
-          BODY="Release ${VERSION} from commit ${GITHUB_SHA:0:7}"
+          # Extract release notes from CHANGELOG.md
+          # Try to extract the current version section, fallback to Unreleased section if available
+          if [ -f CHANGELOG.md ]; then
+            # Try to extract content for this version
+            RELEASE_NOTES=$(awk "/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md 2>/dev/null | head -n 50)
+
+            # If no version-specific notes, try Unreleased section
+            if [ -z "$RELEASE_NOTES" ]; then
+              RELEASE_NOTES=$(awk '/^## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md 2>/dev/null | head -n 50)
+            fi
+
+            # If we found notes, use them; otherwise use simple message
+            if [ -n "$RELEASE_NOTES" ]; then
+              BODY="## Release Notes
+
+${RELEASE_NOTES}
+
+---
+*Released from commit ${GITHUB_SHA:0:7}*"
+            else
+              BODY="Release ${VERSION} from commit ${GITHUB_SHA:0:7}"
+            fi
+          else
+            BODY="Release ${VERSION} from commit ${GITHUB_SHA:0:7}"
+          fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "body=$BODY" >> "$GITHUB_OUTPUT"
+
+          # Handle multiline body for GitHub Actions
+          {
+            echo 'body<<EOF'
+            echo "$BODY"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub release
