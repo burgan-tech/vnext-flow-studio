@@ -1728,7 +1728,7 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
         {selection?.kind === 'startTransition' && startTransitionDraft ? (
           <form className="property-panel__section" onSubmit={handleStartTransitionSubmit}>
-            <h3 className="property-panel__section-title">Start Transition</h3>
+            <h3 className="property-panel__section-title">{startTransitionDraft.key}</h3>
 
             <CollapsibleSection title="Basic Properties" defaultExpanded={true}>
               <label className="property-panel__field">
@@ -1746,21 +1746,15 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
 
               <label className="property-panel__field">
                 <span>Target State</span>
-                <select
+                <input
+                  type="text"
                   value={startTransitionDraft.target}
                   onChange={(event) =>
                     setStartTransitionDraft((prev) =>
                       prev ? { ...prev, target: event.target.value } : prev
                     )
                   }
-                >
-                  <option value="">Select a state...</option>
-                  {workflow.attributes.states.map((state) => (
-                    <option key={state.key} value={state.key}>
-                      {state.labels?.find((l) => l.language === 'en')?.label || state.key}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
 
               <label className="property-panel__field">
@@ -1812,6 +1806,18 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
             <CollapsibleSection
               title="Labels"
               defaultExpanded={false}
+              headerActions={
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newLabels = [...(startTransitionDraft.labels || []), { label: '', language: 'en' }];
+                    setStartTransitionDraft((prev) => (prev ? { ...prev, labels: newLabels } : prev));
+                  }}
+                  className="property-panel__add-button"
+                >
+                  +
+                </button>
+              }
             >
               <LabelListEditor
                 title=""
@@ -1822,24 +1828,58 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               />
             </CollapsibleSection>
 
-            <CollapsibleSection title="Execution Rule" defaultExpanded={false}>
+            <CollapsibleSection
+              title="Rule"
+              defaultExpanded={false}
+              headerActions={
+                !startTransitionDraft.rule && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartTransitionDraft((prev) => {
+                        if (!prev) return prev;
+                        const next = { ...prev } as Transition & Record<string, unknown>;
+                        next.rule = { location: './src/rules/new.csx', code: '' };
+                        return next as Transition;
+                      });
+                    }}
+                    className="property-panel__add-button"
+                  >
+                    +
+                  </button>
+                )
+              }
+            >
               <EnhancedRuleEditor
-                rule={startTransitionDraft.rule || null}
+                title=""
+                rule={startTransitionDraft.rule}
+                inlineText={ruleText}
                 availableRules={availableRules}
-                initialText={ruleText}
-                onRuleChange={(rule, text) => {
-                  setRuleText(text);
-                  setStartTransitionDraft(prev => {
+                onLoadFromFile={() => {
+                  if (selection?.kind === 'startTransition') {
+                    postMessage({
+                      type: 'rule:loadFromFile',
+                      startTransitionKey: selection.transitionKey
+                    });
+                  }
+                }}
+                onChange={(rule) => {
+                  setStartTransitionDraft((prev) => {
                     if (!prev) return prev;
-                    const next = { ...prev };
+                    const next = { ...prev } as Transition & Record<string, unknown>;
                     if (rule) {
                       next.rule = rule;
                     } else {
                       delete next.rule;
                     }
-                    return next;
+                    return next as Transition;
                   });
                 }}
+                onInlineChange={setRuleText}
+                currentState={null}
+                workflow={workflow}
+                availableTasks={availableTasks}
+                hideHeader={true}
               />
             </CollapsibleSection>
 
@@ -1860,38 +1900,19 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               />
             </CollapsibleSection>
 
-            <CollapsibleSection title="View" defaultExpanded={false}>
-              <ReferenceSelector
-                label="View"
-                value={startTransitionDraft.view ? startTransitionDraft.view as ComponentReference : null}
-                availableComponents={catalogs.view || []}
-                componentType="View"
-                defaultFlow="sys-views"
-                onChange={(reference) => {
-                  setStartTransitionDraft(prev => {
-                    if (!prev) return prev;
-                    const next = { ...prev } as Transition & Record<string, unknown>;
-                    if (reference) {
-                      next.view = reference;
-                    } else {
-                      delete next.view;
-                    }
-                    return next as Transition;
-                  });
-                }}
-                helpText="Select a UI view for this transition"
-              />
-            </CollapsibleSection>
-
             <CollapsibleSection
-              title="Execution Tasks"
+              title="On Execution Tasks"
               defaultExpanded={false}
               headerActions={
                 <button
                   type="button"
                   onClick={() => {
-                    const newTasks = [...(startTransitionDraft.onExecutionTasks || [])];
-                    newTasks.push({ task: { key: '', domain: '', flow: 'sys-tasks', version: '' }, order: newTasks.length + 1 });
+                    const newTask = {
+                      order: (startTransitionDraft.onExecutionTasks?.length || 0) + 1,
+                      task: { ref: '' },
+                      mapping: { location: './src/mappings/new.csx', code: '' }
+                    };
+                    const newTasks = [...(startTransitionDraft.onExecutionTasks || []), newTask];
                     setStartTransitionDraft((prev) => {
                       if (!prev) return prev;
                       const next = { ...prev } as Transition & Record<string, unknown>;
@@ -1905,37 +1926,42 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
                 </button>
               }
             >
-              <ExecutionTaskListEditor
-                title=""
-                tasks={startTransitionDraft.onExecutionTasks}
-                availableTasks={availableTasks}
-                availableMappers={availableMappers}
-                onLoadFromFile={(taskIndex) => {
-                  if (selection?.kind === 'startTransition') {
-                    postMessage({
-                      type: 'mapping:loadFromFile',
-                      startTransitionKey: selection.transitionKey,
-                      transition: startTransitionDraft,
-                      index: taskIndex
-                    });
-                  }
-                }}
-                onChange={(tasks) =>
-                  setStartTransitionDraft((prev) => {
-                    if (!prev) return prev;
-                    const next = { ...prev } as Transition & Record<string, unknown>;
-                    if (!tasks) {
-                      delete next.onExecutionTasks;
-                    } else {
-                      next.onExecutionTasks = tasks;
-                    }
-                    return next as Transition;
-                  })
+            <ExecutionTaskListEditor
+              title=""
+              tasks={startTransitionDraft.onExecutionTasks}
+              availableTasks={availableTasks}
+              availableMappers={availableMappers}
+              onLoadFromFile={(taskIndex) => {
+                if (selection?.kind === 'startTransition') {
+                  postMessage({
+                    type: 'mapping:loadFromFile',
+                    startTransitionKey: selection.transitionKey,
+                    transition: startTransitionDraft,
+                    index: taskIndex
+                  });
                 }
-              />
+              }}
+              onChange={(tasks) =>
+                setStartTransitionDraft((prev) => {
+                  if (!prev) return prev;
+                  const next = { ...prev } as Transition & Record<string, unknown>;
+                  if (!tasks) {
+                    delete next.onExecutionTasks;
+                  } else {
+                    next.onExecutionTasks = tasks;
+                  }
+                  return next as Transition;
+                })
+              }
+            />
             </CollapsibleSection>
 
-            <button type="submit" className="property-panel__submit">
+            <button
+              type="submit"
+              className="property-panel__save"
+              disabled={false}
+              onClick={() => console.log('🔍 Save start transition button clicked!')}
+            >
               {hasUnsavedChanges ? '● Save start transition' : 'Save start transition'}
             </button>
           </form>
