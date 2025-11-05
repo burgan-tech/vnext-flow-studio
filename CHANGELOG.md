@@ -5,6 +5,20 @@ All notable changes to the Amorphie Flow Studio extension will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Start Transition Editing**: Start transitions are now fully editable with complete feature parity with normal transitions
+  - Added property panel support for start transition when clicked
+  - Added execution tasks, rules, schema, and view sections
+  - Aligned UI to be identical with normal transitions
+- **Diagram File Persistence**: Diagram files now correctly save to `.meta` subdirectory alongside workflow files
+- **Performance**: Optimized file watchers to prevent unnecessary component rescanning when saving files
+- **JSON Schema Validation**: Fixed JSON validation configuration to use relative paths for schema files
+- **Sample Tasks in Empty Projects**: Removed hardcoded sample tasks from toolbar when no tasks exist in project
+  - ServiceTaskVariantProvider now returns empty array instead of default variants
+
 ## [1.1.0-alpha.0] - 2025-10-24
 
 ### ⚠️ Alpha Release
