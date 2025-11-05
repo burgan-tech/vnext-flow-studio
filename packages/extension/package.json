@@ -165,25 +165,6 @@
         ],
         "priority": "default"
       }
-    ],
-    "jsonValidation": [
-      {
-        "fileMatch": [
-          "**/*.flow.json",
-          "**/*-subflow.json",
-          "**/*-workflow.json",
-          "**/workflows/**/*.json",
-          "**/Workflows/**/*.json"
-        ],
-        "url": "./schemas/workflow-definition.schema.json"
-      },
-      {
-        "fileMatch": [
-          "**/Tasks/*.json",
-          "**/Tasks/**/*.json"
-        ],
-        "url": "./schemas/task-definition.schema.json"
-      }
     ]
   },
   "scripts": {

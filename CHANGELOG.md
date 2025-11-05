@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **JSON Schema Validation**: Fixed schema loading to use extension-bundled schemas instead of looking in project directories
+  - Schemas are now registered programmatically using the extension's path
+  - Resolves "Schema not found" errors when opening workflow files
+  - Works correctly regardless of project structure
+
 ### Changed
 
 ## [1.1.14] - 2025-11-05

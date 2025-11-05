@@ -326,6 +326,62 @@ async function openFlowEditor(
 }
 
 /**
+ * Register JSON schemas for validation
+ */
+function registerJsonSchemas(context: vscode.ExtensionContext) {
+  // Get the path to the extension's schema files
+  const workflowSchemaPath = vscode.Uri.joinPath(context.extensionUri, 'schemas', 'workflow-definition.schema.json').toString();
+  const taskSchemaPath = vscode.Uri.joinPath(context.extensionUri, 'schemas', 'task-definition.schema.json').toString();
+
+  // Get current JSON schemas configuration
+  const config = vscode.workspace.getConfiguration('json');
+  const schemas = config.get<any[]>('schemas') || [];
+
+  // Add our schemas if not already present
+  const workflowSchemaEntry = {
+    fileMatch: [
+      '**/*.flow.json',
+      '**/*-subflow.json',
+      '**/*-workflow.json',
+      '**/workflows/**/*.json',
+      '**/Workflows/**/*.json'
+    ],
+    url: workflowSchemaPath
+  };
+
+  const taskSchemaEntry = {
+    fileMatch: [
+      '**/Tasks/*.json',
+      '**/Tasks/**/*.json'
+    ],
+    url: taskSchemaPath
+  };
+
+  // Check if our schemas are already registered
+  const hasWorkflowSchema = schemas.some(s => s.url === workflowSchemaPath);
+  const hasTaskSchema = schemas.some(s => s.url === taskSchemaPath);
+
+  // Add schemas if not present
+  let updated = false;
+  if (!hasWorkflowSchema) {
+    schemas.push(workflowSchemaEntry);
+    updated = true;
+  }
+  if (!hasTaskSchema) {
+    schemas.push(taskSchemaEntry);
+    updated = true;
+  }
+
+  // Update configuration if needed
+  if (updated) {
+    config.update('schemas', schemas, vscode.ConfigurationTarget.Global).then(
+      () => console.log('JSON schemas registered successfully'),
+      (error) => console.error('Failed to register JSON schemas:', error)
+    );
+  }
+}
+
+/**
  * Custom editor provider using the model abstraction
  */
 class FlowEditorProvider implements vscode.CustomTextEditorProvider {
@@ -361,6 +417,9 @@ class FlowEditorProvider implements vscode.CustomTextEditorProvider {
 
 export function activate(context: vscode.ExtensionContext) {
   vscode.window.showInformationMessage('Amorphie Flow Studio extension activated!');
+
+  // Register JSON schemas for validation
+  registerJsonSchemas(context);
 
   // Initialize diagnostics
   const diagnosticsProvider = new FlowDiagnosticsProvider();
