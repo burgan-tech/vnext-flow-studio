@@ -9,7 +9,7 @@ export interface AddPropertyModalProps {
   mode: 'add' | 'edit';
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (propertyName: string, propertySchema: JSONSchema) => void;
+  onSubmit: (propertyName: string, propertySchema: JSONSchema, oldPropertyName?: string) => void;
   existingPropertyName?: string;
   existingPropertySchema?: JSONSchema;
   existingProperties?: string[]; // For duplicate validation
@@ -61,7 +61,12 @@ export function AddPropertyModal({
 
     // Check for duplicates (only when adding, or when editing and name changed)
     if (mode === 'add' || name !== existingPropertyName) {
-      if (existingProperties.includes(name)) {
+      // Filter out the current property name when editing to allow keeping same name
+      const propsToCheck = mode === 'edit'
+        ? existingProperties.filter(p => p !== existingPropertyName)
+        : existingProperties;
+
+      if (propsToCheck.includes(name)) {
         return 'Property name already exists';
       }
     }
@@ -93,7 +98,12 @@ export function AddPropertyModal({
       propertySchema.items = { type: 'string' }; // Default array item type
     }
 
-    onSubmit(propertyName, propertySchema);
+    // Pass the old property name when editing (for renaming support)
+    if (mode === 'edit') {
+      onSubmit(propertyName, propertySchema, existingPropertyName);
+    } else {
+      onSubmit(propertyName, propertySchema);
+    }
     onClose();
   };
 
@@ -143,11 +153,10 @@ export function AddPropertyModal({
                 setError('');
               }}
               placeholder="e.g. Authorization, Content-Type"
-              disabled={mode === 'edit'} // Can't rename in edit mode
               autoFocus
             />
-            {mode === 'edit' && (
-              <p className="form-hint">Property name cannot be changed</p>
+            {mode === 'edit' && propertyName !== existingPropertyName && (
+              <p className="form-hint">Property will be renamed from "{existingPropertyName}" to "{propertyName}"</p>
             )}
           </div>
 

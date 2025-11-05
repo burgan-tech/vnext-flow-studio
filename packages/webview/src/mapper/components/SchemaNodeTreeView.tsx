@@ -15,7 +15,7 @@ export interface SchemaNodeTreeViewProps {
     tree: TreeNode;
     onCollapsedHandlesChange?: (handleIds: string[], parentMap: Map<string, string>) => void;
     onAddProperty?: (path: string, propertyName: string, propertySchema: JSONSchema) => void;
-    onEditProperty?: (path: string, propertyName: string, propertySchema: JSONSchema) => void;
+    onEditProperty?: (path: string, propertyName: string, propertySchema: JSONSchema, oldPropertyName?: string) => void;
     onRemoveProperty?: (path: string, propertyName: string) => void;
   };
 }

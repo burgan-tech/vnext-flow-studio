@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   functoidRegistry,
   getCategories,
@@ -45,6 +45,75 @@ export function FunctoidPalette() {
   const [expandedCategories, setExpandedCategories] = useState<Set<FunctoidCategory>>(
     new Set(['math', 'string']) // Default expanded categories
   );
+
+  // Force light scrollbar colors
+  useEffect(() => {
+    const styleId = 'functoid-palette-scrollbar-override';
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = styleId;
+      document.head.appendChild(styleElement);
+    }
+
+    styleElement.textContent = `
+      .functoid-palette .palette-categories {
+        scrollbar-width: thin;
+        scrollbar-color: #e2e8f0 #f8fafc;
+      }
+
+      .functoid-palette .palette-categories::-webkit-scrollbar {
+        width: 6px !important;
+        height: 6px !important;
+      }
+
+      .functoid-palette .palette-categories::-webkit-scrollbar-track {
+        background: #f8fafc !important;
+        border-radius: 3px;
+      }
+
+      .functoid-palette .palette-categories::-webkit-scrollbar-thumb {
+        background: #e2e8f0 !important;
+        border: none !important;
+        border-radius: 3px;
+        box-shadow: none !important;
+      }
+
+      .functoid-palette .palette-categories::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1 !important;
+      }
+
+      .functoid-palette .palette-categories::-webkit-scrollbar-corner {
+        background: #f8fafc !important;
+      }
+
+      /* Also apply to all scrollbars in the palette */
+      .functoid-palette *::-webkit-scrollbar {
+        width: 6px !important;
+        height: 6px !important;
+      }
+
+      .functoid-palette *::-webkit-scrollbar-track {
+        background: #f8fafc !important;
+      }
+
+      .functoid-palette *::-webkit-scrollbar-thumb {
+        background: #e2e8f0 !important;
+        border: none !important;
+      }
+
+      .functoid-palette *::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1 !important;
+      }
+    `;
+
+    return () => {
+      if (styleElement && styleElement.parentNode) {
+        styleElement.parentNode.removeChild(styleElement);
+      }
+    };
+  }, []);
 
   /**
    * Toggle category expansion

@@ -8,6 +8,29 @@ import { autoLayoutMapper } from '../../../core/src/mapper/mapperLayout';
  */
 
 /**
+ * Get the diagram file URI for a mapper file
+ * Places diagram files in a .meta subdirectory
+ */
+function getMapperDiagramUri(mapperUri: vscode.Uri): vscode.Uri {
+  const mapperPath = mapperUri.fsPath;
+  const dir = path.dirname(mapperPath);
+  const filename = path.basename(mapperPath);
+
+  let diagramFilename: string;
+  if (filename.toLowerCase().endsWith('.mapper.json')) {
+    diagramFilename = filename.replace(/\.mapper\.json$/i, '.mapper.diagram.json');
+  } else if (filename.toLowerCase().endsWith('.json')) {
+    diagramFilename = filename.replace(/\.json$/i, '.mapper.diagram.json');
+  } else {
+    diagramFilename = `${filename}.mapper.diagram.json`;
+  }
+
+  // Put diagram in .meta subdirectory
+  const diagramPath = path.join(dir, '.meta', diagramFilename);
+  return vscode.Uri.file(diagramPath);
+}
+
+/**
  * Open a mapper file in the visual editor
  */
 async function openMapperEditor(
@@ -133,8 +156,8 @@ async function openMapperEditor(
     const mapSpec = JSON.parse(mapperText);
 
     // Load GraphLayout file if it exists (*.mapper.diagram.json)
-    const layoutUri = vscode.Uri.file(mapperUri.fsPath.replace(/\.mapper\.json$/, '.mapper.diagram.json'));
-    let graphLayout = null;
+    const layoutUri = getMapperDiagramUri(mapperUri);
+    let graphLayout: any = null;
     try {
       const layoutContent = await vscode.workspace.fs.readFile(layoutUri);
       const layoutText = new TextDecoder().decode(layoutContent);
@@ -238,6 +261,7 @@ async function openMapperEditor(
     // Track last saved content to prevent reload loops
     let lastSavedContent = mapperText;
     let isSaving = false;
+    let isSavingLayout = false;
 
     // Handle messages from webview
     panel.webview.onDidReceiveMessage(async (message) => {
@@ -290,6 +314,13 @@ async function openMapperEditor(
           case 'saveLayout':
             // Save GraphLayout file (*.mapper.diagram.json)
             try {
+              // Set flag to prevent file watcher from triggering
+              isSavingLayout = true;
+
+              // Ensure .meta directory exists
+              const layoutDir = vscode.Uri.file(path.dirname(layoutUri.fsPath));
+              await vscode.workspace.fs.createDirectory(layoutDir);
+
               const layoutContent = JSON.stringify(message.graphLayout, null, 2);
               await vscode.workspace.fs.writeFile(
                 layoutUri,
@@ -300,9 +331,16 @@ async function openMapperEditor(
               graphLayout = message.graphLayout;
 
               console.log('GraphLayout saved:', layoutUri.path);
+
+              // Clear flag after a short delay (to handle filesystem delays)
+              setTimeout(() => {
+                isSavingLayout = false;
+                console.log('Layout saving flag cleared');
+              }, 500);
             } catch (error) {
               console.error('Failed to save GraphLayout:', error);
               vscode.window.showErrorMessage(`Failed to save layout: ${error}`);
+              isSavingLayout = false;
             }
             break;
 
@@ -465,8 +503,8 @@ async function openMapperEditor(
         )
       : vscode.workspace.createFileSystemWatcher(mapperPattern);
 
-    // Watch for GraphLayout file changes
-    const layoutPattern = '**/*.mapper.diagram.json';
+    // Watch for GraphLayout file changes in .meta directories
+    const layoutPattern = '**/.meta/*.mapper.diagram.json';
     const layoutWatcher = workspaceFolder
       ? vscode.workspace.createFileSystemWatcher(
           new vscode.RelativePattern(workspaceFolder, layoutPattern)
@@ -550,51 +588,32 @@ async function openMapperEditor(
 
         // Handle GraphLayout file changes
         if (changedKey === layoutUriKey) {
+          // Skip if we're currently saving the layout (to prevent feedback loop)
+          if (isSavingLayout) {
+            console.log('Skipping layout reload - save in progress');
+            return;
+          }
+
           console.log('GraphLayout file changed externally:', changedUri.path);
 
-          // Reload the entire mapper to pick up the layout
-          const fileContent = await vscode.workspace.fs.readFile(mapperUri);
-          const fileText = new TextDecoder().decode(fileContent);
-          const updatedMapSpec = JSON.parse(fileText);
-
-          // Load schemas
-          const sourceRef = updatedMapSpec.schemas?.source;
-          const targetRef = updatedMapSpec.schemas?.target;
-          let reloadSourceSchema = null;
-          let reloadTargetSchema = null;
-
-          if (sourceRef && sourceRef !== 'custom' && sourceRef !== 'none') {
-            reloadSourceSchema = await loadSchemaFromPath(sourceRef);
-          } else if (sourceRef === 'custom' && updatedMapSpec.schemas?.sourceSchema) {
-            reloadSourceSchema = updatedMapSpec.schemas.sourceSchema;
-          }
-
-          if (targetRef && targetRef !== 'custom' && targetRef !== 'none') {
-            reloadTargetSchema = await loadSchemaFromPath(targetRef);
-          } else if (targetRef === 'custom' && updatedMapSpec.schemas?.targetSchema) {
-            reloadTargetSchema = updatedMapSpec.schemas.targetSchema;
-          }
-
-          // Load updated GraphLayout
+          // Only reload the layout, not the entire mapper
+          // This preserves in-memory changes to the mapSpec (like added properties)
           let reloadGraphLayout = null;
           try {
             const layoutContent = await vscode.workspace.fs.readFile(layoutUri);
             const layoutText = new TextDecoder().decode(layoutContent);
             reloadGraphLayout = JSON.parse(layoutText);
             graphLayout = reloadGraphLayout; // Update in-memory copy
+
+            console.log('GraphLayout reloaded successfully');
           } catch {
             // Layout file deleted or couldn't be read
             graphLayout = null;
+            console.log('GraphLayout file could not be read');
           }
 
-          // Send update to webview
-          panel.webview.postMessage({
-            type: 'reload',
-            mapSpec: updatedMapSpec,
-            sourceSchema: reloadSourceSchema,
-            targetSchema: reloadTargetSchema,
-            graphLayout: reloadGraphLayout
-          });
+          // Don't send a reload message - layout changes are handled separately
+          // The webview will apply layout changes without resetting the model
         }
       } catch (error) {
         console.warn('File change handling error:', error);

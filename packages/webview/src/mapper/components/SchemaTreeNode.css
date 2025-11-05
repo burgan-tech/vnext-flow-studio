@@ -11,6 +11,7 @@
   transition: background 0.15s;
   border-bottom: 1px solid #f3f4f6;
   min-height: 36px;
+  overflow: visible; /* Allow handles to extend outside */
 }
 
 .tree-node-row:hover {
@@ -32,7 +33,8 @@
   background: transparent;
   cursor: pointer;
   color: #6b7280;
-  font-size: 10px;
+  font-size: 13px;
+  font-weight: bold;
   padding: 0;
   flex-shrink: 0;
   border-radius: 4px;
@@ -50,6 +52,8 @@
   min-width: 0;
   display: flex;
   align-items: center;
+  overflow: visible; /* Allow handles to extend outside */
+  position: relative; /* For handle positioning context */
 }
 
 /* Label for parent nodes (no handle) */
@@ -68,15 +72,15 @@
 }
 
 .tree-node-type-hint {
-  font-size: 11px;
+  font-size: 13px;
   color: #9ca3af;
   font-family: 'Courier New', monospace;
-  font-weight: normal;
+  font-weight: 600;
 }
 
 /* Type badge for leaf nodes */
 .tree-type-badge {
-  font-size: 10px;
+  font-size: 13px;
   font-family: 'Courier New', monospace;
   color: #6b7280;
   background: white;
@@ -104,28 +108,209 @@
 }
 
 /* Adjust handle styles within tree */
+.tree-node-row {
+  position: relative; /* Establish positioning context */
+}
+
 .tree-node-row .labeled-handle {
   width: 100%;
+  position: static; /* Keep handle wrapper in flow */
 }
 
 .tree-node-row .labeled-handle-label {
-  font-size: 18px;
+  font-size: 13px;
+  font-weight: bold;
 }
 
+/* Position handles at the outer edge of the row, extending to node edge */
 .tree-node-row .labeled-handle-connector {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-width: 2px;
+  z-index: 1000 !important; /* Ensure handles are above everything */
+}
+
+/* For source handles (right side) - position at far right of schema node */
+.tree-node-row .labeled-handle-source .labeled-handle-connector {
+  position: absolute !important;
+  right: -19px !important; /* Position at edge (accounting for handle size) */
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+/* For target handles (left side) - position at far left of schema node */
+.tree-node-row .labeled-handle-target .labeled-handle-connector {
+  position: absolute !important;
+  left: -15px !important; /* Default position for depth 0 */
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+/* Adjust target handle position based on depth to account for indentation */
+.tree-node-row[data-depth="1"] .labeled-handle-target .labeled-handle-connector {
+  left: -24px !important; /* Adjusted to avoid tangent circles - moved right by ~7px (radius) */
+}
+
+/* First level items with children need extra space for chevron */
+.tree-node-row[data-depth="1"].has-children .labeled-handle-target .labeled-handle-connector {
+  left: -48px !important; /* Account for chevron/expand button */
+}
+
+.tree-node-row[data-depth="2"] .labeled-handle-target .labeled-handle-connector {
+  left: -40px !important; /* Adjusted for proper spacing */
+}
+
+/* Depth 2 items with children need extra space for chevron */
+.tree-node-row[data-depth="2"].has-children .labeled-handle-target .labeled-handle-connector {
+  left: -64px !important; /* Account for chevron - follows pattern from depth 0/1 */
+}
+
+.tree-node-row[data-depth="3"] .labeled-handle-target .labeled-handle-connector {
+  left: -56px !important; /* Adjusted for proper spacing */
+}
+
+/* Depth 3 items with children need extra space for chevron */
+.tree-node-row[data-depth="3"].has-children .labeled-handle-target .labeled-handle-connector {
+  left: -80px !important; /* Account for chevron - follows pattern */
+}
+
+.tree-node-row[data-depth="4"] .labeled-handle-target .labeled-handle-connector {
+  left: -72px !important; /* Adjusted for proper spacing */
+}
+
+/* Depth 4 items with children need extra space for chevron */
+.tree-node-row[data-depth="4"].has-children .labeled-handle-target .labeled-handle-connector {
+  left: -96px !important; /* Account for chevron - follows pattern */
+}
+
+.tree-node-row[data-depth="5"] .labeled-handle-target .labeled-handle-connector {
+  left: -88px !important; /* Adjusted for proper spacing */
+}
+
+/* Depth 5 items with children need extra space for chevron */
+.tree-node-row[data-depth="5"].has-children .labeled-handle-target .labeled-handle-connector {
+  left: -112px !important; /* Account for chevron - follows pattern */
+}
+
+/* Special case: depth 0 items that appear without indentation */
+.tree-node-row[data-depth="0"] .labeled-handle-target .labeled-handle-connector {
+  left: -7px !important; /* Closer to edge for non-indented items */
+}
+
+/* Free-form objects at root level need special positioning to connect with edges */
+.tree-node-row[data-depth="0"].free-form .labeled-handle-target .labeled-handle-connector {
+  left: -8px !important; /* Positioned to align with React Flow edge endpoints */
+  z-index: 1001 !important; /* Ensure handle is above everything for proper edge connection */
+}
+
+/* Depth 0 items with children need extra space for chevron */
+.tree-node-row[data-depth="0"].has-children .labeled-handle-target .labeled-handle-connector {
+  left: -32px !important; /* Account for chevron at root level */
+}
+
+/* Special handling for array items - they often appear at same visual level as parent */
+.tree-node-row.array-item[data-depth="2"] .labeled-handle-target .labeled-handle-connector {
+  left: -24px !important; /* Same as depth 1 since arrays don't indent their items */
+}
+
+.tree-node-row.array-item[data-depth="3"] .labeled-handle-target .labeled-handle-connector {
+  left: -40px !important; /* Same as depth 2 since arrays don't indent their items */
+}
+
+.tree-node-row.array-item[data-depth="4"] .labeled-handle-target .labeled-handle-connector {
+  left: -56px !important; /* Same as depth 3 since arrays don't indent their items */
 }
 
 .tree-node-row:hover .labeled-handle-connector {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
+}
+
+.tree-node-row:hover .labeled-handle-source .labeled-handle-connector {
+  right: -21px !important; /* Adjust for larger size on hover */
+}
+
+.tree-node-row:hover .labeled-handle-target .labeled-handle-connector {
+  left: -17px !important; /* Adjust for larger size on hover - depth 0 */
+}
+
+/* Hover positions for target handles at different depths */
+.tree-node-row[data-depth="0"]:hover .labeled-handle-target .labeled-handle-connector {
+  left: -9px !important; /* Hover adjustment for depth 0 */
+}
+
+/* Hover state for free-form objects at root level */
+.tree-node-row[data-depth="0"].free-form:hover .labeled-handle-target .labeled-handle-connector {
+  left: -10px !important; /* Hover adjustment for free-form at root */
+}
+
+/* Hover state for depth 0 items with children */
+.tree-node-row[data-depth="0"].has-children:hover .labeled-handle-target .labeled-handle-connector {
+  left: -34px !important; /* Account for chevron at root level on hover */
+}
+
+.tree-node-row[data-depth="1"]:hover .labeled-handle-target .labeled-handle-connector {
+  left: -26px !important; /* Hover adjustment for depth 1 */
+}
+
+/* Hover state for first level items with children */
+.tree-node-row[data-depth="1"].has-children:hover .labeled-handle-target .labeled-handle-connector {
+  left: -48px !important; /* Account for chevron/expand button on hover */
+}
+
+.tree-node-row[data-depth="2"]:hover .labeled-handle-target .labeled-handle-connector {
+  left: -42px !important; /* Hover adjustment for depth 2 */
+}
+
+/* Hover state for depth 2 items with children */
+.tree-node-row[data-depth="2"].has-children:hover .labeled-handle-target .labeled-handle-connector {
+  left: -66px !important; /* Account for chevron on hover */
+}
+
+.tree-node-row[data-depth="3"]:hover .labeled-handle-target .labeled-handle-connector {
+  left: -58px !important; /* Hover adjustment for depth 3 */
+}
+
+/* Hover state for depth 3 items with children */
+.tree-node-row[data-depth="3"].has-children:hover .labeled-handle-target .labeled-handle-connector {
+  left: -82px !important; /* Account for chevron on hover */
+}
+
+.tree-node-row[data-depth="4"]:hover .labeled-handle-target .labeled-handle-connector {
+  left: -74px !important; /* Hover adjustment for depth 4 */
+}
+
+/* Hover state for depth 4 items with children */
+.tree-node-row[data-depth="4"].has-children:hover .labeled-handle-target .labeled-handle-connector {
+  left: -98px !important; /* Account for chevron on hover */
+}
+
+.tree-node-row[data-depth="5"]:hover .labeled-handle-target .labeled-handle-connector {
+  left: -90px !important; /* Hover adjustment for depth 5 */
+}
+
+/* Hover state for depth 5 items with children */
+.tree-node-row[data-depth="5"].has-children:hover .labeled-handle-target .labeled-handle-connector {
+  left: -114px !important; /* Account for chevron on hover */
+}
+
+/* Hover states for array items */
+.tree-node-row.array-item[data-depth="2"]:hover .labeled-handle-target .labeled-handle-connector {
+  left: -26px !important; /* Same as depth 1 hover */
+}
+
+.tree-node-row.array-item[data-depth="3"]:hover .labeled-handle-target .labeled-handle-connector {
+  left: -42px !important; /* Same as depth 2 hover */
+}
+
+.tree-node-row.array-item[data-depth="4"]:hover .labeled-handle-target .labeled-handle-connector {
+  left: -58px !important; /* Same as depth 3 hover */
 }
 
 /* User-added property indicator */
 .user-added-badge {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: bold;
   margin-left: 8px;
   background: #fef3c7;
   padding: 2px 6px;
@@ -139,7 +324,7 @@
 
 .user-added-badge::before {
   content: '✏️';
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .tree-node-row.user-added {
@@ -167,7 +352,7 @@
 }
 
 .discriminator-badge {
-  font-size: 10px;
+  font-size: 13px;
   font-family: 'Courier New', monospace;
   font-weight: 700;
   color: #0c4a6e;
@@ -208,6 +393,7 @@
   min-width: 180px;
   z-index: 9999;
   font-size: 13px;
+  font-weight: bold;
 }
 
 .context-menu-item {
@@ -219,7 +405,7 @@
   text-align: left;
   cursor: pointer;
   color: #374151;
-  font-weight: 500;
+  font-weight: bold;
   border-radius: 6px;
   transition: all 0.15s;
 }

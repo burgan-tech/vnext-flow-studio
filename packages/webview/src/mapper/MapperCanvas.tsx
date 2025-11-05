@@ -316,7 +316,7 @@ function MapperCanvasInner() {
             ...node.data,
             onCollapsedHandlesChange: isSourceNode ? handleSourceCollapsedHandlesChange : handleTargetCollapsedHandlesChange,
             onAddProperty: (path: string, propertyName: string, propertySchema: JSONSchema) => handleAddProperty(side, path, propertyName, propertySchema),
-            onEditProperty: (path: string, propertyName: string, propertySchema: JSONSchema) => handleEditProperty(side, path, propertyName, propertySchema),
+            onEditProperty: (path: string, propertyName: string, propertySchema: JSONSchema, oldPropertyName?: string) => handleEditProperty(side, path, propertyName, propertySchema, oldPropertyName),
             onRemoveProperty: (path: string, propertyName: string) => handleRemoveProperty(side, path, propertyName)
           }
         };
@@ -689,9 +689,10 @@ function MapperCanvasInner() {
     };
   }, []);
 
+
   /**
    * Add a user-defined property to a free-form object
-   * Generates overlay schemas for conditional properties
+   * Generates overlay schemas for conditional properties or regular schema extensions
    */
   const handleAddProperty = useCallback((side: 'source' | 'target', path: string, propertyName: string, propertySchema: JSONSchema) => {
     console.log('➕ Adding property:', { side, path, propertyName, propertySchema });
@@ -699,8 +700,65 @@ function MapperCanvasInner() {
     const condition = extractConditionFromPath(path);
 
     if (!condition) {
-      // No conditional context - this shouldn't happen with current implementation
-      console.warn('No condition found in path:', path);
+      // No conditional context - this is a regular free-form object
+      // Create a non-conditional overlay (just schema extension without if/then)
+      console.log('Adding property to regular free-form object using overlay');
+
+      // Build the nested schema for this property
+      const pathSegments = path.replace(/^\$\.?/, '').split('.');
+      const nestedSchema = buildNestedSchema(pathSegments, propertyName, propertySchema);
+
+      // Generate overlay ID with unique identifier (not using property name to avoid issues with renaming)
+      const overlayId = `mapper://overlay/${side}/extension/${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Create a non-conditional overlay - just the schema extension
+      // This will be added to allOf array without if/then
+      const overlay: SchemaOverlay = {
+        $id: overlayId,
+        // No if/then - this is a direct schema extension
+        ...nestedSchema,
+        metadata: {
+          targetPath: `${path}.${propertyName}`,
+          schemaPath: '$', // Apply at root
+          description: `User-added property: ${propertyName}`,
+          createdAt: new Date().toISOString()
+        }
+      };
+
+      // Add overlay to state
+      setSchemaOverlays(prev => {
+        const sideOverlays = prev[side] || [];
+        const updatedOverlays = [...sideOverlays, overlay];
+
+        // Update mapSpec using callback to get current value
+        setMapSpec(currentMapSpec => {
+          if (!currentMapSpec) {
+            console.error('No mapSpec available for adding property');
+            return currentMapSpec;
+          }
+
+          const updatedMapSpec = { ...currentMapSpec };
+          updatedMapSpec.schemas = updatedMapSpec.schemas || {};
+          updatedMapSpec.schemas[`${side}Overlays`] = updatedOverlays;
+
+          // Send save message to extension
+          if (vscodeApi) {
+            vscodeApi.postMessage({
+              type: 'save',
+              mapSpec: updatedMapSpec
+            });
+          }
+
+          return updatedMapSpec;
+        });
+
+        return {
+          ...prev,
+          [side]: updatedOverlays
+        };
+      });
+
+      // The overlay system will trigger a rebuild through the useEffect
       return;
     }
 
@@ -750,8 +808,8 @@ function MapperCanvasInner() {
     // Build nested schema for the property
     const nestedSchema = buildNestedSchema(cleanSegments, propertyName, propertySchema);
 
-    // Generate overlay ID
-    const overlayId = `mapper://overlay/${side}/${condition.field}-${condition.value}/${propertyName}`;
+    // Generate overlay ID with unique identifier (not using property name to avoid issues with renaming)
+    const overlayId = `mapper://overlay/${side}/${condition.field}-${condition.value}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Create overlay schema
     const overlay: SchemaOverlay = {
@@ -773,66 +831,28 @@ function MapperCanvasInner() {
     // Add overlay to state
     setSchemaOverlays(prev => {
       const sideOverlays = prev[side] || [];
-      return {
-        ...prev,
-        [side]: [...sideOverlays, overlay]
-      };
-    });
-  }, [buildNestedSchema]);
+      const updatedOverlays = [...sideOverlays, overlay];
 
-  /**
-   * Edit a user-defined property
-   * Updates the overlay schema for the property
-   */
-  const handleEditProperty = useCallback((side: 'source' | 'target', path: string, propertyName: string, propertySchema: JSONSchema) => {
-    console.log('✏️ Editing property:', { side, path, propertyName, propertySchema });
-
-    // Find and update the overlay that targets this path and property
-    setSchemaOverlays(prev => {
-      const sideOverlays = prev[side] || [];
-
-      const updatedOverlays = sideOverlays.map(overlay => {
-        // Match overlay by target path in metadata (now includes property name)
-        const fullPath = `${path}.${propertyName}`;
-        if (overlay.metadata?.targetPath === fullPath) {
-          // Calculate relative path from discriminator parent
-          const pathSegments = path.split('.');
-          const syntheticIndex = pathSegments.findIndex(seg => seg.startsWith('__SYNTH__'));
-
-          if (syntheticIndex === -1) {
-            console.warn('No synthetic notation in path for edit:', path);
-            return overlay;
-          }
-
-          const discriminatorParentIndex = syntheticIndex - 2;
-          if (discriminatorParentIndex < 0) {
-            console.warn('Cannot determine discriminator parent for edit:', path);
-            return overlay;
-          }
-
-          // Get schema path (discriminator parent)
-          const schemaPath = pathSegments.slice(0, discriminatorParentIndex + 1).join('.');
-
-          // Get relative path and strip synthetic notation
-          const relativePathSegments = pathSegments.slice(discriminatorParentIndex + 1);
-          const relativePath = relativePathSegments.join('.');
-          const cleanRelativePath = relativePath.replace(/\.__SYNTH__\[[^\]]+\]\s+[^.]+/g, '');
-          const cleanSegments = cleanRelativePath.split('.');
-
-          const nestedSchema = buildNestedSchema(cleanSegments, propertyName, propertySchema);
-
-          return {
-            ...overlay,
-            then: nestedSchema,
-            metadata: {
-              ...overlay.metadata,
-              targetPath: fullPath,  // Update full path
-              schemaPath: schemaPath,  // Update schema path
-              description: `User-added property: ${propertyName} (edited)`
-            }
-          };
+      // Update mapSpec using callback to get current value
+      setMapSpec(currentMapSpec => {
+        if (!currentMapSpec) {
+          console.error('No mapSpec available for adding conditional property');
+          return currentMapSpec;
         }
-        return overlay;
+
+        const updatedMapSpec = { ...currentMapSpec };
+        updatedMapSpec.schemas = updatedMapSpec.schemas || {};
+        updatedMapSpec.schemas[`${side}Overlays`] = updatedOverlays;
+
+        // Send save message to extension
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            type: 'save',
+            mapSpec: updatedMapSpec
+          });
+        }
+
+        return updatedMapSpec;
       });
 
       return {
@@ -840,7 +860,114 @@ function MapperCanvasInner() {
         [side]: updatedOverlays
       };
     });
-  }, [buildNestedSchema]);
+  }, [buildNestedSchema, vscodeApi]);
+
+  /**
+   * Edit a user-defined property
+   * Updates the overlay schema for the property and supports renaming
+   */
+  const handleEditProperty = useCallback((side: 'source' | 'target', path: string, propertyName: string, propertySchema: JSONSchema, oldPropertyName?: string) => {
+    // Use old property name if provided, otherwise assume it's the same as new
+    const originalPropertyName = oldPropertyName || propertyName;
+    console.log('✏️ Editing property:', { side, path, propertyName, oldPropertyName: originalPropertyName, propertySchema });
+
+    // Find and update the overlay that targets this path and property
+    setSchemaOverlays(prev => {
+      const sideOverlays = prev[side] || [];
+
+      const updatedOverlays = sideOverlays.map(overlay => {
+        // Match overlay by target path in metadata (using old property name)
+        const oldFullPath = `${path}.${originalPropertyName}`;
+        const newFullPath = `${path}.${propertyName}`;
+
+        if (overlay.metadata?.targetPath === oldFullPath) {
+          // Check if this is a conditional or non-conditional overlay
+          const pathSegments = path.split('.');
+          const syntheticIndex = pathSegments.findIndex(seg => seg.startsWith('__SYNTH__'));
+
+          if (syntheticIndex === -1) {
+            // Non-conditional overlay (regular property)
+            // Path is now the parent path (without property name)
+            // E.g., for "$.attributes.subResourceGrants"
+            const cleanPath = path.replace(/^\$\.?/, ''); // Remove leading $ or $.
+            const parentSegments = cleanPath ? cleanPath.split('.') : [];
+
+            // Build the new nested schema with the parent path and new property name
+            const nestedSchema = buildNestedSchema(parentSegments, propertyName, propertySchema);
+
+            return {
+              $id: overlay.$id,
+              ...nestedSchema, // This will have the correct nested structure with new property name
+              metadata: {
+                ...overlay.metadata,
+                targetPath: newFullPath,  // Update to new full path
+                description: `User-added property: ${propertyName}${originalPropertyName !== propertyName ? ' (renamed)' : ' (edited)'}`
+              }
+            };
+          } else {
+            // Conditional overlay (discriminated union property)
+            const discriminatorParentIndex = syntheticIndex - 2;
+            if (discriminatorParentIndex < 0) {
+              console.warn('Cannot determine discriminator parent for edit:', path);
+              return overlay;
+            }
+
+            // Get schema path (discriminator parent)
+            const schemaPath = pathSegments.slice(0, discriminatorParentIndex + 1).join('.');
+
+            // Get relative path and strip synthetic notation
+            const relativePathSegments = pathSegments.slice(discriminatorParentIndex + 1);
+            const relativePath = relativePathSegments.join('.');
+            const cleanRelativePath = relativePath.replace(/\.__SYNTH__\[[^\]]+\]\s+[^.]+/g, '');
+            const cleanSegments = cleanRelativePath.split('.');
+
+            const nestedSchema = buildNestedSchema(cleanSegments, propertyName, propertySchema);
+
+            return {
+              ...overlay,
+              then: nestedSchema,
+              metadata: {
+                ...overlay.metadata,
+                targetPath: newFullPath,  // Update to new full path
+                schemaPath: schemaPath,  // Update schema path
+                description: `User-added property: ${propertyName}${originalPropertyName !== propertyName ? ' (renamed)' : ' (edited)'}`
+              }
+            };
+          }
+        }
+        return overlay;
+      });
+
+      // Update mapSpec with new overlays using callback to get current value
+      setMapSpec(currentMapSpec => {
+        if (!currentMapSpec) {
+          console.error('No mapSpec available for editing property');
+          return currentMapSpec;
+        }
+
+        const updatedMapSpec = { ...currentMapSpec };
+        updatedMapSpec.schemas = updatedMapSpec.schemas || {};
+        updatedMapSpec.schemas[`${side}Overlays`] = updatedOverlays;
+
+        // Send save message to extension
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            type: 'save',
+            mapSpec: updatedMapSpec
+          });
+        }
+
+        return updatedMapSpec;
+      });
+
+      // The useEffect watching schemaOverlays will automatically trigger a rebuild
+
+      return {
+        ...prev,
+        [side]: updatedOverlays
+      };
+    });
+  }, [buildNestedSchema, vscodeApi]);
 
   /**
    * Remove a user-defined property
@@ -867,12 +994,36 @@ function MapperCanvasInner() {
         removed: sideOverlays.length - remainingOverlays.length
       });
 
+      // Update mapSpec with remaining overlays using callback to get current value
+      setMapSpec(currentMapSpec => {
+        if (!currentMapSpec) {
+          console.error('No mapSpec available for removing property');
+          return currentMapSpec;
+        }
+
+        const updatedMapSpec = { ...currentMapSpec };
+        updatedMapSpec.schemas = updatedMapSpec.schemas || {};
+        updatedMapSpec.schemas[`${side}Overlays`] = remainingOverlays;
+
+        // Send save message to extension
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            type: 'save',
+            mapSpec: updatedMapSpec
+          });
+        }
+
+        return updatedMapSpec;
+      });
+
+      // The useEffect watching schemaOverlays will automatically trigger a rebuild
+
       return {
         ...prev,
         [side]: remainingOverlays
       };
     });
-  }, []);
+  }, [vscodeApi]);
 
   /**
    * Auto-save when nodes or edges change (debounced)

@@ -292,6 +292,15 @@ export function applyOverlays(schema: JSONSchema, overlays?: SchemaOverlay[]): J
 
   // Merge overlays with matching conditionals
   for (const overlay of overlays) {
+    // Check if this is a non-conditional overlay (no if/then)
+    if (!overlay.if && !overlay.then) {
+      // This is a direct schema extension - add to non-conditionals
+      const { metadata, $id, ...schemaExtension } = overlay;
+      nonConditionals.push(schemaExtension);
+      console.log('[Schema Overlays] Adding non-conditional schema extension');
+      continue;
+    }
+
     const key = getDiscriminatorKey(overlay.if);
     if (!key) {
       console.warn('[Schema Overlays] Overlay has no recognizable discriminator, skipping');

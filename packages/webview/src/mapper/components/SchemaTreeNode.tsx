@@ -18,7 +18,7 @@ export interface SchemaTreeNodeProps {
   isSource: boolean;
   onCollapsedChange?: (nodeId: string, isCollapsed: boolean, collapsedChildIds: string[]) => void;
   onAddProperty?: (path: string, propertyName: string, propertySchema: JSONSchema) => void;
-  onEditProperty?: (path: string, propertyName: string, propertySchema: JSONSchema) => void;
+  onEditProperty?: (path: string, propertyName: string, propertySchema: JSONSchema, oldPropertyName?: string) => void;
   onRemoveProperty?: (path: string, propertyName: string) => void;
 }
 
@@ -71,8 +71,19 @@ export function SchemaTreeNode({
   };
 
   const hasChildren = node.children && node.children.length > 0;
-  // Always show handles for leaf nodes, and for parent nodes with children (for redirection)
-  const showHandle = node.isLeaf || hasChildren;
+
+  // Check if this is a free-form object (can be extended)
+  // An object is extensible if:
+  // 1. It has no children (empty object), OR
+  // 2. All its children are user-added (was extended from empty object)
+  const hasUserAddedChildren = node.children?.some(child => child.isUserAdded) || false;
+  const allChildrenUserAdded = node.children && node.children.length > 0
+    ? node.children.every(child => child.isUserAdded)
+    : false;
+  const isFreeFormObject = node.type === 'object' && (!hasChildren || node.children.length === 0 || allChildrenUserAdded);
+
+  // Always show handles for leaf nodes, parent nodes with children (for redirection), and empty objects
+  const showHandle = node.isLeaf || hasChildren || isFreeFormObject;
 
   // Determine icon based on node type
   const getIcon = () => {
@@ -120,16 +131,6 @@ export function SchemaTreeNode({
     }
     return null;
   };
-
-  // Check if this is a free-form object (can be extended)
-  // An object is extensible if:
-  // 1. It has no children (empty object), OR
-  // 2. All its children are user-added (was extended from empty object)
-  const hasUserAddedChildren = node.children?.some(child => child.isUserAdded) || false;
-  const allChildrenUserAdded = node.children && node.children.length > 0
-    ? node.children.every(child => child.isUserAdded)
-    : false;
-  const isFreeFormObject = node.type === 'object' && (!hasChildren || node.children.length === 0 || allChildrenUserAdded);
 
   // Handle right-click
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -217,14 +218,20 @@ export function SchemaTreeNode({
   };
 
   // Handle modal submit
-  const handleModalSubmit = (propertyName: string, propertySchema: JSONSchema) => {
+  const handleModalSubmit = (propertyName: string, propertySchema: JSONSchema, oldPropertyName?: string) => {
     // Use full path to preserve synthetic notation for variant-specific properties
     const usePath = node.path;
 
     if (modalState.mode === 'add' && onAddProperty) {
       onAddProperty(usePath, propertyName, propertySchema);
     } else if (modalState.mode === 'edit' && onEditProperty) {
-      onEditProperty(usePath, propertyName, propertySchema);
+      // For edit mode, we need to extract the parent path (without the property name)
+      const pathParts = usePath.split('.');
+      const currentPropertyName = pathParts[pathParts.length - 1];
+      const parentPath = pathParts.slice(0, -1).join('.');
+
+      // Pass parent path and new property name
+      onEditProperty(parentPath, propertyName, propertySchema, oldPropertyName || currentPropertyName);
     }
     setModalState({ isOpen: false, mode: 'add' });
   };
@@ -237,8 +244,9 @@ export function SchemaTreeNode({
   return (
     <div className="schema-tree-node">
       <div
-        className={`tree-node-row ${showHandle ? 'has-handle' : ''} ${hasChildren ? 'has-children' : ''} ${node.isUserAdded ? 'user-added' : ''} ${isFreeFormObject ? 'free-form' : ''} ${isSyntheticBranch ? 'synthetic-branch' : ''}`}
+        className={`tree-node-row ${showHandle ? 'has-handle' : ''} ${hasChildren ? 'has-children' : ''} ${node.isUserAdded ? 'user-added' : ''} ${isFreeFormObject ? 'free-form' : ''} ${isSyntheticBranch ? 'synthetic-branch' : ''} ${node.isArrayItem ? 'array-item' : ''} ${node.type === 'array' ? 'array-type' : ''}`}
         style={{ paddingLeft: `${depth * 16}px` }}
+        data-depth={depth}
         onContextMenu={handleContextMenu}
       >
         {/* Expand/collapse icon */}

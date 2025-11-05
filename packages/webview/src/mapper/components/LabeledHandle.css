@@ -47,20 +47,20 @@
   transition: all 0.2s;
   flex-shrink: 0;
   position: absolute !important;
+  z-index: 10 !important; /* Ensure handles render on top */
 }
 
-/* Position target handles on the left edge */
+/* Default handle positioning - will be overridden by tree-specific styles */
 .labeled-handle-target .labeled-handle-connector {
-  left: 0 !important;
+  left: -6px !important;
   top: 50% !important;
-  transform: translateX(-50%) translateY(-50%) !important;
+  transform: translateY(-50%) !important;
 }
 
-/* Position source handles on the right edge */
 .labeled-handle-source .labeled-handle-connector {
-  right: 0 !important;
+  right: -6px !important;
   top: 50% !important;
-  transform: translateX(50%) translateY(-50%) !important;
+  transform: translateY(-50%) !important;
 }
 
 .labeled-handle-target .labeled-handle-connector {
@@ -77,11 +77,13 @@
 
 /* Keep hover state centered on edge */
 .labeled-handle-target .labeled-handle-connector:hover {
-  transform: translateX(-50%) translateY(-50%) !important;
+  left: -8px !important; /* Adjust for larger hover size */
+  transform: translateY(-50%) !important;
 }
 
 .labeled-handle-source .labeled-handle-connector:hover {
-  transform: translateX(50%) translateY(-50%) !important;
+  right: -8px !important; /* Adjust for larger hover size */
+  transform: translateY(-50%) !important;
 }
 
 .labeled-handle-target .labeled-handle-connector:hover {
@@ -127,12 +129,17 @@
 
 /* Highlighted source handles (contributing to hovered target) */
 .labeled-handle-highlighted .labeled-handle-connector {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   background: #10b981;
   border-color: #10b981;
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3), 0 0 12px rgba(16, 185, 129, 0.5);
   animation: pulse-highlight 1.5s ease-in-out infinite;
+}
+
+/* Highlighted handles in tree need edge positioning */
+.tree-node-row .labeled-handle-highlighted.labeled-handle-source .labeled-handle-connector {
+  right: -21px !important; /* Account for larger highlighted size */
 }
 
 .labeled-handle-highlighted .labeled-handle-label {

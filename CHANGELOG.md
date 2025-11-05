@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+### Fixed
+
+### Changed
+
+## [1.2.1] - 2025-11-06
+
+### Fixed
+
+- **Functoid Palette UI**: Fixed horizontal scrollbar issue and improved palette usability
+  - Increased palette width from 100px to 140px to prevent horizontal scrollbar
+  - Fixed light scrollbar styling using programmatic style injection
+  - Resolved scrollbar color issues that appeared dark in some environments
+
+- **Schema Node Handle Positioning**: Significantly improved handle positioning and edge connection reliability
+  - Positioned handles at the outer edges of schema nodes for better visual clarity
+  - Fixed handle visibility issues with proper z-index management
+  - Adjusted handle positioning to account for tree indentation at all depth levels (0-5)
+  - Added special handling for items with expand/collapse chevrons
+  - Fixed array item positioning that appeared at wrong indentation levels
+  - Resolved issues with root level empty objects not displaying handles
+  - Fixed edge connection gaps for free-form objects at root level
+  - Improved hover state positioning for all depth levels
+
+### Changed
+
+- **Schema Tree Node Rendering**: Enhanced tree node display and interaction
+  - Empty objects (free-form) now properly display handles for edge connections
+  - Improved CSS specificity for reliable handle positioning across different node types
+  - Better visual hierarchy with consistent indentation and handle alignment
+
+### Added
+
+- **Schema Property Editing**: Added ability to edit and rename user-added properties
+  - Right-click context menu now includes "Edit Property" option for user-added properties
+  - Edit modal allows renaming properties and changing their schema types
+  - Proper path handling preserves synthetic notation for variant-specific properties
+  - Modal reuses the same AddPropertyModal component in edit mode
+
 ## [1.2.0] - 2025-11-05
 
 ### Added

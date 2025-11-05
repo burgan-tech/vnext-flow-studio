@@ -1,7 +1,7 @@
 /* FunctoidPalette.css - Styling for functoid palette sidebar */
 
 .functoid-palette {
-  width: 100px;
+  width: 140px;
   height: 100%;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   border-right: 1px solid #e2e8f0;
@@ -123,7 +123,9 @@
 .palette-categories {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 0;
+  min-height: 0; /* Ensure flex container can shrink */
 }
 
 /* Empty State */
@@ -136,7 +138,7 @@
 
 /* Category */
 .palette-category {
-  margin: 2px 4px;
+  margin: 4px 6px;
 }
 
 .palette-category-header {
@@ -202,10 +204,11 @@
 
 /* Category Items */
 .palette-category-items {
-  padding: 3px;
+  padding: 6px 8px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18px, 1fr));
-  gap: 3px;
+  grid-template-columns: repeat(4, minmax(24px, 1fr));
+  gap: 5px;
+  box-sizing: border-box;
 }
 
 /* Functoid Item */
@@ -223,6 +226,9 @@
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  box-sizing: border-box;
+  min-width: 24px;
+  min-height: 24px;
 }
 
 .palette-functoid-item::before {
@@ -292,23 +298,32 @@
 }
 
 /* Scrollbar Styling */
-.palette-categories::-webkit-scrollbar {
-  width: 4px;
+.functoid-palette {
+  color-scheme: light;
 }
 
-.palette-categories::-webkit-scrollbar-track {
-  background: transparent;
+.functoid-palette .palette-categories {
+  color-scheme: light;
+}
+
+.functoid-palette .palette-categories::-webkit-scrollbar {
+  width: 6px !important;
+  background: transparent !important;
+}
+
+.functoid-palette .palette-categories::-webkit-scrollbar-track {
+  background: #f8fafc !important;
   margin: 4px 0;
+  border-radius: 3px;
 }
 
-.palette-categories::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
-  border-radius: 4px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
+.functoid-palette .palette-categories::-webkit-scrollbar-thumb {
+  background: #e2e8f0 !important;
+  border-radius: 3px;
+  min-height: 30px;
+  border: none !important;
 }
 
-.palette-categories::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
-  background-clip: padding-box;
+.functoid-palette .palette-categories::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1 !important;
 }
