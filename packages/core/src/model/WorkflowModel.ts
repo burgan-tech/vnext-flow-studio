@@ -443,6 +443,15 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
   setDiagram(diagram: Diagram): void {
     const oldDiagram = this.state.diagram;
     this.state.diagram = diagram;
+
+    // Ensure diagramPath is set so the diagram can be saved
+    if (!this.state.metadata.diagramPath) {
+      const path = this.getDiagramPath();
+      if (path) {
+        this.state.metadata.diagramPath = path;
+      }
+    }
+
     this.markDirty();
 
     this.emitChange({
