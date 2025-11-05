@@ -546,6 +546,15 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
 
       const firstEdge = selectedEdges[0];
       if (firstEdge) {
+        // Check for start transition
+        const startMatch = /^t:start:(.+)$/.exec(firstEdge.id);
+        if (startMatch) {
+          const nextSel: PropertySelection = { kind: 'startTransition', transitionKey: startMatch[1] };
+          setSelection(nextSel);
+          selectionRef.current = nextSel;
+          return;
+        }
+
         // Check for local transition
         const localMatch = /^t:local:([^:]+):(.+)$/.exec(firstEdge.id);
         if (localMatch) {

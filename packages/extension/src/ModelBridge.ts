@@ -413,6 +413,11 @@ export class ModelBridge {
           this.scheduleAutosave(model);
           break;
 
+        case 'domain:updateStartTransition':
+          await this.updateStartTransition(model, message.startTransition);
+          this.scheduleAutosave(model);
+          break;
+
         case 'domain:convertSharedToRegular':
           await this.convertSharedToRegular(model, message.transitionKey, message.targetState);
           this.scheduleAutosave(model);
@@ -721,6 +726,18 @@ export class ModelBridge {
       workflow.attributes.sharedTransitions[index] = sharedTransition;
     }
 
+    // Autosave will be triggered by the message handler
+  }
+
+  /**
+   * Update start transition
+   */
+  private async updateStartTransition(
+    model: WorkflowModel,
+    startTransition: Transition
+  ): Promise<void> {
+    const workflow = model.getWorkflow();
+    workflow.attributes.startTransition = startTransition;
     // Autosave will be triggered by the message handler
   }
 

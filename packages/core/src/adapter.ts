@@ -167,11 +167,15 @@ export function toReactFlow(
                        'Start';
 
     edges.push({
-      id: 'e:start',
+      id: 't:start:' + st.key,  // Use transition format for proper selection handling
       source: START_NODE_ID,
       target: st.target,
       label: startLabel,
-      data: { triggerType: st.triggerType }
+      data: {
+        triggerType: st.triggerType,
+        isStartTransition: true,  // Mark this as the start transition
+        transition: st  // Include full transition data for editing
+      }
     });
   }
 

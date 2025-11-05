@@ -34,6 +34,7 @@ export type MsgFromWebview =
   | { type: 'domain:updateTransition'; from: string; transitionKey: string; transition: Transition }
   | { type: 'domain:makeTransitionShared'; from: string; transitionKey: string }
   | { type: 'domain:updateSharedTransition'; transitionKey: string; sharedTransition: SharedTransition }
+  | { type: 'domain:updateStartTransition'; startTransition: Transition }
   | { type: 'domain:convertSharedToRegular'; transitionKey: string; targetState: string }
   | { type: 'domain:removeFromSharedTransition'; transitionKey: string; stateKey: string }
   | { type: 'domain:addState'; state: State; position: { x: number; y: number }; pluginId?: string; hints?: any }
