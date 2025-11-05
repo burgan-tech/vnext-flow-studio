@@ -1822,11 +1822,104 @@ export function PropertyPanel({ workflow, selection, collapsed, availableTasks, 
               />
             </CollapsibleSection>
 
-            <CollapsibleSection title="Execution Tasks" defaultExpanded={false}>
+            <CollapsibleSection title="Execution Rule" defaultExpanded={false}>
+              <EnhancedRuleEditor
+                rule={startTransitionDraft.rule || null}
+                availableRules={availableRules}
+                initialText={ruleText}
+                onRuleChange={(rule, text) => {
+                  setRuleText(text);
+                  setStartTransitionDraft(prev => {
+                    if (!prev) return prev;
+                    const next = { ...prev };
+                    if (rule) {
+                      next.rule = rule;
+                    } else {
+                      delete next.rule;
+                    }
+                    return next;
+                  });
+                }}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Schema" defaultExpanded={false}>
+              <ReferenceSelector
+                label="Schema"
+                value={startTransitionDraft.schema && isSchemaRef(startTransitionDraft.schema) ? startTransitionDraft.schema as ComponentReference : null}
+                availableComponents={catalogs.schema || []}
+                componentType="Schema"
+                defaultFlow="sys-schemas"
+                onChange={(reference) => {
+                  setStartTransitionDraft(prev => {
+                    if (!prev) return prev;
+                    return { ...prev, schema: reference };
+                  });
+                }}
+                helpText="Select a schema to validate data sent with this transition"
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="View" defaultExpanded={false}>
+              <ReferenceSelector
+                label="View"
+                value={startTransitionDraft.view ? startTransitionDraft.view as ComponentReference : null}
+                availableComponents={catalogs.view || []}
+                componentType="View"
+                defaultFlow="sys-views"
+                onChange={(reference) => {
+                  setStartTransitionDraft(prev => {
+                    if (!prev) return prev;
+                    const next = { ...prev } as Transition & Record<string, unknown>;
+                    if (reference) {
+                      next.view = reference;
+                    } else {
+                      delete next.view;
+                    }
+                    return next as Transition;
+                  });
+                }}
+                helpText="Select a UI view for this transition"
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Execution Tasks"
+              defaultExpanded={false}
+              headerActions={
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newTasks = [...(startTransitionDraft.onExecutionTasks || [])];
+                    newTasks.push({ task: { key: '', domain: '', flow: 'sys-tasks', version: '' }, order: newTasks.length + 1 });
+                    setStartTransitionDraft((prev) => {
+                      if (!prev) return prev;
+                      const next = { ...prev } as Transition & Record<string, unknown>;
+                      next.onExecutionTasks = newTasks;
+                      return next as Transition;
+                    });
+                  }}
+                  className="property-panel__add-button"
+                >
+                  +
+                </button>
+              }
+            >
               <ExecutionTaskListEditor
                 title=""
                 tasks={startTransitionDraft.onExecutionTasks}
                 availableTasks={availableTasks}
+                availableMappers={availableMappers}
+                onLoadFromFile={(taskIndex) => {
+                  if (selection?.kind === 'startTransition') {
+                    postMessage({
+                      type: 'mapping:loadFromFile',
+                      startTransitionKey: selection.transitionKey,
+                      transition: startTransitionDraft,
+                      index: taskIndex
+                    });
+                  }
+                }}
                 onChange={(tasks) =>
                   setStartTransitionDraft((prev) => {
                     if (!prev) return prev;
