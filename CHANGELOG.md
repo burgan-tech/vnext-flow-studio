@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **cSpell Auto-Configuration**: Extension now automatically configures cSpell for user projects
+  - Adds Turkish workflow labels to spell checker dictionary on activation
+  - Configures regex patterns to ignore label and language fields in JSON files
+  - Updates workspace settings to prevent false positives on multilingual content
+  - Works with any project that has the extension installed
+
 ### Fixed
 
 - **JSON Schema Validation**: Fixed schema loading to use extension-bundled schemas instead of looking in project directories
@@ -19,11 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Spell Check Configuration**: Enhanced cSpell configuration for multilingual workflow support
-  - Simplified regex patterns in ignoreRegExpList for better matching
-  - Added file-specific overrides for workflow files (*.flow.json, workflows/*, Workflows/*)
+- **Spell Check Configuration**: Fixed cSpell configuration for multilingual workflow support
+  - Applied regex patterns to all .json files (workflow files are regular .json, not .flow.json)
+  - Simplified file-specific overrides to match actual workflow file patterns
   - Added common Turkish workflow labels to the dictionary (Başlat, Onayla, İptal, etc.)
-  - Multiple approaches to ensure Turkish and other non-English labels are not flagged as errors
+  - Ignores "label", "language" fields and entire "labels" arrays in JSON files
   - Prevents false positives while maintaining spell checking for code and comments
 
 ## [1.1.14] - 2025-11-05

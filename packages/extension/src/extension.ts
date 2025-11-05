@@ -382,6 +382,94 @@ function registerJsonSchemas(context: vscode.ExtensionContext) {
 }
 
 /**
+ * Configure cSpell settings for workflow files in user projects
+ */
+function configureCSpell(_context: vscode.ExtensionContext) {
+  const config = vscode.workspace.getConfiguration('cSpell');
+
+  // Get existing words list
+  const existingWords = config.get<string[]>('words') || [];
+
+  // Turkish workflow labels to add
+  const turkishWorkflowWords = [
+    'Başlat', 'Başla', 'Bitir', 'Devam', 'Durdur', 'İptal',
+    'Onayla', 'Reddet', 'Gönder', 'Kaydet', 'Sil', 'Güncelle',
+    'Yeni', 'Düzenle', 'İşlem', 'Durum', 'Sonuç', 'Hata',
+    'Uyarı', 'Bilgi', 'Yayınla', 'Yayın', 'Akış', 'Geçiş',
+    'Onay', 'Ret', 'Bekle', 'Tamamla', 'Kontrol', 'Doğrula'
+  ];
+
+  // Workflow-specific technical terms
+  const technicalTerms = [
+    'amorphie', 'burgan', 'vnext', 'triggerType', 'stateType',
+    'versionStrategy', 'onEntries', 'onExits', 'executionTasks',
+    'mappings', 'subFlow', 'taskRef', 'schemaRef'
+  ];
+
+  // Combine and deduplicate
+  const wordsToAdd = [...turkishWorkflowWords, ...technicalTerms];
+  const newWords = [...new Set([...existingWords, ...wordsToAdd])];
+
+  // Only update if there are new words
+  if (newWords.length > existingWords.length) {
+    config.update('words', newWords, vscode.ConfigurationTarget.Workspace);
+  }
+
+  // Configure language-specific settings
+  const languageSettings = config.get<any[]>('languageSettings') || [];
+
+  // Check if JSON settings already exist
+  const jsonSettingIndex = languageSettings.findIndex(s => s.languageId === 'json');
+
+  const jsonSetting = {
+    languageId: 'json',
+    ignoreRegExpList: [
+      // Ignore label content in any language
+      '"label"\\s*:\\s*"[^"]*"',
+      // Ignore language codes
+      '"language"\\s*:\\s*"[^"]*"',
+      // Ignore Base64 encoded content
+      '"code"\\s*:\\s*"[A-Za-z0-9+/=]{50,}"'
+    ]
+  };
+
+  if (jsonSettingIndex === -1) {
+    // Add new JSON settings
+    languageSettings.push(jsonSetting);
+    config.update('languageSettings', languageSettings, vscode.ConfigurationTarget.Workspace);
+  } else {
+    // Update existing JSON settings if needed
+    const existing = languageSettings[jsonSettingIndex];
+    if (!existing.ignoreRegExpList ||
+        !existing.ignoreRegExpList.includes('"label"\\s*:\\s*"[^"]*"')) {
+      languageSettings[jsonSettingIndex] = jsonSetting;
+      config.update('languageSettings', languageSettings, vscode.ConfigurationTarget.Workspace);
+    }
+  }
+
+  // Configure file-specific overrides
+  const overrides = config.get<any[]>('overrides') || [];
+
+  const workflowOverride = {
+    filename: '**/*.json',
+    ignoreRegExpList: [
+      '"label"\\s*:\\s*"[^"]*"',
+      '"language"\\s*:\\s*"[^"]*"'
+    ]
+  };
+
+  // Check if override already exists
+  const overrideExists = overrides.some(o => o.filename === '**/*.json');
+
+  if (!overrideExists) {
+    overrides.push(workflowOverride);
+    config.update('overrides', overrides, vscode.ConfigurationTarget.Workspace);
+  }
+
+  console.log('cSpell configuration updated for workflow files');
+}
+
+/**
  * Custom editor provider using the model abstraction
  */
 class FlowEditorProvider implements vscode.CustomTextEditorProvider {
@@ -420,6 +508,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register JSON schemas for validation
   registerJsonSchemas(context);
+
+  // Configure cSpell for workflow files
+  configureCSpell(context);
 
   // Initialize diagnostics
   const diagnosticsProvider = new FlowDiagnosticsProvider();

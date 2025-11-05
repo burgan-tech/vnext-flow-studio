@@ -26,27 +26,14 @@
     }
   ],
 
-  // File-specific overrides for workflow files
+  // File-specific overrides for workflow files (regular .json files)
   "cSpell.overrides": [
     {
-      "filename": "**/*.flow.json",
+      "filename": "**/*.json",
       "ignoreRegExpList": [
         "\"label\":\\s*\"[^\"]*\"",
-        "\"language\":\\s*\"[^\"]*\""
-      ]
-    },
-    {
-      "filename": "**/workflows/**/*.json",
-      "ignoreRegExpList": [
-        "\"label\":\\s*\"[^\"]*\"",
-        "\"language\":\\s*\"[^\"]*\""
-      ]
-    },
-    {
-      "filename": "**/Workflows/**/*.json",
-      "ignoreRegExpList": [
-        "\"label\":\\s*\"[^\"]*\"",
-        "\"language\":\\s*\"[^\"]*\""
+        "\"language\":\\s*\"[^\"]*\"",
+        "\"labels\":\\s*\\[[^\\]]*\\]"
       ]
     }
   ],
@@ -122,7 +109,18 @@
     "Sonuç",
     "Hata",
     "Uyarı",
-    "Bilgi"
+    "Bilgi",
+    "Yayınla",
+    "Yayın",
+    "Publish",
+    "Akış",
+    "Geçiş",
+    "Onay",
+    "Ret",
+    "Bekle",
+    "Tamamla",
+    "Kontrol",
+    "Doğrula"
   ],
 
   // Editor settings for workflow files
