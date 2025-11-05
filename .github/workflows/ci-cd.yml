@@ -67,9 +67,10 @@ jobs:
       - name: Determine version bump type
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         id: bump_type
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          # Get the commit message
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          # Get the commit message from environment variable (safer for multi-line strings)
           echo "Commit message: $COMMIT_MSG"
 
           # Determine version bump type based on commit message
