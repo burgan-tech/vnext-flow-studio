@@ -67,11 +67,14 @@ jobs:
       - name: Determine version bump type
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
         id: bump_type
-        env:
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          # Get the commit message from environment variable (safer for multi-line strings)
-          echo "Commit message: $COMMIT_MSG"
+          # Save commit message to a temp file to avoid shell interpretation issues
+          cat > /tmp/commit_msg.txt << 'COMMIT_EOF'
+          ${{ github.event.head_commit.message }}
+          COMMIT_EOF
+
+          # Show first line of commit message for logging
+          echo "Commit message (first line): $(head -1 /tmp/commit_msg.txt)"
 
           # Determine version bump type based on commit message
           # - Contains [major] or BREAKING CHANGE: -> major version
@@ -81,19 +84,19 @@ jobs:
           # - Contains [rc] -> rc prerelease
           # - Default -> patch version
 
-          if echo "$COMMIT_MSG" | grep -qiE '\[major\]|BREAKING CHANGE:'; then
+          if grep -qiE '\[major\]|BREAKING CHANGE:' /tmp/commit_msg.txt; then
             BUMP_TYPE="major"
             PRERELEASE=""
-          elif echo "$COMMIT_MSG" | grep -qiE '\[minor\]|^feat:'; then
+          elif grep -qiE '\[minor\]|^feat:' /tmp/commit_msg.txt; then
             BUMP_TYPE="minor"
             PRERELEASE=""
-          elif echo "$COMMIT_MSG" | grep -qiE '\[beta\]'; then
+          elif grep -qiE '\[beta\]' /tmp/commit_msg.txt; then
             BUMP_TYPE="prerelease"
             PRERELEASE="beta"
-          elif echo "$COMMIT_MSG" | grep -qiE '\[alpha\]'; then
+          elif grep -qiE '\[alpha\]' /tmp/commit_msg.txt; then
             BUMP_TYPE="prerelease"
             PRERELEASE="alpha"
-          elif echo "$COMMIT_MSG" | grep -qiE '\[rc\]'; then
+          elif grep -qiE '\[rc\]' /tmp/commit_msg.txt; then
             BUMP_TYPE="prerelease"
             PRERELEASE="rc"
           else
