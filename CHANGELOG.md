@@ -19,10 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Spell Check Configuration**: Updated cSpell to ignore multilingual labels in workflow files
-  - Added patterns to ignore "labels" arrays and "label" content
-  - Prevents false positives for Turkish and other non-English text in labels
-  - Maintains spell checking for other parts of workflow files
+- **Spell Check Configuration**: Enhanced cSpell configuration for multilingual workflow support
+  - Simplified regex patterns in ignoreRegExpList for better matching
+  - Added file-specific overrides for workflow files (*.flow.json, workflows/*, Workflows/*)
+  - Added common Turkish workflow labels to the dictionary (Başlat, Onayla, İptal, etc.)
+  - Multiple approaches to ensure Turkish and other non-English labels are not flagged as errors
+  - Prevents false positives while maintaining spell checking for code and comments
 
 ## [1.1.14] - 2025-11-05
 

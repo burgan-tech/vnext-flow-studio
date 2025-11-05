@@ -13,27 +13,40 @@
   "cSpell.languageSettings": [
     {
       "languageId": "json",
-      "patterns": [
-        {
-          "name": "base64-encoded-mapping",
-          "pattern": "\"code\":\\s*\"[A-Za-z0-9+/=]{100,}\"",
-          "description": "Base64 encoded C# mapping code in workflow files"
-        },
-        {
-          "name": "workflow-labels",
-          "pattern": "\"labels\"\\s*:\\s*\\[[^\\]]*\\]",
-          "description": "Multilingual labels array in workflow files"
-        },
-        {
-          "name": "label-content",
-          "pattern": "\"label\"\\s*:\\s*\"[^\"]*\"",
-          "description": "Label content in any language"
-        }
-      ],
       "ignoreRegExpList": [
-        "base64-encoded-mapping",
-        "workflow-labels",
-        "label-content"
+        // Base64 encoded mapping code
+        "\"code\":\\s*\"[A-Za-z0-9+/=]{100,}\"",
+        // Label values in any language (including Turkish)
+        "\"label\":\\s*\"[^\"]*\"",
+        // Language codes
+        "\"language\":\\s*\"[^\"]*\"",
+        // Entire labels array with content
+        "\"labels\":\\s*\\[[^\\]]*\\]"
+      ]
+    }
+  ],
+
+  // File-specific overrides for workflow files
+  "cSpell.overrides": [
+    {
+      "filename": "**/*.flow.json",
+      "ignoreRegExpList": [
+        "\"label\":\\s*\"[^\"]*\"",
+        "\"language\":\\s*\"[^\"]*\""
+      ]
+    },
+    {
+      "filename": "**/workflows/**/*.json",
+      "ignoreRegExpList": [
+        "\"label\":\\s*\"[^\"]*\"",
+        "\"language\":\\s*\"[^\"]*\""
+      ]
+    },
+    {
+      "filename": "**/Workflows/**/*.json",
+      "ignoreRegExpList": [
+        "\"label\":\\s*\"[^\"]*\"",
+        "\"language\":\\s*\"[^\"]*\""
       ]
     }
   ],
@@ -88,7 +101,28 @@
     "ScriptContext",
     "ScriptResponse",
     "WorkflowTask",
-    "HttpTask"
+    "HttpTask",
+    // Common Turkish workflow labels
+    "Başlat",
+    "Başla",
+    "Bitir",
+    "Devam",
+    "Durdur",
+    "İptal",
+    "Onayla",
+    "Reddet",
+    "Gönder",
+    "Kaydet",
+    "Sil",
+    "Güncelle",
+    "Yeni",
+    "Düzenle",
+    "İşlem",
+    "Durum",
+    "Sonuç",
+    "Hata",
+    "Uyarı",
+    "Bilgi"
   ],
 
   // Editor settings for workflow files
