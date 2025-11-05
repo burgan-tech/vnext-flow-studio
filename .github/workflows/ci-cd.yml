@@ -216,12 +216,7 @@ jobs:
 
             # If we found notes, use them; otherwise use simple message
             if [ -n "$RELEASE_NOTES" ]; then
-              BODY="## Release Notes
-
-${RELEASE_NOTES}
-
----
-*Released from commit ${GITHUB_SHA:0:7}*"
+              BODY=$(printf "## Release Notes\n\n%s\n\n---\n*Released from commit %s*" "$RELEASE_NOTES" "${GITHUB_SHA:0:7}")
             else
               BODY="Release ${VERSION} from commit ${GITHUB_SHA:0:7}"
             fi
