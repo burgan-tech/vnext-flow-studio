@@ -52,6 +52,10 @@ export class ModelSaver {
 
       // Save diagram file if exists
       if (state.diagram && state.metadata.diagramPath) {
+        // Ensure .meta directory exists
+        const diagramDir = path.dirname(state.metadata.diagramPath);
+        await fs.mkdir(diagramDir, { recursive: true });
+
         const diagramJson = format
           ? JSON.stringify(state.diagram, null, indent)
           : JSON.stringify(state.diagram);

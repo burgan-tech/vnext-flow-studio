@@ -234,8 +234,35 @@ async function openFlowEditor(
     }
 
     // Handle component catalog changes (tasks, schemas, views, functions, extensions, workflows)
-    const handleComponentFileEvent = async () => {
+    const handleComponentFileEvent = async (changedUri: vscode.Uri) => {
       try {
+        const changedPath = changedUri.fsPath;
+
+        // Skip files in .meta directories (diagram files)
+        if (changedPath.includes('/.meta/') || changedPath.includes('\\.meta\\')) {
+          console.log('[FileWatcher] Skipping component reload for .meta directory file:', changedPath);
+          return;
+        }
+
+        // Skip .diagram.json files
+        if (changedPath.endsWith('.diagram.json')) {
+          console.log('[FileWatcher] Skipping component reload for diagram file:', changedPath);
+          return;
+        }
+
+        // Skip if this is the currently edited workflow file that was just saved
+        if (modelBridge.isRecentlySaved(changedPath)) {
+          console.log('[FileWatcher] Skipping component reload for recently saved workflow:', changedPath);
+          return;
+        }
+
+        // Skip if this is the current workflow being edited
+        const currentWorkflowPath = model.getModelState().metadata.workflowPath;
+        if (changedPath === currentWorkflowPath) {
+          console.log('[FileWatcher] Skipping component reload for current workflow:', changedPath);
+          return;
+        }
+
         // Wait a bit for file system to settle
         await new Promise(resolve => setTimeout(resolve, 100));
 

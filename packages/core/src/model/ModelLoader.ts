@@ -135,8 +135,21 @@ export class ModelLoader {
               const workflow = JSON.parse(content) as Workflow;
               const stats = await fs.stat(fullPath);
 
-              // Check for diagram file
-              const diagramPath = fullPath.replace('.flow.json', '.diagram.json');
+              // Check for diagram file in .meta directory
+              const dir = path.dirname(fullPath);
+              const filename = path.basename(fullPath);
+
+              let diagramFilename: string;
+              if (filename.endsWith('.flow.json')) {
+                diagramFilename = filename.replace('.flow.json', '.diagram.json');
+              } else if (filename.endsWith('.json')) {
+                diagramFilename = filename.replace(/\.json$/, '.diagram.json');
+              } else {
+                diagramFilename = filename + '.diagram.json';
+              }
+
+              const diagramPath = path.join(dir, '.meta', diagramFilename);
+
               let hasDiagram = false;
               try {
                 await fs.access(diagramPath);
@@ -319,13 +332,42 @@ export class ModelLoader {
    * Get the diagram path for a workflow file
    */
   static getDiagramPath(workflowPath: string): string {
-    return workflowPath.replace('.flow.json', '.diagram.json');
+    const dir = path.dirname(workflowPath);
+    const filename = path.basename(workflowPath);
+
+    let diagramFilename: string;
+    if (filename.endsWith('.flow.json')) {
+      diagramFilename = filename.replace('.flow.json', '.diagram.json');
+    } else if (filename.endsWith('.json')) {
+      diagramFilename = filename.replace(/\.json$/, '.diagram.json');
+    } else {
+      diagramFilename = filename + '.diagram.json';
+    }
+
+    // Put diagram in .meta subdirectory
+    return path.join(dir, '.meta', diagramFilename);
   }
 
   /**
    * Get the workflow path for a diagram file
    */
   static getWorkflowPath(diagramPath: string): string {
-    return diagramPath.replace('.diagram.json', '.flow.json');
+    // Diagram is in .meta subdirectory, so go up one level
+    const dir = path.dirname(path.dirname(diagramPath)); // Go up from .meta
+    const filename = path.basename(diagramPath);
+
+    if (filename.endsWith('.diagram.json')) {
+      // Try to determine if it was originally a .flow.json or plain .json file
+      const withoutDiagram = filename.replace('.diagram.json', '');
+      // Check if a .flow.json version would make sense
+      if (withoutDiagram.includes('.flow')) {
+        return path.join(dir, withoutDiagram.replace('.diagram', '.flow') + '.json');
+      } else {
+        // Default to plain .json
+        return path.join(dir, withoutDiagram + '.json');
+      }
+    }
+    // Shouldn't happen, but return as-is
+    return diagramPath;
   }
 }

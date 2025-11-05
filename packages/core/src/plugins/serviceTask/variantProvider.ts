@@ -42,8 +42,8 @@ export class ServiceTaskVariantProvider implements VariantProvider {
    */
   async discoverVariants(): Promise<StateVariant[]> {
     if (!this.registries) {
-      // Return some default variants if no registry available
-      return this.getDefaultVariants();
+      // Return empty array if no registry available (don't show sample tasks)
+      return [];
     }
 
     const variants: StateVariant[] = [];
@@ -56,10 +56,8 @@ export class ServiceTaskVariantProvider implements VariantProvider {
       }
     }
 
-    // Add default variants if registry is empty
-    if (variants.length === 0) {
-      variants.push(...this.getDefaultVariants());
-    }
+    // Don't add default variants when registry is empty
+    // This prevents showing sample tasks when no real tasks exist
 
     this.variantCache = variants;
 

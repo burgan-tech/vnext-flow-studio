@@ -765,8 +765,27 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
    */
   private getDiagramPath(): string | null {
     const workflowPath = this.state.metadata.workflowPath;
-    const diagramPath = workflowPath.replace('.flow.json', '.diagram.json');
-    return diagramPath !== workflowPath ? diagramPath : null;
+
+    const dir = path.dirname(workflowPath);
+    const filename = path.basename(workflowPath);
+
+    let diagramFilename: string;
+    if (filename.endsWith('.flow.json')) {
+      // Handle .flow.json files
+      diagramFilename = filename.replace('.flow.json', '.diagram.json');
+    } else if (filename.endsWith('.json')) {
+      // Handle plain .json files - insert .diagram before .json
+      diagramFilename = filename.replace(/\.json$/, '.diagram.json');
+    } else {
+      // Unknown extension, append .diagram.json
+      diagramFilename = filename + '.diagram.json';
+    }
+
+    // Put diagram in .meta subdirectory
+    const diagramPath = path.join(dir, '.meta', diagramFilename);
+
+    const result = diagramPath !== workflowPath ? diagramPath : null;
+    return result;
   }
 
   /**

@@ -52,6 +52,7 @@ export class ModelBridge {
   private hintsManagers: Map<string, DesignHintsManager> = new Map();
   private autosaveTimers: Map<string, NodeJS.Timeout> = new Map();
   private lastSavedContent: Map<string, string> = new Map();
+  private lastSaveTime: Map<string, number> = new Map();
 
   constructor(config: ModelBridgeConfig) {
     this.config = config;
@@ -1401,7 +1402,7 @@ export class ModelBridge {
   /**
    * Save the model
    */
-  private async saveModel(model: WorkflowModel): Promise<void> {
+  async saveModel(model: WorkflowModel): Promise<void> {
     // Store content before save to prevent false positive external change detection
     const workflow = model.getWorkflow();
     const diagram = model.getDiagram();
@@ -1412,12 +1413,34 @@ export class ModelBridge {
       this.lastSavedContent.set(`${modelKey}:diagram`, JSON.stringify(diagram, null, 2));
     }
 
+    // Track save timestamp to prevent unnecessary component reloads
+    const workflowPath = model.getModelState().metadata.workflowPath;
+    this.lastSaveTime.set(workflowPath, Date.now());
+
+    // Ensure this model is set as active before saving
+    const previousActive = this.integration.getActiveModel();
+    this.integration.setActiveModel(model);
+
     await this.integration.save({
       backup: false,
       format: true,
       indent: 2,
       updateScriptEncoding: false  // Disabled automatic script encoding to prevent unwanted file creation
     });
+
+    // Restore previous active model if different
+    if (previousActive && previousActive !== model) {
+      this.integration.setActiveModel(previousActive);
+    }
+  }
+
+  /**
+   * Check if a file was recently saved (within 500ms)
+   */
+  isRecentlySaved(filePath: string): boolean {
+    const lastSave = this.lastSaveTime.get(filePath);
+    if (!lastSave) return false;
+    return Date.now() - lastSave < 500;
   }
 
   /**

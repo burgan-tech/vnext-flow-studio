@@ -47,7 +47,11 @@ try {
   console.warn('Webview dist not found; run `npm run -w packages/webview build` first.');
 }
 
-// Copy canonical schema into extension package so jsonValidation can resolve it
-const schemaSrc = resolve(extDir, '../../schemas/schemas/workflow-definition.schema.json');
-const schemaDest = resolve(extDir, 'schemas/workflow-definition.schema.json');
-await safeCopy(schemaSrc, schemaDest);
+// Copy canonical schemas into extension package so jsonValidation can resolve them
+const workflowSchemaSrc = resolve(extDir, '../../schemas/schemas/workflow-definition.schema.json');
+const workflowSchemaDest = resolve(extDir, 'schemas/workflow-definition.schema.json');
+await safeCopy(workflowSchemaSrc, workflowSchemaDest);
+
+const taskSchemaSrc = resolve(extDir, '../../schemas/schemas/task-definition.schema.json');
+const taskSchemaDest = resolve(extDir, 'schemas/task-definition.schema.json');
+await safeCopy(taskSchemaSrc, taskSchemaDest);

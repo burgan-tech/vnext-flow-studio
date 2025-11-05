@@ -182,7 +182,7 @@
           "**/Tasks/*.json",
           "**/Tasks/**/*.json"
         ],
-        "url": "../../schemas/schemas/task-definition.schema.json"
+        "url": "./schemas/task-definition.schema.json"
       }
     ]
   },
