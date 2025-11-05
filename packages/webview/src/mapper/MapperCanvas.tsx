@@ -860,7 +860,7 @@ function MapperCanvasInner() {
         [side]: updatedOverlays
       };
     });
-  }, [buildNestedSchema, vscodeApi]);
+  }, [buildNestedSchema]);
 
   /**
    * Edit a user-defined property
@@ -967,7 +967,7 @@ function MapperCanvasInner() {
         [side]: updatedOverlays
       };
     });
-  }, [buildNestedSchema, vscodeApi]);
+  }, [buildNestedSchema]);
 
   /**
    * Remove a user-defined property
@@ -1023,7 +1023,7 @@ function MapperCanvasInner() {
         [side]: remainingOverlays
       };
     });
-  }, [vscodeApi]);
+  }, []);
 
   /**
    * Auto-save when nodes or edges change (debounced)

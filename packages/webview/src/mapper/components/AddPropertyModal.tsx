@@ -156,7 +156,7 @@ export function AddPropertyModal({
               autoFocus
             />
             {mode === 'edit' && propertyName !== existingPropertyName && (
-              <p className="form-hint">Property will be renamed from "{existingPropertyName}" to "{propertyName}"</p>
+              <p className="form-hint">Property will be renamed from &quot;{existingPropertyName}&quot; to &quot;{propertyName}&quot;</p>
             )}
           </div>
 
