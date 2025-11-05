@@ -283,12 +283,10 @@ export class ModelValidator {
     const states = model.getStates();
     const workflow = model.getWorkflow();
 
-    let initialCount = 0;
     let finalCount = 0;
 
     for (const [key, state] of states) {
       // Count state types
-      if (state.stateType === 1) initialCount++;
       if (state.stateType === 3) finalCount++;
 
       // Check final states don't have outgoing transitions
@@ -313,15 +311,8 @@ export class ModelValidator {
       }
     }
 
-    // Check workflow has at least one initial and one final state
-    if (initialCount === 0) {
-      errors.push({
-        type: 'states',
-        message: 'Workflow has no initial state',
-        location: 'states'
-      });
-    }
-
+    // Check workflow has at least one final state
+    // Note: Initial state is no longer required as workflows can be started via startTransition
     if (finalCount === 0) {
       warnings.push({
         type: 'states',

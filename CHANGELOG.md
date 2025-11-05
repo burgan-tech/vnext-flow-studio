@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Ignores "label", "language" fields and entire "labels" arrays in JSON files
   - Prevents false positives while maintaining spell checking for code and comments
 
+- **Workflow Validation**: Initial state is no longer required for workflows
+  - Removed error for missing initial state from ModelValidator
+  - Workflows can now be started using only startTransition without an initial state
+  - Final state warning remains but is not an error
+
 ## [1.1.14] - 2025-11-05
 
 ### Fixed
