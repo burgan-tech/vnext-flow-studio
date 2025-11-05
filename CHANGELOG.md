@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Spell Check Configuration**: Updated cSpell to ignore multilingual labels in workflow files
+  - Added patterns to ignore "labels" arrays and "label" content
+  - Prevents false positives for Turkish and other non-English text in labels
+  - Maintains spell checking for other parts of workflow files
+
 ## [1.1.14] - 2025-11-05
 
 ### Fixed

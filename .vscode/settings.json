@@ -9,7 +9,7 @@
     "**/Workflows/**/*.json"
   ],
 
-  // Configure spell checker for Base64 encoded content
+  // Configure spell checker for Base64 encoded content and multilingual labels
   "cSpell.languageSettings": [
     {
       "languageId": "json",
@@ -18,10 +18,22 @@
           "name": "base64-encoded-mapping",
           "pattern": "\"code\":\\s*\"[A-Za-z0-9+/=]{100,}\"",
           "description": "Base64 encoded C# mapping code in workflow files"
+        },
+        {
+          "name": "workflow-labels",
+          "pattern": "\"labels\"\\s*:\\s*\\[[^\\]]*\\]",
+          "description": "Multilingual labels array in workflow files"
+        },
+        {
+          "name": "label-content",
+          "pattern": "\"label\"\\s*:\\s*\"[^\"]*\"",
+          "description": "Label content in any language"
         }
       ],
       "ignoreRegExpList": [
-        "base64-encoded-mapping"
+        "base64-encoded-mapping",
+        "workflow-labels",
+        "label-content"
       ]
     }
   ],
