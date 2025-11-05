@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+### Fixed
+
+### Changed
+
+## [1.1.14] - 2025-11-05
+
 ### Fixed
 
 - **Start Transition Editing**: Start transitions are now fully editable with complete feature parity with normal transitions
@@ -18,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **JSON Schema Validation**: Fixed JSON validation configuration to use relative paths for schema files
 - **Sample Tasks in Empty Projects**: Removed hardcoded sample tasks from toolbar when no tasks exist in project
   - ServiceTaskVariantProvider now returns empty array instead of default variants
+- **CI/CD Workflow**: Fixed YAML syntax error in release notes extraction
+
+### Added
+
+- **Release Workflow Documentation**: Added RELEASE_WORKFLOW.md and changelog update script
+- **Automated Release Notes**: GitHub releases now include content from CHANGELOG.md
 
 ## [1.1.0-alpha.0] - 2025-10-24
 
