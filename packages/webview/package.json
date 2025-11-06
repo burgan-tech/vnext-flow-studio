@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@amorphie-flow-studio/core": "*",
+    "@faker-js/faker": "^10.1.0",
     "@monaco-editor/react": "^4.6.0",
     "@xyflow/react": "^12.0.1",
     "lucide-react": "^0.548.0",

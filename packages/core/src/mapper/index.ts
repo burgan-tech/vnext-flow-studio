@@ -13,6 +13,8 @@ export * from './csharpGenerator';
 export * from './mapperLayout';
 export * from './templateUtils';
 export * from './automap';
+export * from './fakeDataGenerator';
+export * from './schemaHashUtils';
 
 // Note: MapperModel is NOT exported here because it uses Node.js EventEmitter
 // and should only be used on the extension side (Node.js environment).

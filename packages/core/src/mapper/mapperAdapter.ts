@@ -34,12 +34,17 @@ export interface FunctoidNodeData {
 /**
  * Build composite schema from multi-part definitions
  * Creates a single object schema with each part as a property
+ * Order array determines the order of properties in the schema
  */
-function buildCompositeSchema(parts: Record<string, import('./types').PartDefinition>): JSONSchema {
+function buildCompositeSchema(parts: Record<string, import('./types').PartDefinition>, order?: string[]): JSONSchema {
   const properties: Record<string, JSONSchema> = {};
 
-  for (const [partName, partDef] of Object.entries(parts)) {
-    if (partDef.schema) {
+  // Use order array if provided, otherwise use Object.entries order
+  const partNames = order && order.length > 0 ? order : Object.keys(parts);
+
+  for (const partName of partNames) {
+    const partDef = parts[partName];
+    if (partDef && partDef.schema) {
       properties[partName] = partDef.schema;
     }
   }
@@ -64,12 +69,12 @@ export function mapSpecToReactFlow(
   const nodes: Node[] = [];
   const edges: ReactFlowEdge[] = [];
 
-  // Build composite schemas from parts
+  // Build composite schemas from parts with order
   const compositeSourceSchema = sourceSchema || (mapSpec.schemaParts?.source
-    ? buildCompositeSchema(mapSpec.schemaParts.source)
+    ? buildCompositeSchema(mapSpec.schemaParts.source, mapSpec.schemaParts.sourceOrder)
     : undefined);
   const compositeTargetSchema = targetSchema || (mapSpec.schemaParts?.target
-    ? buildCompositeSchema(mapSpec.schemaParts.target)
+    ? buildCompositeSchema(mapSpec.schemaParts.target, mapSpec.schemaParts.targetOrder)
     : undefined);
 
   // Add source schema node if schema is provided

@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { FLOW_FILE_GLOBS } from './flowFileUtils';
 import { getWorkflowTemplate } from '@amorphie-flow-studio/core';
+import { showNewMapperDialog } from './mapper/NewMapperDialog';
 
 export function registerCommands(context: vscode.ExtensionContext) {
   // flowEditor.open is registered in extension.ts as it needs context
@@ -229,86 +230,42 @@ export function registerCommands(context: vscode.ExtensionContext) {
         targetFolder = path.join(workspaceFolder.uri.fsPath, 'mappers');
       }
 
-      // Ask for mapper name
-      const name = await vscode.window.showInputBox({
-        prompt: 'Enter mapper name',
-        placeHolder: 'order-to-invoice',
-        validateInput: (value) => {
-          if (!value) return 'Name is required';
-          if (!/^[a-z0-9-]+$/.test(value)) {
-            return 'Name must contain only lowercase letters, numbers, and dashes';
-          }
-          return null;
-        }
-      });
+      // Show the dialog to create a new mapper
+      const result = await showNewMapperDialog(targetFolder, context);
 
-      if (!name) {
-        return;
+      console.log('[createMapper] Dialog result:', result);
+
+      if (!result) {
+        console.log('[createMapper] User cancelled');
+        return; // User cancelled
       }
 
-      const description = await vscode.window.showInputBox({
-        prompt: 'Enter mapper description (optional)',
-        placeHolder: 'Maps order data to invoice format'
-      });
+      const { uri: saveUri, openInEditor } = result;
 
-      // Create the mapper template
-      const mapper = {
-        version: '1.0',
-        metadata: {
-          name,
-          description: description || `${name} mapper`,
-          version: '1.0.0',
-          source: 'none',
-          target: 'none',
-          createdAt: new Date().toISOString(),
-          tags: ['new']
-        },
-        schemas: {
-          source: 'none',
-          target: 'none'
-        },
-        nodes: [],
-        edges: []
-      };
+      console.log('[createMapper] Opening mapper:', saveUri.toString(), 'openInEditor:', openInEditor);
 
-      // Ensure directory exists
-      await fs.mkdir(targetFolder, { recursive: true });
+      // Small delay to ensure file is fully written
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Determine save location
-      const saveUri = await vscode.window.showSaveDialog({
-        defaultUri: vscode.Uri.file(path.join(targetFolder, `${name}.mapper.json`)),
-        filters: {
-          'Mapper Files': ['json']
-        },
-        title: 'Save New Mapper'
-      });
+      // Open the document - this will trigger the CustomTextEditorProvider automatically
+      const doc = await vscode.workspace.openTextDocument(saveUri);
+      console.log('[createMapper] Document opened:', doc.uri.toString());
 
-      if (!saveUri) {
-        return;
-      }
-
-      // Ensure directory exists
-      const saveDir = path.dirname(saveUri.fsPath);
-      await fs.mkdir(saveDir, { recursive: true });
-
-      // Write the mapper file
-      const content = JSON.stringify(mapper, null, 2);
-      await fs.writeFile(saveUri.fsPath, content, 'utf-8');
-
-      vscode.window.showInformationMessage(`Created mapper: ${name}`);
-
-      // Open in mapper editor
-      const openInEditor = await vscode.window.showQuickPick(['Yes', 'No'], {
-        placeHolder: 'Open in Mapper Editor?',
-        title: 'Open in Mapper Editor?'
-      });
-
-      if (openInEditor === 'Yes') {
-        await vscode.commands.executeCommand('mapperEditor.open', saveUri);
+      if (openInEditor) {
+        // Show with custom editor (mapper canvas)
+        // preview: false ensures it opens as a permanent tab, not a preview
+        await vscode.window.showTextDocument(doc, {
+          preview: false,  // Not a preview tab - opens as permanent
+          preserveFocus: false  // Give it focus
+        });
+        console.log('[createMapper] Shown in custom editor');
       } else {
-        // Open as text document
-        const doc = await vscode.workspace.openTextDocument(saveUri);
-        await vscode.window.showTextDocument(doc);
+        // Show as plain text
+        await vscode.window.showTextDocument(doc, {
+          preview: false,
+          preserveFocus: false
+        });
+        console.log('[createMapper] Shown as text document');
       }
     }
   );

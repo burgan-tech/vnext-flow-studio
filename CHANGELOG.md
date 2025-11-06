@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **New Mapper Dialog**: Popup dialog for creating new mappers
+  - Single popup form replaces multiple top-bar input prompts
+  - Fields: mapper name (validated), description (optional), and "Open in Mapper Editor" checkbox
+  - Shows target folder location
+  - Real-time validation with error messages
+  - Creates file directly without additional save dialog
+  - Checks for existing files and shows error if name conflicts
+
+- **Drag-and-Drop Part Reordering**: Reorder document parts in Part Manager Panel
+  - HTML5 drag-and-drop with visual feedback (drag handles ⋮⋮, opacity changes, cursor states)
+  - Separate ordering for source and target parts
+  - Changes tracked in pending state until "Apply Changes" is clicked
+  - Order persisted in `.map.json` files via `sourceOrder` and `targetOrder` arrays
+
+- **Part Manager Schema Management**: Enhanced schema selection and inference capabilities
+  - **Search/Filter**: Real-time search for platform schemas by key, domain, title, or description
+  - **JSON Schema Inference**: Restored "Infer from Example" functionality
+    - JSON textarea for pasting example data
+    - Four configurable inference options (detectFormats, allRequired, addConstraints, strictTypes)
+    - Results display with confidence score, warnings, and schema preview
+    - All staged to pending state before applying
+
+- **Part Order Persistence**: Part ordering respected throughout entire application
+  - Order saved to and loaded from `.map.json` files
+  - Applied in Part Manager Panel display
+  - Applied in schema tree building
+  - Applied in JSONata code generation (root level properties)
+  - Applied in C# code generation (variable declarations and return statements)
+
 - **Random String Generator Functoid**: New String.RandomString functoid for generating random strings
   - Configurable string length (1-1000 characters, default: 10)
   - Three character set options: alphanumeric (A-Z, a-z, 0-9), numeric only (0-9), and symbols (!@#$%^&*...)
@@ -38,6 +67,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Mapper Code Generation - Nested Objects**: Fixed flat key generation to produce proper nested object structures
+  - **JSONata Generator**: Replaced flat keys like `"body.address.city"` with nested `{ body: { address: { city: ... } } }`
+    - Added `buildNestedObject()` method to convert dotted paths to nested objects
+    - Added `objectToJSONata()` method to format nested structures with proper indentation
+    - Fixed both simple mappings and array mappings
+  - **C# Generator**: Implemented intermediate object creation for nested paths
+    - Added null-coalescing operator (`??=`) to ensure parent objects exist before assigning nested properties
+    - Properly handles deeply nested structures (3+ levels)
+    - Fixed both simple mappings and array mappings
+
+- **Mapper Code Generation - Array Field Naming**: Removed `[]` suffix from property names in generated code
+  - **JSONata Generator**: Stripped array suffix from all path parts in both simple and array mappings
+  - **C# Generator**: Removed suffix from variable names, property paths, intermediate objects, and field names
+  - Ensures valid identifiers and proper JSON property names (e.g., `"hobbies"` instead of `"hobbies[]"`)
+
+- **Part Manager Panel - Change Detection**: Fixed schema change detection and staging behavior
+  - Added `partName` tracking to properly identify which part was updated
+  - Added `applyImmediately` flag to distinguish between Part Manager browsing (staged) and "Update All" (immediate)
+  - Fixed order change detection to trigger "Apply Changes" button visibility
+  - Changes only applied when explicitly confirmed by user
+
+- **Part Manager Panel - Schema Tree Building**: Fixed `__filePath` metadata pollution
+  - Extracts `__filePath` before processing to prevent schema corruption
+  - Stores clean schema without metadata that would break tree building
+  - Stores file path separately in `schemaSourcePath` field for change detection
+
+- **Part Manager Panel - Order Preservation**: Fixed Part Manager to honor saved part order
+  - Panel now displays parts in saved order on open
+  - Preserved order when adding/removing parts
+  - Fixed `useEffect` hooks to maintain order instead of resetting to `Object.keys()`
+
+- **Viewport Persistence**: Fixed zoom and pan changes not being saved
+  - Added `onMoveEnd` handler to ReactFlow component
+  - Debounced saves (500ms) to avoid excessive file writes
+  - Checks for loading/reloading states to avoid unnecessary saves
+
 - **Edge Selection and Deletion**: Significantly improved edge interaction and deletion reliability
   - Wider clickable area (20px invisible stroke) for easier edge selection
   - Visual feedback: selected edges show amber/orange glow, hovered edges show blue glow
@@ -54,6 +119,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Mapper Type System**: Enhanced `SchemaParts` interface to support part ordering
+  - Added optional `sourceOrder?: string[]` field to track source part order
+  - Added optional `targetOrder?: string[]` field to track target part order
+  - Order arrays stored in and loaded from `.map.json` files
+  - Backward compatible: existing files without order arrays continue to work
+
+- **Schema Building Functions**: Updated all schema building functions to accept and use order parameters
+  - `buildCompositeSchemaFromParts()` in MapperCanvas
+  - `buildCompositeSchema()` in mapperAdapter
+  - `generateJSONata()` and `generateJSONataFromIR()` with targetOrder
+  - `generateCSharp()` and `generateCSharpFromIR()` with targetOrder
+  - Order applied consistently across initialization, updates, and code generation
+
+- **Part Manager Panel UI**: Enhanced user experience with staging workflow
+  - "Apply Changes" button now appears for any pending changes (parts, schemas, or order)
+  - "Discard Changes" button resets all pending changes including order
+  - Visual indicators show pending changes with orange badges
+  - Changes only applied when user explicitly confirms
+
 - **Edge Interaction**: Enhanced edge selection and visual clarity
   - Cursor changes to pointer when hovering over edges
   - Selected edges display with thicker stroke (4px) and orange glow effect
@@ -66,6 +150,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Finds components in nested project structures and monorepos
   - Deduplicates components when found in multiple locations
   - Supports maximum search depth of 5 levels for performance
+
+### Known Issues
+
+- **Mapper Editor - Multiple Tabs**: VS Code's Preview Mode affects mapper editor tabs
+  - When single-clicking mapper files in the file explorer, they open in preview mode (tab title in *italics*)
+  - Preview tabs are temporary and get replaced when clicking another file
+  - This causes the first mapper tab to close when opening a second mapper
+  - **Workarounds:**
+    1. **Double-click** files to open as permanent tabs (recommended)
+    2. Disable preview mode globally: Add `"workbench.editor.enablePreview": false` to VS Code settings
+    3. Pin tabs manually after opening (right-click tab → "Keep Open" or make an edit)
+  - This is VS Code's default behavior, not a bug in the extension
 
 ## [1.2.1] - 2025-11-06
 

@@ -393,7 +393,12 @@ export function SchemaInferenceDialog({
                           onClick={() => {
                             // Directly use the schema when clicked
                             const jsonSchema = schema.attributes.schema;
-                            onSchemaInferred(jsonSchema, side);
+                            // Add metadata for schema change detection using actual file path
+                            const schemaWithMetadata = {
+                              ...jsonSchema,
+                              __platformSchemaPath: schema.__filePath // Use actual file path from where schema was loaded
+                            };
+                            onSchemaInferred(schemaWithMetadata, side);
                             onClose();
                           }}
                           style={{

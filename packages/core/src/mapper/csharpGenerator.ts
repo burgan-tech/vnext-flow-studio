@@ -16,14 +16,15 @@ import { lowerMapSpec } from './lower';
  */
 export function generateCSharp(mapSpec: MapSpec): string {
   const ir = lowerMapSpec(mapSpec);
-  return generateCSharpFromIR(ir);
+  const targetOrder = mapSpec.schemaParts?.targetOrder;
+  return generateCSharpFromIR(ir, targetOrder);
 }
 
 /**
  * Generate C# from MapperIR
  */
-export function generateCSharpFromIR(ir: MapperIR): string {
-  const generator = new CSharpGenerator(ir);
+export function generateCSharpFromIR(ir: MapperIR, targetOrder?: string[]): string {
+  const generator = new CSharpGenerator(ir, targetOrder);
   return generator.generate();
 }
 
@@ -32,11 +33,13 @@ export function generateCSharpFromIR(ir: MapperIR): string {
  */
 class CSharpGenerator {
   private ir: MapperIR;
+  private targetOrder?: string[];
   private indentLevel: number = 0;
   private usesLinq: boolean = false;
 
-  constructor(ir: MapperIR) {
+  constructor(ir: MapperIR, targetOrder?: string[]) {
     this.ir = ir;
+    this.targetOrder = targetOrder;
   }
 
   /**
@@ -108,24 +111,54 @@ class CSharpGenerator {
     for (const mapping of simpleMappings) {
       const parts = mapping.target.split('.').filter(p => p.length > 0);
       if (parts.length > 0) {
-        targetParts.add(parts[0]);
+        targetParts.add(parts[0].replace(/\[\]$/, '')); // Remove array suffix
       }
     }
     for (const [arrayName] of arrayMappings.entries()) {
       const parts = arrayName.split('.').filter(p => p.length > 0);
       if (parts.length > 0) {
-        targetParts.add(parts[0]);
+        targetParts.add(parts[0].replace(/\[\]$/, '')); // Remove array suffix
       }
     }
 
     // Initialize target part variables with prefix to avoid naming conflicts
-    for (const part of Array.from(targetParts).sort()) {
+    // Use targetOrder if available, otherwise sort alphabetically
+    const orderedParts = this.getOrderedParts(Array.from(targetParts));
+    for (const part of orderedParts) {
       lines.push(`var target_${part} = new JsonObject();`);
     }
     lines.push('');
 
-    // Add simple mappings
-    for (const mapping of simpleMappings) {
+    // Add simple mappings with proper nesting
+    // Sort by depth to ensure parent objects are created before children
+    const sortedMappings = simpleMappings.sort((a, b) => {
+      const depthA = a.target.split('.').length;
+      const depthB = b.target.split('.').length;
+      return depthA - depthB;
+    });
+
+    const createdPaths = new Set<string>();
+
+    for (const mapping of sortedMappings) {
+      const parts = mapping.target.split('.').filter(p => p.length > 0);
+
+      if (parts.length > 2) {
+        // Need to ensure intermediate objects exist
+        // e.g., "body.address.city" needs to ensure "body.address" exists as JsonObject
+        const targetVar = `target_${parts[0].replace(/\[\]$/, '')}`; // Remove array suffix
+
+        // Create intermediate objects
+        for (let i = 1; i < parts.length - 1; i++) {
+          const pathSoFar = parts.slice(1, i + 1).map(p => `["${p.replace(/\[\]$/, '')}"]`).join(''); // Remove array suffix
+          const fullPath = `${targetVar}${pathSoFar}`;
+
+          if (!createdPaths.has(fullPath)) {
+            lines.push(`${fullPath} ??= new JsonObject();`);
+            createdPaths.add(fullPath);
+          }
+        }
+      }
+
       const assignment = this.generateNestedAssignment('', mapping.target, mapping.expr, true);
       lines.push(`${assignment};`);
     }
@@ -134,11 +167,29 @@ class CSharpGenerator {
     for (const [arrayName, fields] of arrayMappings.entries()) {
       const sourceArray = fields[0].sourceArray;
 
+      // Ensure intermediate objects exist for nested array paths
+      const parts = arrayName.split('.').filter(p => p.length > 0);
+      if (parts.length > 2) {
+        const targetVar = `target_${parts[0].replace(/\[\]$/, '')}`; // Remove array suffix
+
+        // Create intermediate objects
+        for (let i = 1; i < parts.length - 1; i++) {
+          const pathSoFar = parts.slice(1, i + 1).map(p => `["${p.replace(/\[\]$/, '')}"]`).join(''); // Remove array suffix
+          const fullPath = `${targetVar}${pathSoFar}`;
+
+          if (!createdPaths.has(fullPath)) {
+            lines.push(`${fullPath} ??= new JsonObject();`);
+            createdPaths.add(fullPath);
+          }
+        }
+      }
+
       // Generate LINQ Select for array transformation
       const sourceArrayAccess = this.generateFieldAccess(sourceArray);
       const arrayValue = `new JsonArray(((JsonArray)${sourceArrayAccess}).Select(item => new JsonObject\n{\n${fields.map((f) => {
         const expr = this.generateExpressionForArrayContext(f.expr);
-        return `    ["${f.field}"] = ${expr}`;
+        const cleanFieldName = f.field.replace(/\[\]$/, ''); // Remove array suffix from field name
+        return `    ["${cleanFieldName}"] = ${expr}`;
       }).join(',\n')}\n}))`;
 
       const assignment = this.generateNestedAssignment('', arrayName, arrayValue, true);
@@ -156,7 +207,7 @@ class CSharpGenerator {
       // Multiple target parts - return as JsonObject with part properties
       lines.push('return new JsonObject');
       lines.push('{');
-      const partReturns = Array.from(targetParts).sort().map(part => `    ["${part}"] = target_${part}`);
+      const partReturns = orderedParts.map(part => `    ["${part}"] = target_${part}`);
       lines.push(partReturns.join(',\n'));
       lines.push('};');
     } else {
@@ -165,6 +216,22 @@ class CSharpGenerator {
     }
 
     return comments.join('\n') + lines.join('\n');
+  }
+
+  /**
+   * Get target parts in the correct order
+   * Uses targetOrder if available, otherwise sorts alphabetically
+   */
+  private getOrderedParts(parts: string[]): string[] {
+    if (this.targetOrder && this.targetOrder.length > 0) {
+      // Use targetOrder, filtering to only include parts that exist
+      const orderedParts = this.targetOrder.filter(part => parts.includes(part));
+      // Add any remaining parts not in the order array
+      const remainingParts = parts.filter(part => !this.targetOrder!.includes(part));
+      return [...orderedParts, ...remainingParts];
+    }
+    // Fall back to alphabetical sorting
+    return parts.sort();
   }
 
   /**
@@ -230,14 +297,16 @@ class CSharpGenerator {
 
     if (parts.length === 1) {
       // Top-level part: target_body = value
-      const varName = isTarget ? `target_${parts[0]}` : parts[0];
+      const cleanPart = parts[0].replace(/\[\]$/, ''); // Remove array suffix
+      const varName = isTarget ? `target_${cleanPart}` : cleanPart;
       return `${varName} = ${value}`;
     }
 
     // For multi-part: first part is the variable (with prefix for targets), rest are property path
     // "body.loginURI" -> target_body["loginURI"] = value
-    const varName = isTarget ? `target_${parts[0]}` : parts[0];
-    const propertyPath = parts.slice(1).map(p => `["${p}"]`).join('');
+    const firstPart = parts[0].replace(/\[\]$/, ''); // Remove array suffix
+    const varName = isTarget ? `target_${firstPart}` : firstPart;
+    const propertyPath = parts.slice(1).map(p => `["${p.replace(/\[\]$/, '')}"]`).join(''); // Remove array suffix from each part
 
     return `${varName}${propertyPath} = ${value}`;
   }

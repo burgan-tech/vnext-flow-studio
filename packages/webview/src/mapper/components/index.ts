@@ -8,5 +8,6 @@ export * from './FunctoidPalette';
 export * from './FunctoidConfigPanel';
 export * from './ExecutionPreviewPanel';
 export * from './PartManagerPanel';
+export * from './SchemaUpdateWarningDialog';
 export * from './Tooltip';
 export * from './functoidIcons';

@@ -73,6 +73,8 @@ export interface PartDefinition {
   schemaRef: string;           // Path to JSON Schema file or 'custom' for embedded
   schema?: JSONSchema;         // Loaded/embedded schema (runtime)
   label?: string;              // Display name in UI (e.g., "HTTP Headers", "Request Body")
+  schemaSourcePath?: string;   // Original schema file path (for change detection)
+  schemaHash?: string;         // SHA256 hash of schema content (for change detection)
 }
 
 /**
@@ -82,6 +84,8 @@ export interface PartDefinition {
 export interface SchemaParts {
   source: Record<string, PartDefinition>;   // e.g., { header: {...}, body: {...} }
   target: Record<string, PartDefinition>;   // e.g., { targetHeader: {...}, targetBody: {...} }
+  sourceOrder?: string[];  // Optional array defining the order of source parts
+  targetOrder?: string[];  // Optional array defining the order of target parts
 }
 
 /**

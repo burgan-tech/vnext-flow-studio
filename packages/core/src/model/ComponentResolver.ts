@@ -546,6 +546,9 @@ export class ComponentResolver implements IComponentResolver {
                 // Component is valid for this type
                 const cacheKey = `${component.domain}/${component.flow || type}/${component.key}@${component.version}`;
 
+                // Attach file path for change detection (especially for schemas)
+                component.__filePath = file;
+
                 // Add to cache (avoid duplicates)
                 if (this.options.useCache && !cache.has(cacheKey)) {
                   cache.set(cacheKey, component as T);

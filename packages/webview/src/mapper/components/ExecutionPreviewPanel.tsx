@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { generateJSONata, generateCSharp } from '../../../../core/src/mapper';
+import { generateJSONata, generateCSharp, generateFakeDataForMapSpec } from '../../../../core/src/mapper';
 import type { MapSpec } from '../../../../core/src/mapper';
 import './ExecutionPreviewPanel.css';
 
@@ -47,53 +47,17 @@ export function ExecutionPreviewPanel({
   }, [isOpen, mapSpec]);
 
   /**
-   * Load example input data
+   * Load example input data generated from source schema
    */
-  const handleLoadExample = () => {
-    const exampleInput = {
-      orderId: "ORD-2024-001",
-      orderDate: "2024-01-15T14:30:00Z",
-      customer: {
-        id: "CUST-12345",
-        name: "John Doe",
-        email: "john.doe@example.com",
-        phone: "+1-555-0123"
-      },
-      shippingAddress: {
-        street: "123 Main St",
-        city: "San Francisco",
-        state: "CA",
-        zipCode: "94102",
-        country: "USA"
-      },
-      items: [
-        {
-          productId: "PROD-A001",
-          name: "Laptop Computer",
-          sku: "TECH-LAP-001",
-          quantity: 1,
-          unitPrice: 1299.99,
-          tax: 104.00
-        },
-        {
-          productId: "PROD-B002",
-          name: "Wireless Mouse",
-          sku: "ACC-MOU-002",
-          quantity: 2,
-          unitPrice: 29.99,
-          tax: 4.80
-        }
-      ],
-      subtotal: 1359.97,
-      taxTotal: 108.80,
-      shippingCost: 15.00,
-      total: 1483.77,
-      status: "pending",
-      paymentMethod: "credit_card"
-    };
-
-    setInputJSON(JSON.stringify(exampleInput, null, 2));
-    setError('');
+  const handleLoadExample = async () => {
+    try {
+      // Generate fake data matching the source schema structure
+      const fakeData = await generateFakeDataForMapSpec(mapSpec, 'source', { seed: 12345 });
+      setInputJSON(JSON.stringify(fakeData, null, 2));
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate example data');
+    }
   };
 
   /**

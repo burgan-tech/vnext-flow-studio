@@ -245,7 +245,7 @@ export function SchemaTreeNode({
     <div className="schema-tree-node">
       <div
         className={`tree-node-row ${showHandle ? 'has-handle' : ''} ${hasChildren ? 'has-children' : ''} ${node.isUserAdded ? 'user-added' : ''} ${isFreeFormObject ? 'free-form' : ''} ${isSyntheticBranch ? 'synthetic-branch' : ''} ${node.isArrayItem ? 'array-item' : ''} ${node.type === 'array' ? 'array-type' : ''}`}
-        style={{ paddingLeft: `${depth * 16}px` }}
+        style={{ paddingLeft: `${depth * 20}px` }}
         data-depth={depth}
         onContextMenu={handleContextMenu}
       >

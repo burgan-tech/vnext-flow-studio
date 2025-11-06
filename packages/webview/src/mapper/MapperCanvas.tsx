@@ -14,7 +14,7 @@ import {
   type EdgeChange
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Upload, Download, Save, LayoutGrid, Play, Info, GitMerge, Package } from 'lucide-react';
+import { Save, LayoutGrid, Play, Info, GitMerge, Package } from 'lucide-react';
 
 import {
   mapSpecToReactFlow,
@@ -29,22 +29,35 @@ import {
   applyOverlaysToSchema,
   extractUserAddedPaths,
   findAutoMappings,
-  summarizeAutoMapResults
+  summarizeAutoMapResults,
+  calculateSchemaHash
 } from '../../../core/src/mapper';
 import type { JSONSchema, MapSpec, NodeKind, GraphLayout, SchemaOverlays, SchemaOverlay, PartDefinition } from '../../../core/src/mapper';
-import { SchemaNodeTreeView, FunctoidNode, SchemaInferenceDialog, FunctoidPalette, FunctoidConfigPanel, ExecutionPreviewPanel, PartManagerPanel } from './components';
+import { SchemaNodeTreeView, FunctoidNode, SchemaInferenceDialog, FunctoidPalette, FunctoidConfigPanel, ExecutionPreviewPanel, PartManagerPanel, SchemaUpdateWarningDialog } from './components';
 import { traceUpstreamDependencies } from './utils/highlightTracer';
 import { HighlightContext } from './contexts/HighlightContext';
 // Sample schemas removed - users must import or reference schemas explicitly
 import './MapperCanvas.css';
 
 /**
+ * Outdated schema information from extension
+ */
+export interface OutdatedSchema {
+  side: 'source' | 'target';
+  partName: string;
+  currentHash: string;
+  storedHash: string;
+}
+
+/**
  * Messages from extension to webview
  */
 type MsgFromExtension =
-  | { type: 'init'; mapSpec: MapSpec; fileUri: string; sourceSchema: any; targetSchema: any; graphLayout?: GraphLayout }
+  | { type: 'init'; mapSpec: MapSpec; fileUri: string; sourceSchema: any; targetSchema: any; graphLayout?: GraphLayout; outdatedSchemas?: OutdatedSchema[] }
   | { type: 'reload'; mapSpec: MapSpec; sourceSchema: any; targetSchema: any; graphLayout?: GraphLayout }
-  | { type: 'layoutComputed'; graphLayout: GraphLayout };
+  | { type: 'layoutComputed'; graphLayout: GraphLayout }
+  | { type: 'schemaLoaded'; schema: any; side: 'source' | 'target'; path: string; partName?: string; applyImmediately?: boolean }
+  | { type: 'schemaFilePicked'; path: string; side: 'source' | 'target'; partName: string };
 
 /**
  * Messages from webview to extension
@@ -54,6 +67,8 @@ type MsgToExtension =
   | { type: 'save'; mapSpec: MapSpec }
   | { type: 'saveLayout'; graphLayout: GraphLayout }
   | { type: 'autoLayout'; nodeSizes: Record<string, { width: number; height: number }>; currentPositions: Record<string, { x: number; y: number }>; handlePositions: Record<string, Record<string, number>> }
+  | { type: 'loadSchema'; path: string; side: 'source' | 'target'; partName?: string; applyImmediately?: boolean }
+  | { type: 'pickSchemaFile'; side: 'source' | 'target'; partName: string }
   | { type: 'error'; message: string }
   | { type: 'info'; message: string };
 
@@ -80,12 +95,17 @@ const nodeTypes: NodeTypes = {
 
 /**
  * Build composite schema from parts
+ * Order array determines the order of properties in the schema
  */
-function buildCompositeSchemaFromParts(parts: Record<string, PartDefinition>): JSONSchema {
+function buildCompositeSchemaFromParts(parts: Record<string, PartDefinition>, order?: string[]): JSONSchema {
   const properties: Record<string, JSONSchema> = {};
 
-  for (const [partName, partDef] of Object.entries(parts)) {
-    if (partDef.schema) {
+  // Use order array if provided, otherwise use Object.entries order
+  const partNames = order && order.length > 0 ? order : Object.keys(parts);
+
+  for (const partName of partNames) {
+    const partDef = parts[partName];
+    if (partDef && partDef.schema) {
       properties[partName] = partDef.schema;
     }
   }
@@ -119,8 +139,12 @@ function MapperCanvasInner() {
 
   // Part manager state
   const [partManagerOpen, setPartManagerOpen] = useState(false);
-  const [partBindingSide, setPartBindingSide] = useState<'source' | 'target'>('source');
+  const [_partBindingSide, setPartBindingSide] = useState<'source' | 'target'>('source');
   const [partBindingName, setPartBindingName] = useState<string>('');
+
+  // Schema update warning state
+  const [schemaWarningOpen, setSchemaWarningOpen] = useState(false);
+  const [outdatedSchemas, setOutdatedSchemas] = useState<OutdatedSchema[]>([]);
 
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -146,6 +170,7 @@ function MapperCanvasInner() {
 
   /**
    * Handle collapsed handles change from schema nodes
+   * Note: Handle position updates are now handled by ResizeObserver in SchemaNodeTreeView
    */
   const handleSourceCollapsedHandlesChange = useCallback((handleIds: string[], parentMap: Map<string, string>) => {
     setCollapsedSourceHandles(new Set(handleIds));
@@ -307,10 +332,10 @@ function MapperCanvasInner() {
 
     // For edge cleaning, we need actual schemas (build from parts if needed)
     const cleaningSourceSchema = finalSourceSchema || (newMapSpec.schemaParts?.source
-      ? buildCompositeSchemaFromParts(newMapSpec.schemaParts.source)
+      ? buildCompositeSchemaFromParts(newMapSpec.schemaParts.source, newMapSpec.schemaParts.sourceOrder)
       : { type: 'object', properties: {} });
     const cleaningTargetSchema = finalTargetSchema || (newMapSpec.schemaParts?.target
-      ? buildCompositeSchemaFromParts(newMapSpec.schemaParts.target)
+      ? buildCompositeSchemaFromParts(newMapSpec.schemaParts.target, newMapSpec.schemaParts.targetOrder)
       : { type: 'object', properties: {} });
 
     // Clean orphaned edges before loading (with schema validation)
@@ -474,7 +499,7 @@ function MapperCanvasInner() {
    * Handle messages from VS Code extension
    */
   useEffect(() => {
-    const handleMessage = (event: MessageEvent<MsgFromExtension>) => {
+    const handleMessage = async (event: MessageEvent<MsgFromExtension>) => {
       const message = event.data;
 
       switch (message.type) {
@@ -499,6 +524,14 @@ function MapperCanvasInner() {
           });
 
           initializeFromMapSpec(message.mapSpec, srcSchema, tgtSchema, graphLayout);
+
+          // Check for outdated schemas
+          if (message.outdatedSchemas && message.outdatedSchemas.length > 0) {
+            console.log('Detected outdated schemas, showing warning dialog');
+            setOutdatedSchemas(message.outdatedSchemas);
+            setSchemaWarningOpen(true);
+          }
+
           break;
         }
 
@@ -544,11 +577,92 @@ function MapperCanvasInner() {
           }
           break;
 
-        case 'schemaLoaded':
-          // File reference schema loading is not supported with multi-part model
-          // Schemas should be bound directly to parts via SchemaInferenceDialog
-          console.warn('schemaLoaded message received but file references are not supported with multi-part model');
+        case 'schemaLoaded': {
+          // Handle schema loaded for updating outdated parts
+          const loadedMsg = message as any;
+
+          // Only apply immediately if explicitly requested (e.g., for "Update All" feature)
+          // Otherwise, let the PartManagerPanel handle it for staging
+          if (loadedMsg.partName && mapSpec && loadedMsg.applyImmediately) {
+            console.log(`Updating schema for ${loadedMsg.side} part: ${loadedMsg.partName}`);
+
+            // Extract schema (handle SchemaDefinition wrapper)
+            let loadedSchema = loadedMsg.schema;
+            if (loadedSchema && loadedSchema.attributes && loadedSchema.attributes.schema) {
+              loadedSchema = loadedSchema.attributes.schema;
+            }
+
+            // Calculate new hash
+            const newHash = await calculateSchemaHash(loadedSchema);
+
+            // Update the part with the new schema and hash
+            const updatedMapSpec = { ...mapSpec };
+            const side = loadedMsg.side as 'source' | 'target';
+            const parts = side === 'source' ? updatedMapSpec.schemaParts?.source : updatedMapSpec.schemaParts?.target;
+
+            if (parts && parts[loadedMsg.partName]) {
+              parts[loadedMsg.partName] = {
+                ...parts[loadedMsg.partName],
+                schema: loadedSchema,
+                schemaHash: newHash
+              };
+
+              // Update state and save
+              setMapSpec(updatedMapSpec);
+
+              // Rebuild schemas from parts
+              const newSourceSchema = updatedMapSpec.schemaParts?.source
+                ? buildCompositeSchemaFromParts(updatedMapSpec.schemaParts.source, updatedMapSpec.schemaParts.sourceOrder)
+                : sourceSchema;
+              const newTargetSchema = updatedMapSpec.schemaParts?.target
+                ? buildCompositeSchemaFromParts(updatedMapSpec.schemaParts.target, updatedMapSpec.schemaParts.targetOrder)
+                : targetSchema;
+
+              // Update schema state
+              if (side === 'source') {
+                setSourceSchema(newSourceSchema);
+              } else {
+                setTargetSchema(newTargetSchema);
+              }
+
+              // Rebuild nodes with updated schema
+              const { nodes: rfNodes, edges: rfEdges } = mapSpecToReactFlow(
+                updatedMapSpec,
+                newSourceSchema,
+                newTargetSchema,
+                schemaOverlays
+              );
+
+              // Preserve callbacks
+              const nodesWithCallbacks = rfNodes.map(node => {
+                if (node.type === 'schema') {
+                  const isSourceNode = node.data.side === 'source';
+                  const nodeSide: 'source' | 'target' = node.data.side;
+                  return {
+                    ...node,
+                    data: {
+                      ...node.data,
+                      onCollapsedHandlesChange: isSourceNode ? handleSourceCollapsedHandlesChange : handleTargetCollapsedHandlesChange,
+                      onAddProperty: (path: string, propertyName: string, propertySchema: JSONSchema) => handleAddProperty(nodeSide, path, propertyName, propertySchema),
+                      onEditProperty: (path: string, propertyName: string, propertySchema: JSONSchema, oldPropertyName?: string) => handleEditProperty(nodeSide, path, propertyName, propertySchema, oldPropertyName),
+                      onRemoveProperty: (path: string, propertyName: string) => handleRemoveProperty(nodeSide, path, propertyName)
+                    }
+                  };
+                }
+                return node;
+              });
+
+              setNodes(nodesWithCallbacks);
+              setEdges(rfEdges);
+
+              console.log(`✅ Updated schema for ${side} part: ${loadedMsg.partName}`);
+            }
+          } else {
+            // Legacy handler - log warning for non-part schema loads
+            console.warn('schemaLoaded message received without partName - not supported with multi-part model');
+          }
           break;
+        }
 
         case 'platformSchemas':
           // Handle platform schemas loaded from extension
@@ -604,7 +718,7 @@ function MapperCanvasInner() {
     });
 
     setMapSpec(updatedMapSpec);
-  }, [mapSpec, nodes, edges, sourceSchema, targetSchema, schemaOverlays]);
+  }, [mapSpec, nodes, edges, schemaOverlays]);
 
   /**
    * Save GraphLayout (positions, viewport) back to VS Code
@@ -1112,6 +1226,32 @@ function MapperCanvasInner() {
   }, [onEdgesChange]);
 
   /**
+   * Debounced viewport save - track timer reference
+   */
+  const viewportSaveTimerRef = useRef<number | null>(null);
+
+  /**
+   * Handle viewport changes (pan/zoom) - save layout after movement ends
+   */
+  const handleMoveEnd = useCallback(() => {
+    // Don't save during loading or reloading
+    if (isLoadingRef.current || isReloadingRef.current || !hasInitializedRef.current || !vscodeApi || !fileUri) {
+      return;
+    }
+
+    // Clear any pending timer
+    if (viewportSaveTimerRef.current !== null) {
+      clearTimeout(viewportSaveTimerRef.current);
+    }
+
+    // Debounce viewport saves
+    viewportSaveTimerRef.current = window.setTimeout(() => {
+      saveGraphLayout();
+      viewportSaveTimerRef.current = null;
+    }, 500);
+  }, [saveGraphLayout, fileUri]);
+
+  /**
    * Handle new connections
    */
   const onConnect: OnConnect = useCallback((params) => {
@@ -1258,7 +1398,7 @@ function MapperCanvasInner() {
   /**
    * Handle schema inference
    */
-  const handleOpenInference = useCallback((side: 'source' | 'target') => {
+  const _handleOpenInference = useCallback((side: 'source' | 'target') => {
     setInferenceDialogSide(side);
     setInferenceDialogOpen(true);
   }, []);
@@ -1266,23 +1406,33 @@ function MapperCanvasInner() {
   /**
    * Handle part management
    */
-  const handleUpdateParts = useCallback((source: Record<string, PartDefinition>, target: Record<string, PartDefinition>) => {
+  const handleUpdateParts = useCallback((source: Record<string, PartDefinition>, target: Record<string, PartDefinition>, sourceOrder: string[], targetOrder: string[]) => {
     if (!mapSpec) return;
 
-    // Update MapSpec with new parts
+    // Update MapSpec with new parts and order
     const updatedMapSpec: MapSpec = {
       ...mapSpec,
       schemaParts: {
         source,
-        target
+        target,
+        sourceOrder,
+        targetOrder
       }
     };
 
     setMapSpec(updatedMapSpec);
 
-    // Rebuild schema nodes with new parts
-    // This will trigger a re-render of schema nodes with the new composite schema
-    initializeFromMapSpec(updatedMapSpec, sourceSchema, targetSchema, null);
+    // Build new composite schemas from updated parts with order
+    const newSourceSchema = Object.keys(source).length > 0
+      ? buildCompositeSchemaFromParts(source, sourceOrder)
+      : sourceSchema;
+    const newTargetSchema = Object.keys(target).length > 0
+      ? buildCompositeSchemaFromParts(target, targetOrder)
+      : targetSchema;
+
+    // Rebuild schema nodes with new composite schemas
+    // This will rebuild trees and clean orphaned edges
+    initializeFromMapSpec(updatedMapSpec, newSourceSchema, newTargetSchema, null);
 
     // Save changes
     if (vscodeApi && !isLoadingRef.current) {
@@ -1509,7 +1659,7 @@ function MapperCanvasInner() {
     }, 2000); // Flash for 2 seconds
   }, [mapSpec, edges, nodes, setEdges]);
 
-  const handleSchemaInferred = useCallback((schema: JSONSchema | any, side: 'source' | 'target') => {
+  const handleSchemaInferred = useCallback(async (schema: JSONSchema | any, side: 'source' | 'target') => {
     // Check if this is a file reference
     if (schema && typeof schema === 'object' && '__fileReference' in schema) {
       // Request the extension to load the schema file
@@ -1522,6 +1672,23 @@ function MapperCanvasInner() {
       }
       return;
     }
+
+    // Extract platform schema path if available (absolute path from ComponentResolver)
+    const platformSchemaPath = schema && typeof schema === 'object' && '__platformSchemaPath' in schema
+      ? schema.__platformSchemaPath as string
+      : undefined;
+
+    // Remove metadata from schema before storing
+    const cleanSchema = platformSchemaPath ? { ...schema } : schema;
+    if (cleanSchema && typeof cleanSchema === 'object' && '__platformSchemaPath' in cleanSchema) {
+      delete cleanSchema.__platformSchemaPath;
+    }
+
+    // Calculate schema hash for change detection
+    const schemaHash = await calculateSchemaHash(cleanSchema);
+
+    // Note: platformSchemaPath is an absolute path here. The extension will convert it to
+    // a relative path (relative to mapper file or workspace) before saving to ensure portability.
 
     // Check if we're binding to a specific part
     const isPartBinding = partBindingName && partBindingName.trim() !== '';
@@ -1540,13 +1707,17 @@ function MapperCanvasInner() {
         updatedParts.source[partBindingName] = {
           ...(updatedParts.source[partBindingName] || {}),
           schemaRef: 'custom',
-          schema
+          schema: cleanSchema,
+          schemaSourcePath: platformSchemaPath,
+          schemaHash
         };
       } else {
         updatedParts.target[partBindingName] = {
           ...(updatedParts.target[partBindingName] || {}),
           schemaRef: 'custom',
-          schema
+          schema: cleanSchema,
+          schemaSourcePath: platformSchemaPath,
+          schemaHash
         };
       }
 
@@ -1555,6 +1726,12 @@ function MapperCanvasInner() {
 
       // Update parts using the existing handler
       handleUpdateParts(updatedParts.source, updatedParts.target);
+
+      // Reopen the Part Manager panel after binding the schema
+      // Use setTimeout to ensure state updates complete first
+      setTimeout(() => {
+        setPartManagerOpen(true);
+      }, 0);
     } else {
       // Bind schema to entire side (legacy behavior for single-part documents)
       const newSourceSchema = side === 'source' ? schema : sourceSchema;
@@ -1606,6 +1783,41 @@ function MapperCanvasInner() {
     // Auto-save will trigger from useEffect watching nodes/edges
   }, [mapSpec, nodes, edges, sourceSchema, targetSchema, schemaOverlays, partBindingName, setNodes, setEdges, handleUpdateParts]);
 
+  // Handle updating outdated schemas
+  const handleUpdateOutdatedSchemas = useCallback(async () => {
+    if (!mapSpec || outdatedSchemas.length === 0) return;
+
+    // Close the warning dialog
+    setSchemaWarningOpen(false);
+
+    // Request schema reload from extension for each outdated part
+    if (vscodeApi) {
+      for (const outdated of outdatedSchemas) {
+        const parts = outdated.side === 'source' ? mapSpec.schemaParts.source : mapSpec.schemaParts.target;
+        const partDef = parts[outdated.partName];
+
+        if (partDef?.schemaSourcePath) {
+          vscodeApi.postMessage({
+            type: 'loadSchema',
+            path: partDef.schemaSourcePath,
+            side: outdated.side,
+            partName: outdated.partName,
+            applyImmediately: true // Apply immediately for schema change detection updates
+          });
+        }
+      }
+    }
+
+    // Clear outdated schemas
+    setOutdatedSchemas([]);
+  }, [mapSpec, outdatedSchemas]);
+
+  // Handle keeping current schemas
+  const handleKeepCurrentSchemas = useCallback(() => {
+    setSchemaWarningOpen(false);
+    setOutdatedSchemas([]);
+  }, []);
+
   return (
     <div className="mapper-canvas-container">
       {/* Functoid Palette Sidebar */}
@@ -1623,23 +1835,6 @@ function MapperCanvasInner() {
             <Package size={16} />
             <span>Manage Parts</span>
           </button>
-          <button
-            onClick={() => handleOpenInference('source')}
-            className="toolbar-button toolbar-button-secondary"
-            title="Import source schema from JSON"
-          >
-            <Upload size={16} />
-            <span>Import Source</span>
-          </button>
-          <button
-            onClick={() => handleOpenInference('target')}
-            className="toolbar-button toolbar-button-secondary"
-            title="Import target schema from JSON"
-          >
-            <Download size={16} />
-            <span>Import Target</span>
-          </button>
-
           <span className="toolbar-divider" />
 
           <button
@@ -1713,6 +1908,7 @@ function MapperCanvasInner() {
               onNodeClick={handleNodeClick}
               onDrop={onDrop}
               onDragOver={onDragOver}
+              onMoveEnd={handleMoveEnd}
               isValidConnection={isValidConnection}
               nodeTypes={nodeTypes}
               fitView
@@ -1767,11 +1963,23 @@ function MapperCanvasInner() {
         <PartManagerPanel
           sourceParts={mapSpec.schemaParts?.source || {}}
           targetParts={mapSpec.schemaParts?.target || {}}
+          sourceOrder={mapSpec.schemaParts?.sourceOrder}
+          targetOrder={mapSpec.schemaParts?.targetOrder}
           onUpdateParts={handleUpdateParts}
           onBindSchema={handleBindSchema}
           onClose={() => setPartManagerOpen(false)}
+          availableSchemas={platformSchemas}
+          vscodeApi={vscodeApi}
         />
       )}
+
+      {/* Schema Update Warning Dialog */}
+      <SchemaUpdateWarningDialog
+        isOpen={schemaWarningOpen}
+        outdatedSchemas={outdatedSchemas}
+        onUpdateAll={handleUpdateOutdatedSchemas}
+        onKeepCurrent={handleKeepCurrentSchemas}
+      />
     </div>
   );
 }

@@ -76,4 +76,5 @@ export interface SchemaDefinition {
   flowVersion: string;
   tags: string[];
   attributes: SchemaAttributes;
+  __filePath?: string; // Actual file path where schema was loaded from
 }

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Position } from '@xyflow/react';
+import { useState, useRef, useEffect } from 'react';
+import { Position, useUpdateNodeInternals, useNodeId } from '@xyflow/react';
 import type { TreeNode, JSONSchema, PartDefinition } from '../../../../core/src/mapper';
 import { SchemaTreeNode } from './SchemaTreeNode';
 import './SchemaNodeTreeView.css';
@@ -36,8 +36,46 @@ export function SchemaNodeTreeView({ data }: SchemaNodeTreeViewProps) {
   });
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set(Object.keys(parts || {})));
 
+  // Get React Flow instance and node ID for updating node internals
+  const nodeId = useNodeId();
+  const updateNodeInternals = useUpdateNodeInternals();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Set up ResizeObserver to detect size changes and update handle positions
+  useEffect(() => {
+    if (!containerRef.current || !nodeId) {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      // Use double requestAnimationFrame to ensure React has fully updated the DOM
+      // before React Flow measures handle positions
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          updateNodeInternals(nodeId);
+
+          // Also update the opposite schema node to force edge recalculation
+          const oppositeNodeId = nodeId === 'source-schema' ? 'target-schema' : 'source-schema';
+          updateNodeInternals(oppositeNodeId);
+        });
+      });
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [nodeId, updateNodeInternals]);
+
   // Handle collapse/expand events from tree nodes
   const handleCollapsedChange = (parentNodeId: string, isCollapsed: boolean, collapsedChildIds: string[]) => {
+    console.log('🌳 Tree node collapse/expand:', {
+      parentNodeId,
+      isCollapsed,
+      childCount: collapsedChildIds.length,
+      side
+    });
     setCollapseState(prev => {
       // Create new collapsed IDs set
       const newCollapsedIds = new Set(prev.collapsedIds);
@@ -113,11 +151,14 @@ export function SchemaNodeTreeView({ data }: SchemaNodeTreeViewProps) {
 
   // Toggle part expansion
   const togglePart = (partName: string) => {
+    console.log('📦 Part toggle:', { partName, side });
     setExpandedParts(prev => {
       const next = new Set(prev);
       if (next.has(partName)) {
+        console.log('➖ Collapsing part:', partName);
         next.delete(partName);
       } else {
+        console.log('➕ Expanding part:', partName);
         next.add(partName);
       }
       return next;
@@ -134,7 +175,7 @@ export function SchemaNodeTreeView({ data }: SchemaNodeTreeViewProps) {
   }
 
   return (
-    <div className={`schema-node-tree-view schema-node-${side}`}>
+    <div ref={containerRef} className={`schema-node-tree-view schema-node-${side}`}>
       {/* Header */}
       <div className="schema-node-tree-header">
         <div className="schema-title">

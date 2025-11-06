@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { autoLayoutMapper } from '../../../core/src/mapper/mapperLayout';
 import { ComponentResolver } from '../../../core/src/model/ComponentResolver';
+import { calculateSchemaHash } from '../../../core/src/mapper/schemaHashUtils';
 
 /**
  * MapperEditorProvider - Custom editor for *.mapper.json files
@@ -41,6 +42,7 @@ async function openMapperEditor(
   providedPanel?: vscode.WebviewPanel,
   modelBridge?: any
 ) {
+  console.log('[openMapperEditor] Called with:', mapperUri.toString(), 'providedPanel:', !!providedPanel);
   try {
     // Validate file extension
     if (!mapperUri.path.endsWith('.mapper.json')) {
@@ -54,15 +56,21 @@ async function openMapperEditor(
     let panel: vscode.WebviewPanel;
 
     if (providedPanel) {
-      // Use the panel provided by CustomTextEditor
+      // Use the panel provided by CustomTextEditor - this allows multiple tabs
       panel = providedPanel;
-    } else {
-      // Create a new panel (for command invocation)
-      // Check if we already have a panel for this file and close it
-      const existingPanel = activePanels.get(mapperUri.toString());
-      if (existingPanel) {
-        existingPanel.dispose();
+      console.log('[openMapperEditor] Using provided panel from CustomTextEditorProvider for:', mapperUri.toString());
+
+      // Clean up any existing mappings for this panel (VS Code might reuse it for a different file)
+      for (const [uri, existingPanel] of activePanels.entries()) {
+        if (existingPanel === panel) {
+          console.log('[openMapperEditor] Removing old mapping:', uri, '-> new mapping:', mapperUri.toString());
+          activePanels.delete(uri);
+        }
       }
+    } else {
+      // Create a new panel (for command invocation only)
+      // Don't check for existing panels - always create a new one to allow multiple tabs
+      console.log('[openMapperEditor] Creating new panel via command for:', mapperUri.toString());
 
       panel = vscode.window.createWebviewPanel(
         'amorphieMapper',
@@ -76,13 +84,19 @@ async function openMapperEditor(
           ]
         }
       );
+
+      // Ensure panel is revealed and focused
+      panel.reveal(vscode.ViewColumn.Active, false);
+      console.log('[openMapperEditor] Created new panel');
     }
 
-    // Track this panel
+    // Track this panel with the new URI (allows multiple panels for different files)
     activePanels.set(mapperUri.toString(), panel);
+    console.log('[openMapperEditor] Panel mapped to:', mapperUri.toString(), 'Total panels:', activePanels.size);
 
     // Clean up when panel is disposed
     panel.onDidDispose(() => {
+      console.log('[openMapperEditor] Panel disposed for:', mapperUri.toString());
       activePanels.delete(mapperUri.toString());
     });
 
@@ -217,6 +231,79 @@ async function openMapperEditor(
       }
     };
 
+    // Check for outdated schemas in multipart structure
+    const checkOutdatedSchemas = async () => {
+      const outdated: Array<{ side: 'source' | 'target'; partName: string; currentHash: string; storedHash: string }> = [];
+
+      // Check source parts
+      if (mapSpec.schemaParts?.source) {
+        for (const [partName, partDef] of Object.entries(mapSpec.schemaParts.source)) {
+          if (partDef.schemaSourcePath && partDef.schemaHash) {
+            try {
+              // Load current schema from file
+              let loadedSchema = await loadSchemaFromPath(partDef.schemaSourcePath);
+              if (loadedSchema) {
+                // If this is a platform schema (SchemaDefinition), extract the actual schema
+                // Platform schemas have structure: { key, domain, attributes: { schema: {...} } }
+                if (loadedSchema.attributes && loadedSchema.attributes.schema) {
+                  loadedSchema = loadedSchema.attributes.schema;
+                }
+
+                // Calculate current hash
+                const currentHash = await calculateSchemaHash(loadedSchema);
+                // Compare with stored hash
+                if (currentHash !== partDef.schemaHash) {
+                  outdated.push({
+                    side: 'source',
+                    partName,
+                    currentHash,
+                    storedHash: partDef.schemaHash
+                  });
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to check schema for source part ${partName}:`, error);
+            }
+          }
+        }
+      }
+
+      // Check target parts
+      if (mapSpec.schemaParts?.target) {
+        for (const [partName, partDef] of Object.entries(mapSpec.schemaParts.target)) {
+          if (partDef.schemaSourcePath && partDef.schemaHash) {
+            try {
+              // Load current schema from file
+              let loadedSchema = await loadSchemaFromPath(partDef.schemaSourcePath);
+              if (loadedSchema) {
+                // If this is a platform schema (SchemaDefinition), extract the actual schema
+                // Platform schemas have structure: { key, domain, attributes: { schema: {...} } }
+                if (loadedSchema.attributes && loadedSchema.attributes.schema) {
+                  loadedSchema = loadedSchema.attributes.schema;
+                }
+
+                // Calculate current hash
+                const currentHash = await calculateSchemaHash(loadedSchema);
+                // Compare with stored hash
+                if (currentHash !== partDef.schemaHash) {
+                  outdated.push({
+                    side: 'target',
+                    partName,
+                    currentHash,
+                    storedHash: partDef.schemaHash
+                  });
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to check schema for target part ${partName}:`, error);
+            }
+          }
+        }
+      }
+
+      return outdated;
+    };
+
     // Load referenced schemas if they're file paths (not 'custom' or 'none')
     // Don't modify mapSpec - send schemas separately to avoid save loop
     const sourceRef = mapSpec.schemas?.source;
@@ -269,7 +356,7 @@ async function openMapperEditor(
     panel.webview.onDidReceiveMessage(async (message) => {
       try {
         switch (message.type) {
-          case 'ready':
+          case 'ready': {
             // Webview is ready, now send the init data
             console.log('Webview ready, sending init message with schemas:', {
               hasSource: !!loadedSourceSchema,
@@ -277,23 +364,69 @@ async function openMapperEditor(
               hasLayout: !!graphLayout
             });
 
+            // Check for outdated schemas
+            const outdatedSchemas = await checkOutdatedSchemas();
+            if (outdatedSchemas.length > 0) {
+              console.log('Detected outdated schemas:', outdatedSchemas);
+            }
+
             panel.webview.postMessage({
               type: 'init',
               mapSpec,
               fileUri: mapperUri.toString(),
               sourceSchema: loadedSourceSchema,
               targetSchema: loadedTargetSchema,
-              graphLayout
+              graphLayout,
+              outdatedSchemas
             });
             break;
+          }
 
           case 'save':
             // Set saving flag to prevent file watcher from triggering reload
             isSaving = true;
 
             try {
+              // Convert absolute schema paths to relative paths for portability
+              const mapSpecToSave = JSON.parse(JSON.stringify(message.mapSpec)); // Deep clone
+
+              // Get mapper directory and workspace folder for relative path calculation
+              const mapperDir = path.dirname(mapperUri.fsPath);
+              const workspaceFolder = vscode.workspace.getWorkspaceFolder(mapperUri);
+              const workspaceRoot = workspaceFolder?.uri.fsPath;
+
+              // Helper to convert absolute path to relative path
+              const makeRelativePath = (absolutePath: string): string => {
+                if (!path.isAbsolute(absolutePath)) {
+                  return absolutePath; // Already relative
+                }
+
+                // Try workspace-relative first (more portable)
+                if (workspaceRoot && absolutePath.startsWith(workspaceRoot)) {
+                  return path.relative(workspaceRoot, absolutePath);
+                }
+
+                // Fall back to mapper-file-relative
+                return path.relative(mapperDir, absolutePath);
+              };
+
+              // Convert schema source paths in all parts
+              if (mapSpecToSave.schemaParts) {
+                for (const side of ['source', 'target'] as const) {
+                  const parts = mapSpecToSave.schemaParts[side];
+                  if (parts) {
+                    for (const partName of Object.keys(parts)) {
+                      const part = parts[partName];
+                      if (part.schemaSourcePath) {
+                        part.schemaSourcePath = makeRelativePath(part.schemaSourcePath);
+                      }
+                    }
+                  }
+                }
+              }
+
               // Save the mapper file
-              const content = JSON.stringify(message.mapSpec, null, 2);
+              const content = JSON.stringify(mapSpecToSave, null, 2);
               await vscode.workspace.fs.writeFile(
                 mapperUri,
                 new TextEncoder().encode(content)
@@ -391,7 +524,8 @@ async function openMapperEditor(
                 panel.webview.postMessage({
                   type: 'schemaFilePicked',
                   path: relativePath,
-                  side: message.side
+                  side: message.side,
+                  partName: message.partName // Include partName for multi-part model
                 });
               }
             } catch (error) {
@@ -450,10 +584,12 @@ async function openMapperEditor(
                 type: 'schemaLoaded',
                 schema,
                 side: message.side,
-                path: schemaPath
+                path: schemaPath,
+                partName: message.partName, // Include partName for multi-part model
+                applyImmediately: message.applyImmediately // Pass through flag for immediate vs staged application
               });
 
-              console.log(`Schema loaded from ${schemaPath} for ${message.side}`);
+              console.log(`Schema loaded from ${schemaPath} for ${message.side}${message.partName ? ` part: ${message.partName}` : ''}`);
             } catch (error) {
               console.error('Failed to load schema:', error);
               vscode.window.showErrorMessage(`Failed to load schema: ${error}`);
@@ -675,8 +811,14 @@ async function openMapperEditor(
             console.log('GraphLayout file could not be read');
           }
 
-          // Don't send a reload message - layout changes are handled separately
-          // The webview will apply layout changes without resetting the model
+          // Send layoutComputed message to webview to apply the updated layout
+          // This applies layout changes without resetting the model
+          if (reloadGraphLayout) {
+            panel.webview.postMessage({
+              type: 'layoutComputed',
+              graphLayout: reloadGraphLayout
+            });
+          }
         }
       } catch (error) {
         console.warn('File change handling error:', error);
@@ -713,6 +855,10 @@ export class MapperEditorProvider implements vscode.CustomTextEditorProvider {
     document: vscode.TextDocument,
     webviewPanel: vscode.WebviewPanel
   ): Promise<void> {
+    console.log('[MapperEditorProvider.resolveCustomTextEditor] Called for:', document.uri.toString());
+    console.log('[MapperEditorProvider.resolveCustomTextEditor] Panel ID:', (webviewPanel as any)._id || 'unknown');
+    console.log('[MapperEditorProvider.resolveCustomTextEditor] Current active panels:', this.activePanels.size);
+
     // Configure the provided webview panel
     webviewPanel.webview.options = {
       enableScripts: true,
@@ -740,18 +886,28 @@ export function registerMapperEditor(context: vscode.ExtensionContext, modelBrid
   // Register custom editor provider
   const editorProvider = new MapperEditorProvider(context, activePanels, modelBridge);
 
+  // NOTE: Known limitation with VS Code's Preview Mode
+  // When users single-click mapper files in the file explorer, VS Code opens them in "preview mode"
+  // (tab title in italics). Preview tabs are temporary and get replaced when clicking another file.
+  // This causes tabs to close when opening a new mapper file.
+  //
+  // Workarounds for users:
+  // 1. Double-click files to open as permanent tabs
+  // 2. Disable preview mode globally: "workbench.editor.enablePreview": false
+  // 3. Pin tabs manually after opening (right-click → "Keep Open")
+  //
+  // This is VS Code default behavior, not a bug in our extension.
+  // Setting retainContextWhenHidden: false helps but doesn't fully solve the preview mode issue.
+
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(
       'mapperEditor.canvas',
       editorProvider,
       {
         webviewOptions: {
-          retainContextWhenHidden: true,
-          enableScripts: true,
-          localResourceRoots: [
-            vscode.Uri.joinPath(context.extensionUri, 'dist-web')
-          ]
-        }
+          retainContextWhenHidden: false  // Don't retain context to avoid tab reuse issues
+        },
+        supportsMultipleEditorsPerDocument: false  // Each document gets one editor, but multiple documents can be open
       }
     )
   );
@@ -760,6 +916,8 @@ export function registerMapperEditor(context: vscode.ExtensionContext, modelBrid
   const openCommand = vscode.commands.registerCommand(
     'mapperEditor.open',
     async (uri?: vscode.Uri) => {
+      console.log('[mapperEditor.open] Command called with URI:', uri?.toString());
+
       const mapperUri = uri ?? (
         await vscode.window.showOpenDialog({
           filters: { 'Amorphie Mapper': ['mapper.json'] },
@@ -768,8 +926,11 @@ export function registerMapperEditor(context: vscode.ExtensionContext, modelBrid
       )?.[0];
 
       if (!mapperUri) {
+        console.log('[mapperEditor.open] No URI provided or selected');
         return;
       }
+
+      console.log('[mapperEditor.open] Opening mapper:', mapperUri.toString());
 
       if (!mapperUri.path.endsWith('.mapper.json')) {
         vscode.window.showErrorMessage('Please select a *.mapper.json file');
@@ -777,6 +938,7 @@ export function registerMapperEditor(context: vscode.ExtensionContext, modelBrid
       }
 
       await openMapperEditor(mapperUri, context, activePanels);
+      console.log('[mapperEditor.open] openMapperEditor completed');
     }
   );
 

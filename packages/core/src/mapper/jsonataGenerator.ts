@@ -16,14 +16,15 @@ import { lowerMapSpec } from './lower';
  */
 export function generateJSONata(mapSpec: MapSpec): string {
   const ir = lowerMapSpec(mapSpec);
-  return generateJSONataFromIR(ir);
+  const targetOrder = mapSpec.schemaParts?.targetOrder;
+  return generateJSONataFromIR(ir, targetOrder);
 }
 
 /**
  * Generate JSONata from MapperIR
  */
-export function generateJSONataFromIR(ir: MapperIR): string {
-  const generator = new JSONataGenerator(ir);
+export function generateJSONataFromIR(ir: MapperIR, targetOrder?: string[]): string {
+  const generator = new JSONataGenerator(ir, targetOrder);
   return generator.generate();
 }
 
@@ -32,9 +33,11 @@ export function generateJSONataFromIR(ir: MapperIR): string {
  */
 class JSONataGenerator {
   private ir: MapperIR;
+  private targetOrder?: string[];
 
-  constructor(ir: MapperIR) {
+  constructor(ir: MapperIR, targetOrder?: string[]) {
     this.ir = ir;
+    this.targetOrder = targetOrder;
   }
 
   /**
@@ -70,32 +73,14 @@ class JSONataGenerator {
           sourceArray
         });
       } else {
-        // Simple mapping: "customerName"
+        // Simple mapping: "customerName" or "body.address.city"
         const expr = this.generateExpression(mapping.expression);
         simpleMappings.push({ target: mapping.target, expr });
       }
     }
 
-    // Generate output
-    const lines: string[] = [];
-
-    // Add simple mappings
-    for (const mapping of simpleMappings) {
-      lines.push(`  "${mapping.target}": ${mapping.expr}`);
-    }
-
-    // Add array mappings
-    for (const [arrayName, fields] of arrayMappings.entries()) {
-      const sourceArray = fields[0].sourceArray;
-      const fieldMappings = fields.map((f) => {
-        const expr = this.generateExpressionForArrayContext(f.expr);
-        return `    "${f.field}": ${expr}`;
-      });
-
-      lines.push(`  "${arrayName}": ${sourceArray}.{\n${fieldMappings.join(',\n')}\n  }`);
-    }
-
-    const output = `{\n${lines.join(',\n')}\n}`;
+    // Build nested object structure
+    const output = this.buildNestedObject(simpleMappings, arrayMappings);
 
     // If we have shared expressions, wrap in a block expression with bindings
     if (this.ir.sharedExpressions && this.ir.sharedExpressions.length > 0) {
@@ -108,6 +93,106 @@ class JSONataGenerator {
     }
 
     return output;
+  }
+
+  /**
+   * Build nested object structure from flat mappings
+   * Converts "body.address.city" into nested { body: { address: { city: ... } } }
+   */
+  private buildNestedObject(
+    simpleMappings: { target: string; expr: string }[],
+    arrayMappings: Map<string, { field: string; expr: Expression; sourceArray: string }[]>
+  ): string {
+    const root: any = {};
+
+    // Process simple mappings
+    for (const mapping of simpleMappings) {
+      const parts = mapping.target.split('.');
+      let current = root;
+
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i].replace(/\[\]$/, ''); // Remove array suffix
+        if (!current[part]) {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+
+      const lastPart = parts[parts.length - 1].replace(/\[\]$/, ''); // Remove array suffix
+      current[lastPart] = mapping.expr;
+    }
+
+    // Process array mappings
+    for (const [arrayName, fields] of arrayMappings.entries()) {
+      const parts = arrayName.split('.');
+      let current = root;
+
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i].replace(/\[\]$/, ''); // Remove array suffix
+        if (!current[part]) {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+
+      const lastPart = parts[parts.length - 1].replace(/\[\]$/, ''); // Remove array suffix
+      const sourceArray = fields[0].sourceArray;
+      const fieldMappings = fields.map((f) => {
+        const expr = this.generateExpressionForArrayContext(f.expr);
+        return `    "${f.field}": ${expr}`;
+      });
+
+      current[lastPart] = `${sourceArray}.{\n${fieldMappings.join(',\n')}\n  }`;
+    }
+
+    // Convert nested object structure to JSONata string
+    return this.objectToJSONata(root, 0);
+  }
+
+  /**
+   * Convert nested object structure to formatted JSONata string
+   * Uses targetOrder for root-level properties (depth 0)
+   */
+  private objectToJSONata(obj: any, depth: number): string {
+    const indent = '  '.repeat(depth);
+    const innerIndent = '  '.repeat(depth + 1);
+    const entries: string[] = [];
+
+    // Determine key iteration order
+    let keys: string[];
+    if (depth === 0 && this.targetOrder && this.targetOrder.length > 0) {
+      // At root level, use targetOrder for ordering parts
+      const objKeys = Object.keys(obj);
+      // Use order array, filtering to only include keys that exist in obj
+      const orderedKeys = this.targetOrder.filter(key => objKeys.includes(key));
+      // Add any remaining keys not in the order array
+      const remainingKeys = objKeys.filter(key => !this.targetOrder!.includes(key));
+      keys = [...orderedKeys, ...remainingKeys];
+    } else {
+      // At other levels, use Object.keys() order
+      keys = Object.keys(obj);
+    }
+
+    for (const key of keys) {
+      const value = obj[key];
+      if (typeof value === 'string' || (typeof value === 'object' && value !== null && typeof (value as any).includes === 'function' && (value as any).includes('.('))){
+        // Leaf value (string expression) or array mapping expression
+        entries.push(`${innerIndent}"${key}": ${value}`);
+      } else if (typeof value === 'object' && value !== null) {
+        // Nested object - recurse
+        const nested = this.objectToJSONata(value, depth + 1);
+        entries.push(`${innerIndent}"${key}": ${nested}`);
+      } else {
+        // Other leaf values
+        entries.push(`${innerIndent}"${key}": ${value}`);
+      }
+    }
+
+    if (entries.length === 0) {
+      return '{}';
+    }
+
+    return `{\n${entries.join(',\n')}\n${indent}}`;
   }
 
   /**
