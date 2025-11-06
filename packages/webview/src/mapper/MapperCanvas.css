@@ -148,6 +148,36 @@
   stroke-width: 3;
 }
 
+/* Make edges easier to select - wider interaction area */
+.react-flow__edge {
+  cursor: pointer;
+}
+
+.react-flow__edge-interaction {
+  stroke: transparent;
+  stroke-width: 20; /* Wide invisible area for easier selection */
+  fill: none;
+}
+
+/* Selected edges - visual feedback */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #f59e0b !important; /* Amber/orange color for selection */
+  stroke-width: 4 !important;
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.6));
+}
+
+/* Hover effect for edges */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 4;
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.4));
+}
+
+/* Don't apply hover effect when edge is selected or highlighted */
+.react-flow__edge.selected:hover .react-flow__edge-path,
+.react-flow__edge-highlighted:hover .react-flow__edge-path {
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.6)); /* Keep selection style */
+}
+
 /* Highlighted edges (contributing to hovered target) */
 .react-flow__edge-highlighted .react-flow__edge-path {
   filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.6));
@@ -256,4 +286,16 @@ body.vscode-dark .toolbar-info {
   color: #6b7280 !important;
   background: #f3f4f6 !important;
   border-color: #e5e7eb !important;
+}
+
+/* Dark mode edge selection (same as light mode for consistency) */
+body.vscode-dark .react-flow__edge.selected .react-flow__edge-path {
+  stroke: #f59e0b !important;
+  stroke-width: 4 !important;
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.6)) !important;
+}
+
+body.vscode-dark .react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 4 !important;
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.4)) !important;
 }

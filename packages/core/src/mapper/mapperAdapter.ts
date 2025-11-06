@@ -131,6 +131,7 @@ export function mapSpecToReactFlow(
       targetHandle: mapSpecEdge.targetHandle,
       type: 'default',
       animated: false,
+      deletable: true,
       style: { stroke: '#3b82f6', strokeWidth: 3 }
     });
   }
@@ -260,7 +261,7 @@ function findTreeNodeById(node: any, targetId: string | null): any {
 /**
  * Check if two types are compatible for connection
  */
-function areTypesCompatible(sourceType: string | null, targetType: string | null): boolean {
+export function areTypesCompatible(sourceType: string | null, targetType: string | null): boolean {
   if (!sourceType || !targetType) {
     // If we can't determine types, allow the connection
     return true;
@@ -323,6 +324,31 @@ export function validateEdgeConnection(
   // Don't allow self-connections
   if (sourceNode.id === targetNode.id) {
     return { valid: false, reason: 'Cannot connect node to itself' };
+  }
+
+  // Check for duplicate edges (same source handle to same target handle)
+  if (existingEdges) {
+    const duplicateExists = existingEdges.some(edge =>
+      edge.source === sourceNode.id &&
+      edge.sourceHandle === sourceHandle &&
+      edge.target === targetNode.id &&
+      edge.targetHandle === targetHandle
+    );
+
+    if (duplicateExists) {
+      return { valid: false, reason: 'Connection already exists between these handles' };
+    }
+
+    // Check if target handle already has an incoming connection
+    // Each target handle can only have ONE input
+    const targetAlreadyConnected = existingEdges.some(edge =>
+      edge.target === targetNode.id &&
+      edge.targetHandle === targetHandle
+    );
+
+    if (targetAlreadyConnected) {
+      return { valid: false, reason: 'Target already has an incoming connection - disconnect it first' };
+    }
   }
 
   // Validate flow direction: must flow left to right (source schema → functoid → target schema)

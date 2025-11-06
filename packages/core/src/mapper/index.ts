@@ -12,6 +12,7 @@ export * from './jsonataGenerator';
 export * from './csharpGenerator';
 export * from './mapperLayout';
 export * from './templateUtils';
+export * from './automap';
 
 // Note: MapperModel is NOT exported here because it uses Node.js EventEmitter
 // and should only be used on the extension side (Node.js environment).

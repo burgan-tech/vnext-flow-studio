@@ -14,7 +14,7 @@ import {
   type EdgeChange
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Upload, Download, Save, LayoutGrid, Play, Info } from 'lucide-react';
+import { Upload, Download, Save, LayoutGrid, Play, Info, GitMerge } from 'lucide-react';
 
 import {
   mapSpecToReactFlow,
@@ -27,7 +27,9 @@ import {
   cleanOrphanedEdges,
   buildSchemaTree,
   applyOverlaysToSchema,
-  extractUserAddedPaths
+  extractUserAddedPaths,
+  findAutoMappings,
+  summarizeAutoMapResults
 } from '../../../core/src/mapper';
 import type { JSONSchema, MapSpec, NodeKind, GraphLayout, SchemaOverlays, SchemaOverlay } from '../../../core/src/mapper';
 import { SchemaNodeTreeView, FunctoidNode, SchemaInferenceDialog, FunctoidPalette, FunctoidConfigPanel, ExecutionPreviewPanel } from './components';
@@ -1114,7 +1116,25 @@ function MapperCanvasInner() {
    * Handle edge changes
    */
   const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
-    onEdgesChange(changes);
+    console.log('🔍 Edge changes:', changes);
+
+    // Map redirected edge IDs back to original edge IDs for deletion and selection
+    const mappedChanges = changes.map(change => {
+      if (change.type === 'remove' || change.type === 'select') {
+        // Check if this is a redirected edge ID
+        const redirectedId = change.id;
+        if (redirectedId.includes('-redirected-')) {
+          // Extract original edge ID (everything before '-redirected-')
+          const originalId = redirectedId.split('-redirected-')[0];
+          console.log(`🔄 Mapping redirected edge ID: ${redirectedId} -> ${originalId}`);
+          return { ...change, id: originalId };
+        }
+      }
+      return change;
+    });
+
+    console.log('✅ Applying edge changes:', mappedChanges);
+    onEdgesChange(mappedChanges);
   }, [onEdgesChange]);
 
   /**
@@ -1125,6 +1145,7 @@ function MapperCanvasInner() {
       ...params,
       type: 'default',
       animated: false,
+      deletable: true,
       style: { stroke: '#3b82f6', strokeWidth: 3 }
     }, eds));
     // Auto-save will trigger from useEffect watching edges
@@ -1342,6 +1363,142 @@ function MapperCanvasInner() {
     });
   }, [nodes, getViewport, screenToFlowPosition]);
 
+  /**
+   * Handle auto-mapping of matching fields
+   */
+  const handleAutoMap = useCallback(() => {
+    if (!mapSpec) {
+      return;
+    }
+
+    // Get schema trees from nodes
+    const sourceSchemaNode = nodes.find(n => n.id === 'source-schema');
+    const targetSchemaNode = nodes.find(n => n.id === 'target-schema');
+
+    const sourceSchemaTree = sourceSchemaNode?.data?.tree;
+    const targetSchemaTree = targetSchemaNode?.data?.tree;
+
+    if (!sourceSchemaTree || !targetSchemaTree) {
+      console.log('Schema trees not available');
+      return;
+    }
+
+    // Find automatic mappings
+    const autoMappings = findAutoMappings(
+      sourceSchemaTree,
+      targetSchemaTree,
+      edges.map(e => reactFlowToMapSpecEdge(e)),
+      {
+        minSimilarity: 0.5,
+        fuzzyMatch: true,
+        contextMatch: true,
+        skipExisting: false // Add alongside existing mappings
+      }
+    );
+
+    console.log(`🎯 Found ${autoMappings.length} potential mappings`);
+
+    if (autoMappings.length === 0) {
+      // Show toast or notification
+      console.log('No automatic mappings found');
+      return;
+    }
+
+    // Create new edges from auto-mappings
+    const newEdges = autoMappings.map((mapping, index) => {
+      const sourceNodeId = 'source-schema';
+      const targetNodeId = 'target-schema';
+
+      // Generate unique edge ID
+      const edgeId = `automap_${Date.now()}_${index}`;
+
+      return {
+        id: edgeId,
+        source: sourceNodeId,
+        sourceHandle: mapping.source,
+        target: targetNodeId,
+        targetHandle: mapping.target,
+        type: 'default',
+        animated: false,
+        deletable: true,
+        style: {
+          stroke: '#10b981', // Green highlight for initial flash
+          strokeWidth: 4
+        },
+        data: {
+          autoMapped: true,
+          confidence: mapping.confidence
+        }
+      };
+    });
+
+    // Validate each edge before adding
+    const validEdges = newEdges.filter((edge, index) => {
+      // Get the actual node objects
+      const sourceNode = nodes.find(n => n.id === edge.source);
+      const targetNode = nodes.find(n => n.id === edge.target);
+
+      if (!sourceNode || !targetNode) {
+        console.log('❌ Node not found for edge:', edge);
+        return false;
+      }
+
+      const validation = validateEdgeConnection(
+        sourceNode,  // Pass the node object, not the ID
+        edge.sourceHandle,
+        targetNode,  // Pass the node object, not the ID
+        edge.targetHandle,
+        edges
+      );
+
+      if (!validation.valid && index === 0) {
+        console.log('❌ First edge validation failed:', {
+          edge,
+          validation,
+          sourceNode,
+          targetNode
+        });
+      }
+      return validation.valid;
+    });
+
+    console.log(`✅ Valid edges: ${validEdges.length}/${newEdges.length}`);
+
+    if (validEdges.length === 0) {
+      console.log('No valid mappings could be created');
+      return;
+    }
+
+    // Add new edges to existing edges
+    setEdges((currentEdges) => [...currentEdges, ...validEdges]);
+
+    // Show summary
+    const summary = summarizeAutoMapResults(autoMappings);
+    console.log(summary);
+
+    // Flash the new edges briefly (visual feedback), then return to normal style
+    setTimeout(() => {
+      setEdges((currentEdges) =>
+        currentEdges.map((edge) => {
+          if (edge.data?.autoMapped) {
+            return {
+              ...edge,
+              style: {
+                stroke: '#3b82f6', // Back to normal blue
+                strokeWidth: 3
+              },
+              data: {
+                ...edge.data,
+                autoMapped: false // Remove flag after flash
+              }
+            };
+          }
+          return edge;
+        })
+      );
+    }, 2000); // Flash for 2 seconds
+  }, [mapSpec, edges, nodes, setEdges]);
+
   const handleSchemaInferred = useCallback((schema: JSONSchema | any, side: 'source' | 'target') => {
     // Check if this is a file reference
     if (schema && typeof schema === 'object' && '__fileReference' in schema) {
@@ -1462,6 +1619,16 @@ function MapperCanvasInner() {
             <span>Auto Layout</span>
           </button>
 
+          <button
+            onClick={handleAutoMap}
+            className="toolbar-button toolbar-button-neutral"
+            title="Auto-map matching fields"
+            disabled={!mapSpec || !nodes.find(n => n.id === 'source-schema')?.data?.tree || !nodes.find(n => n.id === 'target-schema')?.data?.tree}
+          >
+            <GitMerge size={16} />
+            <span>Auto Map</span>
+          </button>
+
           <span className="toolbar-divider" />
 
           <button
@@ -1510,6 +1677,10 @@ function MapperCanvasInner() {
               maxZoom={2}
               panOnDrag
               zoomOnScroll
+              selectNodesOnDrag={false}
+              edgesReconnectable={false}
+              elementsSelectable={true}
+              deleteKeyCode={['Backspace', 'Delete']}
             >
               <Background variant="dots" gap={16} size={1} color="#cbd5e1" />
             </ReactFlow>

@@ -9,9 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Auto-Map Feature**: Intelligent automatic field mapping between source and target schemas
+  - Auto Map button in mapper toolbar (enabled when both schemas present)
+  - Fuzzy string matching using Levenshtein distance algorithm
+  - Semantic field relationship detection (email/mail, phone/tel, etc.)
+  - Context-aware matching based on parent paths
+  - Configurable minimum similarity threshold (default: 0.5)
+  - Two-phase optimal matching algorithm prioritizes best matches globally
+  - Visual feedback: auto-mapped edges flash green for 2 seconds, then settle to blue
+  - Console summary showing high/medium/low confidence mappings
+
 ### Fixed
 
+- **Edge Selection and Deletion**: Significantly improved edge interaction and deletion reliability
+  - Wider clickable area (20px invisible stroke) for easier edge selection
+  - Visual feedback: selected edges show amber/orange glow, hovered edges show blue glow
+  - Fixed Delete/Backspace key support for edge deletion
+  - Added explicit `deletable: true` property to all edges (manual, auto-mapped, and loaded)
+  - Fixed deletion of redirected edges (when handles are collapsed)
+  - Proper ID mapping for redirected edges ensures deletion works in all scenarios
+
+- **Duplicate Edge Prevention**: Prevents invalid and duplicate connections
+  - Blocks exact duplicate edges (same source handle to same target handle)
+  - Enforces single-input rule: each target handle can only accept one incoming connection
+  - Clear error messages in console when attempting invalid connections
+  - Source handles can still connect to multiple targets (one-to-many broadcast)
+
 ### Changed
+
+- **Edge Interaction**: Enhanced edge selection and visual clarity
+  - Cursor changes to pointer when hovering over edges
+  - Selected edges display with thicker stroke (4px) and orange glow effect
+  - Hover effect shows blue glow to indicate clickability
+  - Selection styles work consistently in both light and dark themes
+  - Delete/Backspace keys now properly remove selected edges
 
 ## [1.2.1] - 2025-11-06
 
