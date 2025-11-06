@@ -234,6 +234,7 @@ A new BizTalk-style mapper for building complex JSON transformations without wri
 **Example Use Case:**
 
 Transform e-commerce orders to invoices with complex logic:
+
 - Map customer data (`order.customer.name` → `invoice.customerName`)
 - Transform arrays (`order.items[]` → `invoice.lineItems[]`)
 - Calculate totals with aggregate functoids (Sum, GroupBy)
@@ -243,6 +244,7 @@ Transform e-commerce orders to invoices with complex logic:
 **Documentation:**
 
 See [`mapper_spec.md`](./mapper_spec.md) and [`docs/mapper/`](./docs/mapper/) for complete specification:
+
 - [Architecture](./docs/mapper/01-architecture.md)
 - [UI Design](./docs/mapper/07-ui-design.md)
 - [Functoid Library](./docs/mapper/08-functoid-library.md)
@@ -281,11 +283,13 @@ See [`mapper_spec.md`](./mapper_spec.md) and [`docs/mapper/`](./docs/mapper/) fo
 ### Technical Details
 
 **Packages:**
+
 - `packages/core`: Mapper engine, functoid registry, schema inference, JSONata/C# code generation
 - `packages/webview`: React Flow-based visual mapper UI with schema inference dialog
 - `packages/extension`: VS Code custom editor provider for `*.mapper.json` files
 
 **Key Files:**
+
 - `packages/core/src/mapper/` - Mapper engine implementation
   - `registry.ts` - 40+ functoid definitions and search
   - `adapter.ts` - Schema flattening and tree building
@@ -319,6 +323,7 @@ See [`mapper_spec.md`](./mapper_spec.md) and [`docs/mapper/`](./docs/mapper/) fo
 ---
 
 **Legend:**
+
 - 🎨 Visual/UI features
 - 🔢 Math/calculation features
 - 📝 Text/string features

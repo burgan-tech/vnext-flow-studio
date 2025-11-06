@@ -118,15 +118,15 @@ class CSharpGenerator {
       }
     }
 
-    // Initialize target part variables
+    // Initialize target part variables with prefix to avoid naming conflicts
     for (const part of Array.from(targetParts).sort()) {
-      lines.push(`var ${part} = new JsonObject();`);
+      lines.push(`var target_${part} = new JsonObject();`);
     }
     lines.push('');
 
     // Add simple mappings
     for (const mapping of simpleMappings) {
-      const assignment = this.generateNestedAssignment('', mapping.target, mapping.expr);
+      const assignment = this.generateNestedAssignment('', mapping.target, mapping.expr, true);
       lines.push(`${assignment};`);
     }
 
@@ -141,7 +141,7 @@ class CSharpGenerator {
         return `    ["${f.field}"] = ${expr}`;
       }).join(',\n')}\n}))`;
 
-      const assignment = this.generateNestedAssignment('', arrayName, arrayValue);
+      const assignment = this.generateNestedAssignment('', arrayName, arrayValue, true);
       lines.push(assignment.replace('; ', ';\n'));
     }
 
@@ -151,12 +151,12 @@ class CSharpGenerator {
     if (targetParts.size === 1) {
       // Single target part - return it directly
       const singlePart = Array.from(targetParts)[0];
-      lines.push(`return ${singlePart};`);
+      lines.push(`return target_${singlePart};`);
     } else if (targetParts.size > 1) {
       // Multiple target parts - return as JsonObject with part properties
       lines.push('return new JsonObject');
       lines.push('{');
-      const partReturns = Array.from(targetParts).sort().map(part => `    ["${part}"] = ${part}`);
+      const partReturns = Array.from(targetParts).sort().map(part => `    ["${part}"] = target_${part}`);
       lines.push(partReturns.join(',\n'));
       lines.push('};');
     } else {
@@ -218,10 +218,10 @@ class CSharpGenerator {
 
   /**
    * Generate nested assignment for target paths
-   * For multi-part documents: "body.loginURI" -> body["loginURI"] = value
-   * Where "body" is the target part variable name
+   * For multi-part documents: "body.loginURI" -> target_body["loginURI"] = value
+   * Where "target_body" is the target part variable name (prefixed to avoid conflicts)
    */
-  private generateNestedAssignment(rootVar: string, path: string, value: string): string {
+  private generateNestedAssignment(rootVar: string, path: string, value: string, isTarget: boolean = false): string {
     const parts = path.split('.').filter(p => p.length > 0);
 
     if (parts.length === 0) {
@@ -229,13 +229,14 @@ class CSharpGenerator {
     }
 
     if (parts.length === 1) {
-      // Top-level part: body = value
-      return `${parts[0]} = ${value}`;
+      // Top-level part: target_body = value
+      const varName = isTarget ? `target_${parts[0]}` : parts[0];
+      return `${varName} = ${value}`;
     }
 
-    // For multi-part: first part is the variable, rest are property path
-    // "body.loginURI" -> body["loginURI"] = value
-    const varName = parts[0];
+    // For multi-part: first part is the variable (with prefix for targets), rest are property path
+    // "body.loginURI" -> target_body["loginURI"] = value
+    const varName = isTarget ? `target_${parts[0]}` : parts[0];
     const propertyPath = parts.slice(1).map(p => `["${p}"]`).join('');
 
     return `${varName}${propertyPath} = ${value}`;
