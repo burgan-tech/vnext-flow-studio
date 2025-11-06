@@ -78,6 +78,26 @@ const nodeTypes: NodeTypes = {
   functoid: FunctoidNode
 };
 
+/**
+ * Build composite schema from parts
+ */
+function buildCompositeSchemaFromParts(parts: Record<string, PartDefinition>): JSONSchema {
+  const properties: Record<string, JSONSchema> = {};
+
+  for (const [partName, partDef] of Object.entries(parts)) {
+    if (partDef.schema) {
+      properties[partName] = partDef.schema;
+    }
+  }
+
+  return {
+    type: 'object',
+    properties,
+    additionalProperties: false,
+    title: 'Composite Document'
+  };
+}
+
 function MapperCanvasInner() {
   // State
   const [mapSpec, setMapSpec] = useState<MapSpec | null>(null);
@@ -275,32 +295,42 @@ function MapperCanvasInner() {
 
     isLoadingRef.current = true;
 
-    // Use provided schemas or fall back to empty schemas
-    // Note: null means no schema, so use empty placeholder
+    // Determine final schemas: use provided schemas, or let mapSpecToReactFlow build from parts
+    // If schemas are explicitly provided (not null/undefined), use them
+    // Otherwise pass null to let mapSpecToReactFlow build composite schemas from parts
     const finalSourceSchema = (srcSchema !== undefined && srcSchema !== null)
       ? srcSchema
-      : (sourceSchema || { type: 'object', properties: {} });
+      : sourceSchema; // Can be null - mapSpecToReactFlow will build from parts
     const finalTargetSchema = (tgtSchema !== undefined && tgtSchema !== null)
       ? tgtSchema
-      : (targetSchema || { type: 'object', properties: {} });
+      : targetSchema; // Can be null - mapSpecToReactFlow will build from parts
+
+    // For edge cleaning, we need actual schemas (build from parts if needed)
+    const cleaningSourceSchema = finalSourceSchema || (newMapSpec.schemaParts?.source
+      ? buildCompositeSchemaFromParts(newMapSpec.schemaParts.source)
+      : { type: 'object', properties: {} });
+    const cleaningTargetSchema = finalTargetSchema || (newMapSpec.schemaParts?.target
+      ? buildCompositeSchemaFromParts(newMapSpec.schemaParts.target)
+      : { type: 'object', properties: {} });
 
     // Clean orphaned edges before loading (with schema validation)
-    const cleanedMapSpec = cleanOrphanedEdges(newMapSpec, finalSourceSchema, finalTargetSchema);
+    const cleanedMapSpec = cleanOrphanedEdges(newMapSpec, cleaningSourceSchema, cleaningTargetSchema);
     setMapSpec(cleanedMapSpec);
 
     console.log('Using schemas:', {
-      finalSource: finalSourceSchema ? Object.keys(finalSourceSchema.properties || {}).length + ' properties' : 'empty',
-      finalTarget: finalTargetSchema ? Object.keys(finalTargetSchema.properties || {}).length + ' properties' : 'empty'
+      finalSource: cleaningSourceSchema ? Object.keys(cleaningSourceSchema.properties || {}).length + ' properties' : 'empty',
+      finalTarget: cleaningTargetSchema ? Object.keys(cleaningTargetSchema.properties || {}).length + ' properties' : 'empty'
     });
 
-    // Update schema state
-    setSourceSchema(srcSchema !== undefined ? srcSchema : sourceSchema);
-    setTargetSchema(tgtSchema !== undefined ? tgtSchema : targetSchema);
+    // Update schema state - use the built composite schemas
+    setSourceSchema(cleaningSourceSchema);
+    setTargetSchema(cleaningTargetSchema);
 
     // Load schema extensions from MapSpec
     setSchemaOverlays(cleanedMapSpec.schemaOverlays || {});
 
-    // Convert MapSpec to React Flow format (already cleaned above)
+    // Convert MapSpec to React Flow format
+    // Pass null for schemas to let it build from parts, or pass explicit schemas if provided
     const { nodes: rfNodes, edges: rfEdges } = mapSpecToReactFlow(
       cleanedMapSpec,
       finalSourceSchema,
