@@ -89,6 +89,7 @@ function MapperCanvasInner() {
   // Schema inference dialog state
   const [inferenceDialogOpen, setInferenceDialogOpen] = useState(false);
   const [inferenceDialogSide, setInferenceDialogSide] = useState<'source' | 'target'>('source');
+  const [platformSchemas, setPlatformSchemas] = useState<any[]>([]);
 
   // Functoid config panel state
   const [selectedFunctoid, setSelectedFunctoid] = useState<{ id: string; kind: string; config: Record<string, any> } | null>(null);
@@ -569,6 +570,14 @@ function MapperCanvasInner() {
             // Auto-save will trigger from useEffect watching nodes/edges
           }
           break;
+
+        case 'platformSchemas':
+          // Handle platform schemas loaded from extension
+          if ((message as any).schemas) {
+            console.log('📚 Received platform schemas:', (message as any).schemas.length);
+            setPlatformSchemas((message as any).schemas);
+          }
+          break;
       }
     };
 
@@ -577,6 +586,8 @@ function MapperCanvasInner() {
     // Send ready message to extension to request init data (only once)
     if (vscodeApi && !hasRequestedInitRef.current) {
       vscodeApi.postMessage({ type: 'ready' });
+      // Also request platform schemas
+      vscodeApi.postMessage({ type: 'requestPlatformSchemas' });
       hasRequestedInitRef.current = true;
     }
 
@@ -1706,6 +1717,7 @@ function MapperCanvasInner() {
         onSchemaInferred={handleSchemaInferred}
         side={inferenceDialogSide}
         vscodeApi={vscodeApi}
+        availableSchemas={platformSchemas}
       />
 
       {/* Execution Preview Panel */}

@@ -311,6 +311,32 @@ class CSharpGenerator {
         return `${args[0]}?.ToString().Split("${config.delimiter || ','}")`;
       case 'join':
         return `string.Join("${config.delimiter || ','}", ${args[0]})`;
+      case 'randomString': {
+        this.usesLinq = true;
+        const length = config.length || 10;
+        const alphanumeric = config.alphanumeric !== false; // default true
+        const numeric = config.numeric || false;
+        const symbols = config.symbols || false;
+
+        // Build character set based on config
+        let charset = '';
+        if (alphanumeric) {
+          charset += 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        } else if (numeric) {
+          charset += '0123456789';
+        }
+        if (symbols) {
+          charset += '!@#$%^&*()_+-=[]{}|;:,.<>?';
+        }
+
+        if (!charset) {
+          charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; // fallback
+        }
+
+        // C# code to generate random string
+        const charsetStr = charset.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        return `new string(Enumerable.Range(0, ${length}).Select(_ => "${charsetStr}"[new Random().Next(${charset.length})]).ToArray())`;
+      }
 
       // Array functions
       case 'count':

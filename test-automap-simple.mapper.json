@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "Simple Auto-Map Test",
+    "description": "Test mapper with identical schemas",
+    "version": "1.0.0",
+    "source": "Person",
+    "target": "Person",
+    "createdAt": "2025-11-06T08:00:00.000Z",
+    "updatedAt": "2025-11-06T08:00:00.000Z"
+  },
+  "schemas": {
+    "source": "custom",
+    "target": "custom",
+    "sourceSchema": {
+      "type": "object",
+      "properties": {
+        "firstName": {
+          "type": "string"
+        },
+        "lastName": {
+          "type": "string"
+        },
+        "age": {
+          "type": "number"
+        },
+        "email": {
+          "type": "string"
+        }
+      }
+    },
+    "targetSchema": {
+      "type": "object",
+      "properties": {
+        "firstName": {
+          "type": "string"
+        },
+        "lastName": {
+          "type": "string"
+        },
+        "age": {
+          "type": "number"
+        },
+        "email": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "nodes": [],
+  "edges": []
+}

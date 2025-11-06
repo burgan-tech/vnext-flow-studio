@@ -55,7 +55,8 @@ import {
   Box,
   Code2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Dices
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { NodeKind } from '../../../../core/src/mapper/types';
@@ -89,6 +90,7 @@ export const functoidIconMap: Record<NodeKind, LucideIcon> = {
   'String.Split': Split,
   'String.Join': Combine,
   'String.Template': Braces,
+  'String.RandomString': Dices,
 
   // Logical functoids
   'Binary.And': GitBranch,

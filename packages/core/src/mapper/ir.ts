@@ -159,7 +159,7 @@ export interface CallExpr {
 
 export type FunctionName =
   // String functions
-  | 'uppercase' | 'lowercase' | 'trim' | 'length' | 'substring' | 'replace' | 'split' | 'join'
+  | 'uppercase' | 'lowercase' | 'trim' | 'length' | 'substring' | 'replace' | 'split' | 'join' | 'randomString'
   // Array functions
   | 'map' | 'filter' | 'count' | 'distinct' | 'sort' | 'reverse' | 'flatten'
   // Aggregate functions

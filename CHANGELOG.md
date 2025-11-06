@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Random String Generator Functoid**: New String.RandomString functoid for generating random strings
+  - Configurable string length (1-1000 characters, default: 10)
+  - Three character set options: alphanumeric (A-Z, a-z, 0-9), numeric only (0-9), and symbols (!@#$%^&*...)
+  - Default configuration generates alphanumeric strings
+  - Both JSONata and C# code generation fully supported
+  - Configuration panel with intuitive checkboxes for character set selection
+  - Visual representation using dice icon in functoid palette
+
 - **Auto-Map Feature**: Intelligent automatic field mapping between source and target schemas
   - Auto Map button in mapper toolbar (enabled when both schemas present)
   - Fuzzy string matching using Levenshtein distance algorithm
@@ -18,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Two-phase optimal matching algorithm prioritizes best matches globally
   - Visual feedback: auto-mapped edges flash green for 2 seconds, then settle to blue
   - Console summary showing high/medium/low confidence mappings
+
+- **Platform Schema Import**: Import schemas from the low-code platform's ModelManager
+  - New "Platform Schemas" tab in schema import modal (appears as first tab)
+  - Searchable list of all schemas scanned from the project
+  - One-click schema import: clicking a schema immediately applies it (no preview/confirmation needed)
+  - Automatically extracts JSON Schema from `attributes.schema` property
+  - Integrates with existing ModelManager to avoid duplicate scanning
+  - Supports schemas from any `Schemas` folder in the workspace hierarchy (`**/Schemas/**`)
+  - Hides "Reference File" tab when in platform mode for cleaner UX
 
 ### Fixed
 
@@ -43,6 +60,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Hover effect shows blue glow to indicate clickability
   - Selection styles work consistently in both light and dark themes
   - Delete/Backspace keys now properly remove selected edges
+
+- **Component Discovery**: ComponentResolver now searches for component folders anywhere in workspace
+  - Searches for `Schemas`, `Tasks`, `Views`, etc. folders recursively (`**/Schemas/**`)
+  - Finds components in nested project structures and monorepos
+  - Deduplicates components when found in multiple locations
+  - Supports maximum search depth of 5 levels for performance
 
 ## [1.2.1] - 2025-11-06
 

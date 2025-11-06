@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { autoLayoutMapper } from '../../../core/src/mapper/mapperLayout';
+import { ComponentResolver } from '../../../core/src/model/ComponentResolver';
 
 /**
  * MapperEditorProvider - Custom editor for *.mapper.json files
@@ -37,7 +38,8 @@ async function openMapperEditor(
   mapperUri: vscode.Uri,
   context: vscode.ExtensionContext,
   activePanels: Map<string, vscode.WebviewPanel>,
-  providedPanel?: vscode.WebviewPanel
+  providedPanel?: vscode.WebviewPanel,
+  modelBridge?: any
 ) {
   try {
     // Validate file extension
@@ -458,6 +460,67 @@ async function openMapperEditor(
             }
             break;
 
+          case 'requestPlatformSchemas':
+            try {
+              console.log('Requesting platform schemas...');
+
+              let schemas: any[] = [];
+
+              // Try to get schemas from ModelBridge if available
+              if (modelBridge) {
+                console.log('Getting schemas from ModelBridge...');
+                // Get the active model from the integration
+                const integration = (modelBridge as any).integration;
+                const activeModel = integration?.getActiveModel?.();
+
+                if (activeModel) {
+                  const modelState = activeModel.getModelState();
+                  schemas = Array.from(modelState.components.schemas.values());
+                  console.log(`Found ${schemas.length} platform schemas from ModelBridge`);
+                } else {
+                  console.warn('No active model in ModelBridge, falling back to ComponentResolver');
+                }
+              }
+
+              // Fallback: Create ComponentResolver if ModelBridge not available or no active model
+              if (schemas.length === 0) {
+                const workspaceFolder = vscode.workspace.getWorkspaceFolder(mapperUri);
+                if (!workspaceFolder) {
+                  console.warn('No workspace folder found, cannot load platform schemas');
+                  panel.webview.postMessage({
+                    type: 'platformSchemas',
+                    schemas: []
+                  });
+                  break;
+                }
+
+                console.log('Using ComponentResolver fallback...');
+                const resolver = new ComponentResolver({
+                  basePath: workspaceFolder.uri.fsPath,
+                  useCache: true
+                });
+
+                await resolver.preloadAllComponents();
+                const schemaCache = (resolver as any).schemaCache as Map<string, any>;
+                schemas = Array.from(schemaCache.values());
+                console.log(`Found ${schemas.length} platform schemas from ComponentResolver`);
+              }
+
+              // Send schemas to webview
+              panel.webview.postMessage({
+                type: 'platformSchemas',
+                schemas
+              });
+            } catch (error) {
+              console.error('Failed to load platform schemas:', error);
+              // Send empty array on error
+              panel.webview.postMessage({
+                type: 'platformSchemas',
+                schemas: []
+              });
+            }
+            break;
+
           case 'autoLayout':
             try {
               // Compute auto-layout (keeps schema nodes fixed, positions functoids)
@@ -642,7 +705,8 @@ async function openMapperEditor(
 export class MapperEditorProvider implements vscode.CustomTextEditorProvider {
   constructor(
     private context: vscode.ExtensionContext,
-    private activePanels: Map<string, vscode.WebviewPanel>
+    private activePanels: Map<string, vscode.WebviewPanel>,
+    private modelBridge?: any
   ) {}
 
   async resolveCustomTextEditor(
@@ -661,7 +725,8 @@ export class MapperEditorProvider implements vscode.CustomTextEditorProvider {
       document.uri,
       this.context,
       this.activePanels,
-      webviewPanel
+      webviewPanel,
+      this.modelBridge
     );
   }
 }
@@ -669,11 +734,11 @@ export class MapperEditorProvider implements vscode.CustomTextEditorProvider {
 /**
  * Register the mapper editor provider
  */
-export function registerMapperEditor(context: vscode.ExtensionContext): void {
+export function registerMapperEditor(context: vscode.ExtensionContext, modelBridge?: any): void {
   const activePanels = new Map<string, vscode.WebviewPanel>();
 
   // Register custom editor provider
-  const editorProvider = new MapperEditorProvider(context, activePanels);
+  const editorProvider = new MapperEditorProvider(context, activePanels, modelBridge);
 
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(

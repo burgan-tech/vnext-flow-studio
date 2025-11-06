@@ -229,6 +229,31 @@ class JSONataGenerator {
       case 'replace': return `$replace(${args[0]}, "${config.search || ''}", "${config.replace || ''}")`;
       case 'split': return `$split(${args[0]}, "${config.delimiter || ','}")`;
       case 'join': return `$join(${args[0]}, "${config.delimiter || ','}")`;
+      case 'randomString': {
+        const length = config.length || 10;
+        const alphanumeric = config.alphanumeric !== false; // default true
+        const numeric = config.numeric || false;
+        const symbols = config.symbols || false;
+
+        // Build character set based on config
+        let charset = '';
+        if (alphanumeric) {
+          charset += 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        } else if (numeric) {
+          charset += '0123456789';
+        }
+        if (symbols) {
+          charset += '!@#$%^&*()_+-=[]{}|;:,.<>?';
+        }
+
+        if (!charset) {
+          charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; // fallback
+        }
+
+        // JSONata expression to generate random string
+        const charsetStr = charset.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        return `$join($map([1..${length}], function($v) { $substring("${charsetStr}", $floor($random() * ${charset.length}), 1) }), "")`;
+      }
 
       // Array functions
       case 'map': return `${args[0]}.(${args[1]})`;

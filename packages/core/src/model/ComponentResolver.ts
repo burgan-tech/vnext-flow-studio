@@ -387,6 +387,41 @@ export class ComponentResolver implements IComponentResolver {
   }
 
   /**
+   * Find all directories matching a name pattern recursively
+   * Supports patterns like "Schemas" to find all directories named "Schemas" anywhere
+   */
+  private async findDirectories(basePath: string, dirName: string, maxDepth: number = 5): Promise<string[]> {
+    const results: string[] = [];
+
+    async function walk(currentDir: string, depth: number) {
+      if (depth > maxDepth) return;
+
+      try {
+        const entries = await fs.readdir(currentDir, { withFileTypes: true });
+
+        for (const entry of entries) {
+          if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+            const fullPath = path.join(currentDir, entry.name);
+
+            // Check if this directory matches our target name
+            if (entry.name === dirName) {
+              results.push(fullPath);
+            }
+
+            // Continue searching recursively
+            await walk(fullPath, depth + 1);
+          }
+        }
+      } catch {
+        // Directory doesn't exist or can't be read
+      }
+    }
+
+    await walk(basePath, 0);
+    return results;
+  }
+
+  /**
    * Find all JSON files in a directory recursively
    */
   private async findJsonFiles(dir: string, maxDepth: number = 3): Promise<string[]> {
@@ -461,64 +496,71 @@ export class ComponentResolver implements IComponentResolver {
       cache: Map<string, T>
     ): Promise<T[]> => {
       const components: T[] = [];
-      const searchPaths = this.options.searchPaths![type] || [];
-      console.log(`[ComponentResolver] Scanning for ${type}, searchPaths:`, searchPaths);
+      const searchPathNames = this.options.searchPaths![type] || [];
+      console.log(`[ComponentResolver] Scanning for ${type}, searchPathNames:`, searchPathNames);
 
-      for (const searchPath of searchPaths) {
-        const fullSearchPath = path.resolve(basePath, searchPath);
-        console.log(`[ComponentResolver] Checking path: ${fullSearchPath}`);
+      // For each search path name (e.g., "Schemas", "schemas", "sys-schemas")
+      // Find all directories with that name anywhere in the workspace (**/Schemas/**)
+      for (const searchPathName of searchPathNames) {
+        // Find all directories matching this name
+        const matchingDirs = await this.findDirectories(basePath, searchPathName);
+        console.log(`[ComponentResolver] Found ${matchingDirs.length} directories named "${searchPathName}"`);
 
-        try {
-          const files = await this.findJsonFiles(fullSearchPath);
-          console.log(`[ComponentResolver] Found ${files.length} JSON files in ${searchPath}`);
+        // Scan each matching directory
+        for (const dir of matchingDirs) {
+          console.log(`[ComponentResolver] Scanning directory: ${dir}`);
 
-          for (const file of files) {
-            try {
-              // Exclude diagram files for all types
-              if (file.endsWith('.diagram.json')) {
+          try {
+            const files = await this.findJsonFiles(dir);
+            console.log(`[ComponentResolver] Found ${files.length} JSON files in ${dir}`);
+
+            for (const file of files) {
+              try {
+                // Exclude diagram files for all types
+                if (file.endsWith('.diagram.json')) {
+                  continue;
+                }
+
+                const content = await fs.readFile(file, 'utf-8');
+                const component = JSON.parse(content) as any;
+
+                // Basic validation - must have key, domain, and version
+                if (!component.key || !component.domain || !component.version) {
+                  continue;
+                }
+
+                // Distinguish workflows from other components
+                // Workflows have an 'attributes' object with 'states' and 'startTransition'
+                const isWorkflow = component.attributes &&
+                                   component.attributes.states &&
+                                   component.attributes.startTransition;
+
+                // Skip if types don't match
+                if (type === 'workflows' && !isWorkflow) {
+                  continue;
+                }
+                if (type !== 'workflows' && isWorkflow) {
+                  continue;
+                }
+
+                // Component is valid for this type
+                const cacheKey = `${component.domain}/${component.flow || type}/${component.key}@${component.version}`;
+
+                // Add to cache (avoid duplicates)
+                if (this.options.useCache && !cache.has(cacheKey)) {
+                  cache.set(cacheKey, component as T);
+                  components.push(component as T);
+                  console.log(`[ComponentResolver] ✓ Loaded ${type}: ${component.domain}/${component.key}@${component.version} from ${dir}`);
+                }
+              } catch (err) {
+                console.log(`[ComponentResolver] ✗ Failed to parse ${file}:`, err);
                 continue;
               }
-
-              const content = await fs.readFile(file, 'utf-8');
-              const component = JSON.parse(content) as any;
-
-              // Basic validation - must have key, domain, and version
-              if (!component.key || !component.domain || !component.version) {
-                continue;
-              }
-
-              // Distinguish workflows from other components
-              // Workflows have an 'attributes' object with 'states' and 'startTransition'
-              const isWorkflow = component.attributes &&
-                                 component.attributes.states &&
-                                 component.attributes.startTransition;
-
-              // Skip if types don't match
-              if (type === 'workflows' && !isWorkflow) {
-                continue;
-              }
-              if (type !== 'workflows' && isWorkflow) {
-                continue;
-              }
-
-              // Component is valid for this type
-              const cacheKey = `${component.domain}/${component.flow || type}/${component.key}@${component.version}`;
-
-              // Add to cache
-              if (this.options.useCache) {
-                cache.set(cacheKey, component as T);
-              }
-
-              components.push(component as T);
-              console.log(`[ComponentResolver] ✓ Loaded ${type}: ${component.domain}/${component.key}@${component.version}`);
-            } catch (err) {
-              console.log(`[ComponentResolver] ✗ Failed to parse ${file}:`, err);
-              continue;
             }
+          } catch (err) {
+            console.log(`[ComponentResolver] ✗ Error scanning directory: ${dir}`, err);
+            continue;
           }
-        } catch (err) {
-          console.log(`[ComponentResolver] ✗ Search path doesn't exist or error: ${fullSearchPath}`, err);
-          continue;
         }
       }
 

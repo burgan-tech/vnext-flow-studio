@@ -358,6 +358,8 @@ class MapSpecLowerer {
         return this.call('join', inputExprs, config);
       case 'String.Template':
         return this.template(inputExprs, config);
+      case 'String.RandomString':
+        return this.call('randomString', [], config);
 
       // Conditional
       case 'Conditional.If':

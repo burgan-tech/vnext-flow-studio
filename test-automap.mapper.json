@@ -1,0 +1,158 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "Test Auto-Map Feature",
+    "description": "Test mapper for auto-mapping functionality",
+    "version": "1.0.0",
+    "source": "Customer",
+    "target": "Buyer",
+    "createdAt": "2025-11-06T08:00:00.000Z",
+    "updatedAt": "2025-11-06T08:00:00.000Z"
+  },
+  "schemas": {
+    "source": "custom",
+    "target": "custom",
+    "sourceSchema": {
+      "type": "object",
+      "properties": {
+        "customer": {
+          "type": "object",
+          "properties": {
+            "firstName": {
+              "type": "string"
+            },
+            "lastName": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "phone": {
+              "type": "string"
+            },
+            "address": {
+              "type": "object",
+              "properties": {
+                "street": {
+                  "type": "string"
+                },
+                "city": {
+                  "type": "string"
+                },
+                "zipCode": {
+                  "type": "string"
+                },
+                "country": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "order": {
+          "type": "object",
+          "properties": {
+            "orderId": {
+              "type": "string"
+            },
+            "orderDate": {
+              "type": "string"
+            },
+            "totalAmount": {
+              "type": "number"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "productId": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "number"
+                  },
+                  "price": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "targetSchema": {
+      "type": "object",
+      "properties": {
+        "buyer": {
+          "type": "object",
+          "properties": {
+            "first_name": {
+              "type": "string"
+            },
+            "last_name": {
+              "type": "string"
+            },
+            "emailAddress": {
+              "type": "string"
+            },
+            "telephone": {
+              "type": "string"
+            },
+            "location": {
+              "type": "object",
+              "properties": {
+                "street_address": {
+                  "type": "string"
+                },
+                "city": {
+                  "type": "string"
+                },
+                "postal_code": {
+                  "type": "string"
+                },
+                "country": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "purchase": {
+          "type": "object",
+          "properties": {
+            "purchaseId": {
+              "type": "string"
+            },
+            "purchaseDate": {
+              "type": "string"
+            },
+            "total": {
+              "type": "number"
+            },
+            "products": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "productCode": {
+                    "type": "string"
+                  },
+                  "qty": {
+                    "type": "number"
+                  },
+                  "unitPrice": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "nodes": [],
+  "edges": []
+}

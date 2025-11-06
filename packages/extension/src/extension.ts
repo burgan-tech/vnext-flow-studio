@@ -657,7 +657,7 @@ export function activate(context: vscode.ExtensionContext) {
   registerQuickFixCommands(context);
 
   // Register mapper editor
-  registerMapperEditor(context);
+  registerMapperEditor(context, modelBridge);
 
   // Register task quick editor
   context.subscriptions.push(TaskQuickEditorProvider.register(context));

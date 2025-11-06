@@ -304,6 +304,61 @@ export function FunctoidConfigPanel({
       );
     }
 
+    // String RandomString - needs length and character set options
+    if (nodeKind === 'String.RandomString') {
+      return (
+        <>
+          <div className="config-field">
+            <label className="config-label">String Length:</label>
+            <input
+              type="number"
+              className="config-input"
+              value={localConfig.length || 10}
+              onChange={(e) => handleChange('length', parseInt(e.target.value, 10))}
+              placeholder="10"
+              min="1"
+              max="1000"
+            />
+            <div className="config-hint">
+              Length of the generated string (1-1000 characters)
+            </div>
+          </div>
+          <div className="config-field">
+            <label className="config-label">Character Sets:</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label className="config-checkbox">
+                <input
+                  type="checkbox"
+                  checked={localConfig.alphanumeric !== false}
+                  onChange={(e) => handleChange('alphanumeric', e.target.checked)}
+                />
+                <span>Alphanumeric (A-Z, a-z, 0-9)</span>
+              </label>
+              <label className="config-checkbox">
+                <input
+                  type="checkbox"
+                  checked={localConfig.numeric || false}
+                  onChange={(e) => handleChange('numeric', e.target.checked)}
+                />
+                <span>Numeric only (0-9)</span>
+              </label>
+              <label className="config-checkbox">
+                <input
+                  type="checkbox"
+                  checked={localConfig.symbols || false}
+                  onChange={(e) => handleChange('symbols', e.target.checked)}
+                />
+                <span>Include symbols (!@#$%^&*...)</span>
+              </label>
+            </div>
+            <div className="config-hint">
+              Select character sets to use in the random string
+            </div>
+          </div>
+        </>
+      );
+    }
+
     // Conditional Switch - needs cases
     if (nodeKind === 'Conditional.Switch') {
       const cases = localConfig.cases || [{ when: '', then: '' }];

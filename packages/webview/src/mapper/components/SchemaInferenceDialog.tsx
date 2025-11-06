@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { inferSchema, type SchemaInferenceOptions } from '../../../../core/src/mapper';
+import type { SchemaDefinition } from '../../../../core/src/types/schema';
 import './SchemaInferenceDialog.css';
 
 /**
@@ -12,6 +13,7 @@ export interface SchemaInferenceDialogProps {
   onSchemaInferred: (schema: any, side: 'source' | 'target') => void;
   side: 'source' | 'target';
   vscodeApi?: any;
+  availableSchemas?: SchemaDefinition[];
 }
 
 export function SchemaInferenceDialog({
@@ -19,9 +21,10 @@ export function SchemaInferenceDialog({
   onClose,
   onSchemaInferred,
   side,
-  vscodeApi
+  vscodeApi,
+  availableSchemas = []
 }: SchemaInferenceDialogProps) {
-  const [mode, setMode] = useState<'infer' | 'direct' | 'file'>('infer');
+  const [mode, setMode] = useState<'platform' | 'infer' | 'direct' | 'file'>('platform');
   const [jsonInput, setJsonInput] = useState('');
   const [schemaInput, setSchemaInput] = useState('');
   const [filePath, setFilePath] = useState('');
@@ -30,6 +33,9 @@ export function SchemaInferenceDialog({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [confidence, setConfidence] = useState<number>(0);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // Platform schema selection
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const [options, setOptions] = useState<SchemaInferenceOptions>({
     detectFormats: true,
@@ -160,6 +166,7 @@ export function SchemaInferenceDialog({
     setJsonInput('');
     setSchemaInput('');
     setFilePath('');
+    setSearchQuery('');
     setInferredSchema(null);
     setError('');
     setWarnings([]);
@@ -285,6 +292,16 @@ export function SchemaInferenceDialog({
           {/* Mode Tabs */}
           <div className="mode-tabs">
             <button
+              className={`mode-tab ${mode === 'platform' ? 'active' : ''}`}
+              onClick={() => {
+                setMode('platform');
+                setError('');
+                setInferredSchema(null);
+              }}
+            >
+              🏛️ Platform Schemas
+            </button>
+            <button
               className={`mode-tab ${mode === 'infer' ? 'active' : ''}`}
               onClick={() => {
                 setMode('infer');
@@ -304,17 +321,124 @@ export function SchemaInferenceDialog({
             >
               📄 Paste Schema
             </button>
-            <button
-              className={`mode-tab ${mode === 'file' ? 'active' : ''}`}
-              onClick={() => {
-                setMode('file');
-                setError('');
-                setInferredSchema(null);
-              }}
-            >
-              📁 Reference File
-            </button>
+            {mode !== 'platform' && (
+              <button
+                className={`mode-tab ${mode === 'file' ? 'active' : ''}`}
+                onClick={() => {
+                  setMode('file');
+                  setError('');
+                  setInferredSchema(null);
+                }}
+              >
+                📁 Reference File
+              </button>
+            )}
           </div>
+
+          {/* Platform Schemas Mode */}
+          {mode === 'platform' && (
+            <div className="dialog-section">
+              <div className="section-header">
+                <label className="section-label">
+                  Select a platform schema:
+                </label>
+              </div>
+
+              {/* Search filter */}
+              <input
+                type="text"
+                className="json-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search schemas by key, domain, or type..."
+                style={{
+                  fontFamily: 'inherit',
+                  height: 'auto',
+                  padding: '10px 12px',
+                  marginBottom: '12px'
+                }}
+              />
+
+              {/* Schema list */}
+              <div style={{
+                maxHeight: '300px',
+                overflowY: 'auto',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                padding: '8px'
+              }}>
+                {availableSchemas.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
+                    No platform schemas found. Make sure sys-schemas directory exists in your project.
+                  </div>
+                ) : (
+                  availableSchemas
+                    .filter(schema => {
+                      if (!searchQuery) return true;
+                      const query = searchQuery.toLowerCase();
+                      return (
+                        schema.key.toLowerCase().includes(query) ||
+                        schema.domain.toLowerCase().includes(query) ||
+                        schema.attributes.type.toLowerCase().includes(query) ||
+                        (schema.attributes.schema.title?.toLowerCase() || '').includes(query) ||
+                        (schema.attributes.schema.description?.toLowerCase() || '').includes(query)
+                      );
+                    })
+                    .map(schema => {
+                      const schemaKey = `${schema.domain}/${schema.flow}/${schema.key}@${schema.version}`;
+
+                      return (
+                        <div
+                          key={schemaKey}
+                          onClick={() => {
+                            // Directly use the schema when clicked
+                            const jsonSchema = schema.attributes.schema;
+                            onSchemaInferred(jsonSchema, side);
+                            onClose();
+                          }}
+                          style={{
+                            padding: '12px',
+                            marginBottom: '8px',
+                            border: '2px solid #e5e7eb',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            backgroundColor: 'white',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = '#cbd5e1';
+                            e.currentTarget.style.backgroundColor = '#f9fafb';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = '#e5e7eb';
+                            e.currentTarget.style.backgroundColor = 'white';
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, color: '#1f2937', marginBottom: '4px' }}>
+                            {schema.key}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                            {schema.domain} • {schema.attributes.type} • v{schema.version}
+                          </div>
+                          {schema.attributes.schema.title && (
+                            <div style={{ fontSize: '13px', color: '#374151', marginBottom: '2px' }}>
+                              {schema.attributes.schema.title}
+                            </div>
+                          )}
+                          {schema.attributes.schema.description && (
+                            <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
+                              {schema.attributes.schema.description.length > 150
+                                ? schema.attributes.schema.description.substring(0, 150) + '...'
+                                : schema.attributes.schema.description}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Infer Mode */}
           {mode === 'infer' && (
@@ -514,11 +638,11 @@ export function SchemaInferenceDialog({
             <button className="button button-primary" onClick={handleDirectSchema}>
               Validate Schema
             </button>
-          ) : (
+          ) : mode === 'file' ? (
             <button className="button button-primary" onClick={handleFileReference}>
               Reference File
             </button>
-          )}
+          ) : null}
           {inferredSchema && (
             <button className="button button-success" onClick={handleAccept}>
               ✓ Use This Schema

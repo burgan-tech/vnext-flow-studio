@@ -140,6 +140,7 @@ export type NodeKind =
   | 'String.Split'
   | 'String.Join'
   | 'String.Template'
+  | 'String.RandomString'
   // Conditional operations
   | 'Conditional.If'
   | 'Conditional.Switch'

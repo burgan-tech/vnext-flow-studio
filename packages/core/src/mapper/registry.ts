@@ -259,6 +259,17 @@ export const functoidRegistry: Record<NodeKind, FunctoidDefinition> = {
     inputTypes: [],
     outputType: 'string'
   },
+  'String.RandomString': {
+    kind: 'String.RandomString',
+    label: 'Random',
+    icon: '🎲',
+    category: 'string',
+    inputs: [], // No inputs - uses config parameters
+    output: 'String',
+    description: 'Generate random string with configurable length and character sets',
+    inputTypes: [],
+    outputType: 'string'
+  },
 
   // ========================================
   // LOGICAL FUNCTOIDS (Purple)
