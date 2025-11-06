@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Position } from '@xyflow/react';
-import type { TreeNode, JSONSchema } from '../../../../core/src/mapper';
+import type { TreeNode, JSONSchema, PartDefinition } from '../../../../core/src/mapper';
 import { SchemaTreeNode } from './SchemaTreeNode';
 import './SchemaNodeTreeView.css';
 
@@ -13,6 +13,7 @@ export interface SchemaNodeTreeViewProps {
     side: 'source' | 'target';
     schema: JSONSchema;
     tree: TreeNode;
+    parts?: Record<string, PartDefinition>; // Multi-part document parts
     onCollapsedHandlesChange?: (handleIds: string[], parentMap: Map<string, string>) => void;
     onAddProperty?: (path: string, propertyName: string, propertySchema: JSONSchema) => void;
     onEditProperty?: (path: string, propertyName: string, propertySchema: JSONSchema, oldPropertyName?: string) => void;
@@ -27,12 +28,13 @@ interface CollapseState {
 }
 
 export function SchemaNodeTreeView({ data }: SchemaNodeTreeViewProps) {
-  const { side, _schema, tree, onCollapsedHandlesChange, onAddProperty, onEditProperty, onRemoveProperty } = data;
+  const { side, _schema, tree, parts, onCollapsedHandlesChange, onAddProperty, onEditProperty, onRemoveProperty } = data;
   const [search, setSearch] = useState('');
   const [_collapseState, setCollapseState] = useState<CollapseState>({
     collapsedIds: new Set(),
     parentMap: new Map()
   });
+  const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set(Object.keys(parts || {})));
 
   // Handle collapse/expand events from tree nodes
   const handleCollapsedChange = (parentNodeId: string, isCollapsed: boolean, collapsedChildIds: string[]) => {
@@ -106,6 +108,31 @@ export function SchemaNodeTreeView({ data }: SchemaNodeTreeViewProps) {
   const filteredTree = search ? filterTree(tree, search) : tree;
   const hasResults = filteredTree !== null;
 
+  // Check if this is a multi-part document
+  const isMultiPart = parts && Object.keys(parts).length > 0;
+
+  // Toggle part expansion
+  const togglePart = (partName: string) => {
+    setExpandedParts(prev => {
+      const next = new Set(prev);
+      if (next.has(partName)) {
+        next.delete(partName);
+      } else {
+        next.add(partName);
+      }
+      return next;
+    });
+  };
+
+  // Group tree children by part name (for multi-part documents)
+  const partGroups = new Map<string, TreeNode>();
+  if (isMultiPart && filteredTree) {
+    for (const child of filteredTree.children) {
+      // Top-level children are part nodes (e.g., "header", "body")
+      partGroups.set(child.name, child);
+    }
+  }
+
   return (
     <div className={`schema-node-tree-view schema-node-${side}`}>
       {/* Header */}
@@ -129,7 +156,56 @@ export function SchemaNodeTreeView({ data }: SchemaNodeTreeViewProps) {
           <div className="schema-tree-empty">
             No fields found
           </div>
+        ) : isMultiPart ? (
+          // Multi-part document: render parts as sections
+          <div className="schema-tree-body">
+            {Array.from(partGroups.entries()).map(([partName, partNode]) => {
+              const partDef = parts![partName];
+              const isExpanded = expandedParts.has(partName);
+
+              return (
+                <div key={partName} className="schema-part-section">
+                  {/* Part header */}
+                  <div
+                    className="schema-part-header"
+                    onClick={() => togglePart(partName)}
+                  >
+                    <button className="schema-part-toggle">
+                      {isExpanded ? '▼' : '▶'}
+                    </button>
+                    <span className="schema-part-name">
+                      {partDef?.label || partName}
+                    </span>
+                    <span className="schema-part-badge">
+                      {partName}
+                    </span>
+                  </div>
+
+                  {/* Part content */}
+                  {isExpanded && (
+                    <div className="schema-part-body">
+                      {partNode.children.map((child) => (
+                        <SchemaTreeNode
+                          key={child.id}
+                          node={child}
+                          depth={0}
+                          handleType={handleType}
+                          handlePosition={handlePosition}
+                          isSource={isSource}
+                          onCollapsedChange={handleCollapsedChange}
+                          onAddProperty={onAddProperty}
+                          onEditProperty={onEditProperty}
+                          onRemoveProperty={onRemoveProperty}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ) : (
+          // Single schema: render tree normally
           <div className="schema-tree-body">
             {filteredTree.children.map((child) => (
               <SchemaTreeNode
@@ -152,7 +228,7 @@ export function SchemaNodeTreeView({ data }: SchemaNodeTreeViewProps) {
       {/* Footer */}
       <div className="schema-node-tree-footer">
         <span className="field-count">
-          {tree.type} schema
+          {isMultiPart ? `${Object.keys(parts!).length} parts` : `${tree.type} schema`}
         </span>
         {search && hasResults && (
           <span className="search-indicator">

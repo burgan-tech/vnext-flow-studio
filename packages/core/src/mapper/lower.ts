@@ -152,13 +152,42 @@ export function cleanOrphanedEdges(
 }
 
 /**
+ * Build composite schema from multi-part definitions
+ */
+function buildCompositeSchemaForLowering(parts: Record<string, import('./types').PartDefinition>): JSONSchema | undefined {
+  const properties: Record<string, JSONSchema> = {};
+  let hasAnySchema = false;
+
+  for (const [partName, partDef] of Object.entries(parts)) {
+    if (partDef.schema) {
+      properties[partName] = partDef.schema;
+      hasAnySchema = true;
+    }
+  }
+
+  if (!hasAnySchema) {
+    return undefined;
+  }
+
+  return {
+    type: 'object',
+    properties,
+    additionalProperties: false
+  };
+}
+
+/**
  * Lower MapSpec to MapperIR
  */
 export function lowerMapSpec(mapSpec: MapSpec): MapperIR {
   // Clean up orphaned edges before processing
-  // Use embedded schemas if available
-  const sourceSchema = mapSpec.schemas.sourceSchema;
-  const targetSchema = mapSpec.schemas.targetSchema;
+  // Build composite schemas from parts
+  const sourceSchema = mapSpec.schemaParts?.source
+    ? buildCompositeSchemaForLowering(mapSpec.schemaParts.source)
+    : undefined;
+  const targetSchema = mapSpec.schemaParts?.target
+    ? buildCompositeSchemaForLowering(mapSpec.schemaParts.target)
+    : undefined;
   const cleanedMapSpec = cleanOrphanedEdges(mapSpec, sourceSchema, targetSchema);
   const lowerer = new MapSpecLowerer(cleanedMapSpec);
   return lowerer.lower();
@@ -218,7 +247,10 @@ class MapSpecLowerer {
 
     return {
       version: '1.0',
-      schemas: this.mapSpec.schemas,
+      schemas: {
+        source: 'composite',  // Multi-part composite schema
+        target: 'composite'   // Multi-part composite schema
+      },
       mappings,
       sharedExpressions: sharedExpressions.length > 0 ? sharedExpressions : undefined,
       metadata: {

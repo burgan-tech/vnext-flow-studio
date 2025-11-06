@@ -109,3 +109,60 @@
 .schema-node-target .tree-node-row.has-handle:hover {
   background: #d1fae5;
 }
+
+/* Part sections for multi-part documents */
+.schema-part-section {
+  margin-bottom: 8px;
+}
+
+.schema-part-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f3f4f6;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.schema-part-header:hover {
+  background: #e5e7eb;
+}
+
+.schema-part-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  line-height: 1;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.schema-part-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.schema-part-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #e5e7eb;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.schema-part-body {
+  padding: 4px 0;
+}

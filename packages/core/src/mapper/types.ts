@@ -65,12 +65,32 @@ export interface OverlayMetadata {
 }
 
 /**
+ * Part definition for multi-part documents
+ * Each part represents a named section of the input/output document
+ * (e.g., header, body, metadata, payload)
+ */
+export interface PartDefinition {
+  schemaRef: string;           // Path to JSON Schema file or 'custom' for embedded
+  schema?: JSONSchema;         // Loaded/embedded schema (runtime)
+  label?: string;              // Display name in UI (e.g., "HTTP Headers", "Request Body")
+}
+
+/**
+ * Schema parts - multi-part document structure
+ * Replaces single source/target with named parts
+ */
+export interface SchemaParts {
+  source: Record<string, PartDefinition>;   // e.g., { header: {...}, body: {...} }
+  target: Record<string, PartDefinition>;   // e.g., { targetHeader: {...}, targetBody: {...} }
+}
+
+/**
  * MapSpec - Semantic data model for a mapper
  */
 export interface MapSpec {
   version: string;
   metadata: MapperMetadata;
-  schemas: SchemaReferences;
+  schemaParts: SchemaParts;
   schemaOverlays?: SchemaOverlays;
   nodes: MapSpecNode[];
   edges: Edge[];
@@ -430,3 +450,46 @@ export interface InferredSchema {
   warnings: string[];
   examples: number; // Number of examples used
 }
+
+/**
+ * Wizard template for initializing mapper parts
+ * Provides predefined part configurations for common use cases
+ */
+export interface WizardTemplate {
+  id: string;                                      // Unique template ID (e.g., 'http', 'envelope')
+  name: string;                                    // Display name (e.g., 'HTTP Request/Response')
+  description?: string;                            // Optional description
+  icon?: string;                                   // Optional icon/emoji
+  source: Record<string, string>;                  // Source part names → labels
+  target: Record<string, string>;                  // Target part names → labels
+}
+
+/**
+ * Predefined wizard templates for common scenarios
+ */
+export const WIZARD_TEMPLATES: WizardTemplate[] = [
+  {
+    id: 'http',
+    name: 'HTTP Request/Response',
+    description: 'Map HTTP request to response with separate headers and body',
+    icon: '🌐',
+    source: { header: 'Request Headers', body: 'Request Body' },
+    target: { targetHeader: 'Response Headers', targetBody: 'Response Body' }
+  },
+  {
+    id: 'envelope',
+    name: 'Message Envelope',
+    description: 'Transform message with metadata and payload structure',
+    icon: '✉️',
+    source: { metadata: 'Source Metadata', payload: 'Source Payload' },
+    target: { targetMetadata: 'Target Metadata', targetPayload: 'Target Payload' }
+  },
+  {
+    id: 'custom',
+    name: 'Start from Scratch',
+    description: 'Create your own custom part structure',
+    icon: '✨',
+    source: {},
+    target: {}
+  }
+];

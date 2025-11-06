@@ -90,9 +90,9 @@ export class MapperModel extends EventEmitter {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
-      schemas: {
-        source: '',
-        target: ''
+      schemaParts: {
+        source: {},
+        target: {}
       },
       nodes: [],
       edges: [],
@@ -108,7 +108,7 @@ export class MapperModel extends EventEmitter {
       const mapSpec = JSON.parse(content) as MapSpec;
 
       // Validate basic structure
-      if (!mapSpec.version || !mapSpec.metadata || !mapSpec.schemas) {
+      if (!mapSpec.version || !mapSpec.metadata || !mapSpec.schemaParts) {
         throw new Error('Invalid MapSpec format');
       }
 

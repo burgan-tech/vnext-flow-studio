@@ -32,6 +32,27 @@ export interface FunctoidNodeData {
 }
 
 /**
+ * Build composite schema from multi-part definitions
+ * Creates a single object schema with each part as a property
+ */
+function buildCompositeSchema(parts: Record<string, import('./types').PartDefinition>): JSONSchema {
+  const properties: Record<string, JSONSchema> = {};
+
+  for (const [partName, partDef] of Object.entries(parts)) {
+    if (partDef.schema) {
+      properties[partName] = partDef.schema;
+    }
+  }
+
+  return {
+    type: 'object',
+    properties,
+    additionalProperties: false,
+    title: 'Composite Document'
+  };
+}
+
+/**
  * Convert MapSpec to React Flow format
  */
 export function mapSpecToReactFlow(
@@ -43,10 +64,18 @@ export function mapSpecToReactFlow(
   const nodes: Node[] = [];
   const edges: ReactFlowEdge[] = [];
 
+  // Build composite schemas from parts
+  const compositeSourceSchema = sourceSchema || (mapSpec.schemaParts?.source
+    ? buildCompositeSchema(mapSpec.schemaParts.source)
+    : undefined);
+  const compositeTargetSchema = targetSchema || (mapSpec.schemaParts?.target
+    ? buildCompositeSchema(mapSpec.schemaParts.target)
+    : undefined);
+
   // Add source schema node if schema is provided
-  if (sourceSchema) {
+  if (compositeSourceSchema) {
     // Apply overlays to source schema at their specified paths
-    const enhancedSourceSchema = applyOverlaysToSchema(sourceSchema, schemaOverlays?.source);
+    const enhancedSourceSchema = applyOverlaysToSchema(compositeSourceSchema, schemaOverlays?.source);
     const sourceUserAddedPaths = extractUserAddedPaths(schemaOverlays?.source);
 
     const sourceTree = buildSchemaTree(
@@ -61,17 +90,18 @@ export function mapSpecToReactFlow(
       position: { x: 50, y: 50 },
       data: {
         side: 'source',
-        schema: sourceSchema,
-        tree: sourceTree
-      } as SchemaNodeData,
+        schema: compositeSourceSchema,
+        tree: sourceTree,
+        parts: mapSpec.schemaParts?.source // Store part definitions for UI
+      } as SchemaNodeData & { parts?: Record<string, import('./types').PartDefinition> },
       draggable: true
     });
   }
 
   // Add target schema node if schema is provided
-  if (targetSchema) {
+  if (compositeTargetSchema) {
     // Apply overlays to target schema at their specified paths
-    const enhancedTargetSchema = applyOverlaysToSchema(targetSchema, schemaOverlays?.target);
+    const enhancedTargetSchema = applyOverlaysToSchema(compositeTargetSchema, schemaOverlays?.target);
     const targetUserAddedPaths = extractUserAddedPaths(schemaOverlays?.target);
 
     const targetTree = buildSchemaTree(
@@ -86,9 +116,10 @@ export function mapSpecToReactFlow(
       position: { x: 950, y: 50 },
       data: {
         side: 'target',
-        schema: targetSchema,
-        tree: targetTree
-      } as SchemaNodeData,
+        schema: compositeTargetSchema,
+        tree: targetTree,
+        parts: mapSpec.schemaParts?.target // Store part definitions for UI
+      } as SchemaNodeData & { parts?: Record<string, import('./types').PartDefinition> },
       draggable: true
     });
   }

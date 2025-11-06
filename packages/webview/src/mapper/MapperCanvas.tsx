@@ -14,7 +14,7 @@ import {
   type EdgeChange
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Upload, Download, Save, LayoutGrid, Play, Info, GitMerge } from 'lucide-react';
+import { Upload, Download, Save, LayoutGrid, Play, Info, GitMerge, Package } from 'lucide-react';
 
 import {
   mapSpecToReactFlow,
@@ -31,8 +31,8 @@ import {
   findAutoMappings,
   summarizeAutoMapResults
 } from '../../../core/src/mapper';
-import type { JSONSchema, MapSpec, NodeKind, GraphLayout, SchemaOverlays, SchemaOverlay } from '../../../core/src/mapper';
-import { SchemaNodeTreeView, FunctoidNode, SchemaInferenceDialog, FunctoidPalette, FunctoidConfigPanel, ExecutionPreviewPanel } from './components';
+import type { JSONSchema, MapSpec, NodeKind, GraphLayout, SchemaOverlays, SchemaOverlay, PartDefinition } from '../../../core/src/mapper';
+import { SchemaNodeTreeView, FunctoidNode, SchemaInferenceDialog, FunctoidPalette, FunctoidConfigPanel, ExecutionPreviewPanel, PartManagerPanel } from './components';
 import { traceUpstreamDependencies } from './utils/highlightTracer';
 import { HighlightContext } from './contexts/HighlightContext';
 // Sample schemas removed - users must import or reference schemas explicitly
@@ -96,6 +96,11 @@ function MapperCanvasInner() {
 
   // Execution preview state
   const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
+
+  // Part manager state
+  const [partManagerOpen, setPartManagerOpen] = useState(false);
+  const [partBindingSide, setPartBindingSide] = useState<'source' | 'target'>('source');
+  const [partBindingName, setPartBindingName] = useState<string>('');
 
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -1301,6 +1306,42 @@ function MapperCanvasInner() {
   }, []);
 
   /**
+   * Handle part management
+   */
+  const handleUpdateParts = useCallback((source: Record<string, PartDefinition>, target: Record<string, PartDefinition>) => {
+    if (!mapSpec) return;
+
+    // Update MapSpec with new parts
+    const updatedMapSpec: MapSpec = {
+      ...mapSpec,
+      schemaParts: {
+        source,
+        target
+      }
+    };
+
+    setMapSpec(updatedMapSpec);
+
+    // Rebuild schema nodes with new parts
+    // This will trigger a re-render of schema nodes with the new composite schema
+    initializeFromMapSpec(updatedMapSpec, sourceSchema, targetSchema, null);
+
+    // Save changes
+    if (vscodeApi && !isLoadingRef.current) {
+      vscodeApi.postMessage({ type: 'save', mapSpec: updatedMapSpec });
+    }
+  }, [mapSpec, sourceSchema, targetSchema, initializeFromMapSpec]);
+
+  const handleBindSchema = useCallback((side: 'source' | 'target', partName: string) => {
+    // Close part manager and open schema inference for the specific part
+    setPartManagerOpen(false);
+    setPartBindingSide(side);
+    setPartBindingName(partName);
+    setInferenceDialogSide(side);
+    setInferenceDialogOpen(true);
+  }, []);
+
+  /**
    * Request auto-layout from extension
    */
   const handleAutoLayout = useCallback(() => {
@@ -1524,62 +1565,88 @@ function MapperCanvasInner() {
       return;
     }
 
-    // Get current schemas from mapSpec (not stale state)
-    const currentSourceSchema = mapSpec?.schemas.sourceSchema || sourceSchema;
-    const currentTargetSchema = mapSpec?.schemas.targetSchema || targetSchema;
+    // Check if we're binding to a specific part
+    const isPartBinding = partBindingName && partBindingName.trim() !== '';
 
-    // Update schema state
-    const newSourceSchema = side === 'source' ? schema : currentSourceSchema;
-    const newTargetSchema = side === 'target' ? schema : currentTargetSchema;
+    if (isPartBinding) {
+      // Bind schema to specific part
+      if (!mapSpec) return;
 
-    setSourceSchema(newSourceSchema);
-    setTargetSchema(newTargetSchema);
+      const updatedParts = {
+        source: { ...mapSpec.schemaParts.source },
+        target: { ...mapSpec.schemaParts.target }
+      };
 
-    // Update MapSpec with new schema reference AND embedded schema
-    const updatedMapSpec: MapSpec = mapSpec ? {
-      ...mapSpec,
-      schemas: {
-        source: side === 'source' ? 'custom' : mapSpec.schemas.source,
-        target: side === 'target' ? 'custom' : mapSpec.schemas.target,
-        sourceSchema: newSourceSchema || undefined,
-        targetSchema: newTargetSchema || undefined
-      },
-      nodes: nodes.filter(n => n.type === 'functoid').map(n => reactFlowToMapSpecNode(n)!),
-      edges: edges.map(e => reactFlowToMapSpecEdge(e))
-    } : {
-      version: '1.0',
-      metadata: {
-        name: 'New Mapper',
-        description: '',
-        version: '1.0.0',
-        source: 'Source Schema',
-        target: 'Target Schema',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      schemas: {
-        source: side === 'source' ? 'custom' : 'none',
-        target: side === 'target' ? 'custom' : 'none',
-        sourceSchema: newSourceSchema || undefined,
-        targetSchema: newTargetSchema || undefined
-      },
-      nodes: [],
-      edges: []
-    };
+      // Update the specific part with the new schema
+      if (side === 'source') {
+        updatedParts.source[partBindingName] = {
+          ...(updatedParts.source[partBindingName] || {}),
+          schemaRef: 'custom',
+          schema
+        };
+      } else {
+        updatedParts.target[partBindingName] = {
+          ...(updatedParts.target[partBindingName] || {}),
+          schemaRef: 'custom',
+          schema
+        };
+      }
 
-    // Rebuild schema nodes with new schema
-    const { nodes: rfNodes, edges: rfEdges } = mapSpecToReactFlow(
-      updatedMapSpec,
-      newSourceSchema || { type: 'object', properties: {} },
-      newTargetSchema || { type: 'object', properties: {} },
-      schemaOverlays
-    );
+      // Reset part binding state
+      setPartBindingName('');
 
-    setMapSpec(updatedMapSpec);
-    setNodes(rfNodes);
-    setEdges(rfEdges);
+      // Update parts using the existing handler
+      handleUpdateParts(updatedParts.source, updatedParts.target);
+    } else {
+      // Bind schema to entire side (legacy behavior for single-part documents)
+      const newSourceSchema = side === 'source' ? schema : sourceSchema;
+      const newTargetSchema = side === 'target' ? schema : targetSchema;
+
+      setSourceSchema(newSourceSchema);
+      setTargetSchema(newTargetSchema);
+
+      // Update MapSpec with new schema in parts structure
+      const updatedMapSpec: MapSpec = mapSpec ? {
+        ...mapSpec,
+        schemaParts: {
+          source: mapSpec.schemaParts?.source || {},
+          target: mapSpec.schemaParts?.target || {}
+        },
+        nodes: nodes.filter(n => n.type === 'functoid').map(n => reactFlowToMapSpecNode(n)!),
+        edges: edges.map(e => reactFlowToMapSpecEdge(e))
+      } : {
+        version: '1.0',
+        metadata: {
+          name: 'New Mapper',
+          description: '',
+          version: '1.0.0',
+          source: 'Source Schema',
+          target: 'Target Schema',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        schemaParts: {
+          source: {},
+          target: {}
+        },
+        nodes: [],
+        edges: []
+      };
+
+      // Rebuild schema nodes with new schema
+      const { nodes: rfNodes, edges: rfEdges } = mapSpecToReactFlow(
+        updatedMapSpec,
+        newSourceSchema || { type: 'object', properties: {} },
+        newTargetSchema || { type: 'object', properties: {} },
+        schemaOverlays
+      );
+
+      setMapSpec(updatedMapSpec);
+      setNodes(rfNodes);
+      setEdges(rfEdges);
+    }
     // Auto-save will trigger from useEffect watching nodes/edges
-  }, [mapSpec, nodes, edges, sourceSchema, targetSchema, schemaOverlays, setNodes, setEdges]);
+  }, [mapSpec, nodes, edges, sourceSchema, targetSchema, schemaOverlays, partBindingName, setNodes, setEdges, handleUpdateParts]);
 
   return (
     <div className="mapper-canvas-container">
@@ -1590,6 +1657,14 @@ function MapperCanvasInner() {
       <div className="mapper-main-area">
         {/* Toolbar */}
         <div className="mapper-toolbar">
+          <button
+            onClick={() => setPartManagerOpen(true)}
+            className="toolbar-button toolbar-button-secondary"
+            title="Manage document parts (multi-part mapping)"
+          >
+            <Package size={16} />
+            <span>Manage Parts</span>
+          </button>
           <button
             onClick={() => handleOpenInference('source')}
             className="toolbar-button toolbar-button-secondary"
@@ -1726,6 +1801,17 @@ function MapperCanvasInner() {
           isOpen={previewPanelOpen}
           onClose={() => setPreviewPanelOpen(false)}
           mapSpec={mapSpec}
+        />
+      )}
+
+      {/* Part Manager Panel */}
+      {partManagerOpen && mapSpec && (
+        <PartManagerPanel
+          sourceParts={mapSpec.schemaParts?.source || {}}
+          targetParts={mapSpec.schemaParts?.target || {}}
+          onUpdateParts={handleUpdateParts}
+          onBindSchema={handleBindSchema}
+          onClose={() => setPartManagerOpen(false)}
         />
       )}
     </div>
