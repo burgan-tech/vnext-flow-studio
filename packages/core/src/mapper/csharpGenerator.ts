@@ -103,13 +103,31 @@ class CSharpGenerator {
       lines.push('');
     }
 
-    // Start building the result object
-    lines.push('var result = new JsonObject();');
+    // Collect unique target parts from mappings
+    const targetParts = new Set<string>();
+    for (const mapping of simpleMappings) {
+      const parts = mapping.target.split('.').filter(p => p.length > 0);
+      if (parts.length > 0) {
+        targetParts.add(parts[0]);
+      }
+    }
+    for (const [arrayName] of arrayMappings.entries()) {
+      const parts = arrayName.split('.').filter(p => p.length > 0);
+      if (parts.length > 0) {
+        targetParts.add(parts[0]);
+      }
+    }
+
+    // Initialize target part variables
+    for (const part of Array.from(targetParts).sort()) {
+      lines.push(`var ${part} = new JsonObject();`);
+    }
     lines.push('');
 
     // Add simple mappings
     for (const mapping of simpleMappings) {
-      lines.push(`result["${mapping.target}"] = ${mapping.expr};`);
+      const assignment = this.generateNestedAssignment('', mapping.target, mapping.expr);
+      lines.push(`${assignment};`);
     }
 
     // Add array mappings
@@ -117,22 +135,34 @@ class CSharpGenerator {
       const sourceArray = fields[0].sourceArray;
 
       // Generate LINQ Select for array transformation
-      // Need to cast to JsonArray and generate proper field access
       const sourceArrayAccess = this.generateFieldAccess(sourceArray);
-      lines.push(`result["${arrayName}"] = new JsonArray(((JsonArray)${sourceArrayAccess}).Select(item => new JsonObject`);
-      lines.push('{');
-
-      const fieldMappings = fields.map((f) => {
+      const arrayValue = `new JsonArray(((JsonArray)${sourceArrayAccess}).Select(item => new JsonObject\n{\n${fields.map((f) => {
         const expr = this.generateExpressionForArrayContext(f.expr);
         return `    ["${f.field}"] = ${expr}`;
-      });
+      }).join(',\n')}\n}))`;
 
-      lines.push(fieldMappings.join(',\n'));
-      lines.push('}));');
+      const assignment = this.generateNestedAssignment('', arrayName, arrayValue);
+      lines.push(assignment.replace('; ', ';\n'));
     }
 
     lines.push('');
-    lines.push('return result;');
+
+    // Return target parts
+    if (targetParts.size === 1) {
+      // Single target part - return it directly
+      const singlePart = Array.from(targetParts)[0];
+      lines.push(`return ${singlePart};`);
+    } else if (targetParts.size > 1) {
+      // Multiple target parts - return as JsonObject with part properties
+      lines.push('return new JsonObject');
+      lines.push('{');
+      const partReturns = Array.from(targetParts).sort().map(part => `    ["${part}"] = ${part}`);
+      lines.push(partReturns.join(',\n'));
+      lines.push('};');
+    } else {
+      // No mappings - return empty object
+      lines.push('return new JsonObject();');
+    }
 
     return comments.join('\n') + lines.join('\n');
   }
@@ -187,9 +217,34 @@ class CSharpGenerator {
   }
 
   /**
+   * Generate nested assignment for target paths
+   * For multi-part documents: "body.loginURI" -> body["loginURI"] = value
+   * Where "body" is the target part variable name
+   */
+  private generateNestedAssignment(rootVar: string, path: string, value: string): string {
+    const parts = path.split('.').filter(p => p.length > 0);
+
+    if (parts.length === 0) {
+      return `${rootVar} = ${value}`;
+    }
+
+    if (parts.length === 1) {
+      // Top-level part: body = value
+      return `${parts[0]} = ${value}`;
+    }
+
+    // For multi-part: first part is the variable, rest are property path
+    // "body.loginURI" -> body["loginURI"] = value
+    const varName = parts[0];
+    const propertyPath = parts.slice(1).map(p => `["${p}"]`).join('');
+
+    return `${varName}${propertyPath} = ${value}`;
+  }
+
+  /**
    * Generate field access (JObject property access)
-   * e.g., "customer.name" -> source["customer"]["name"]
-   * e.g., "items" -> source["items"]
+   * For multi-part documents: "body.name" -> body["name"]
+   * For simple paths: "customer.name" -> source["customer"]["name"]
    */
   private generateFieldAccess(path: string): string {
     // Remove array indices
@@ -200,10 +255,24 @@ class CSharpGenerator {
 
     // Split into parts and filter out empty segments
     const parts = cleanPath.split('.').filter(p => p.length > 0);
-    let result = 'source';
 
-    for (const part of parts) {
-      result += `["${part}"]`;
+    if (parts.length === 0) {
+      return 'source';
+    }
+
+    // For multi-part documents, first part is the variable name (e.g., "body", "header")
+    // Use it directly as a variable instead of source["part"]
+    const varName = parts[0];
+
+    if (parts.length === 1) {
+      // Just the part name: "body" -> body
+      return varName;
+    }
+
+    // Nested access: "body.name" -> body["name"]
+    let result = varName;
+    for (let i = 1; i < parts.length; i++) {
+      result += `["${parts[i]}"]`;
     }
 
     return result;

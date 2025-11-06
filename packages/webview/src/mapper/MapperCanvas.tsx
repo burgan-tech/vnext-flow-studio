@@ -451,9 +451,9 @@ function MapperCanvasInner() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         },
-        schemas: {
-          source: 'none',
-          target: 'none'
+        schemaParts: {
+          source: {},
+          target: {}
         },
         nodes: [],
         edges: []
@@ -480,7 +480,8 @@ function MapperCanvasInner() {
       switch (message.type) {
         case 'init': {
           console.log('Received init message');
-          console.log('Schema refs:', message.mapSpec.schemas?.source, message.mapSpec.schemas?.target);
+          console.log('Source parts:', Object.keys(message.mapSpec.schemaParts?.source || {}).join(', ') || 'none');
+          console.log('Target parts:', Object.keys(message.mapSpec.schemaParts?.target || {}).join(', ') || 'none');
           console.log('Has sourceSchema:', !!message.sourceSchema);
           console.log('Has targetSchema:', !!message.targetSchema);
           console.log('Has graphLayout:', !!message.graphLayout);
@@ -544,66 +545,9 @@ function MapperCanvasInner() {
           break;
 
         case 'schemaLoaded':
-          // Handle schema loaded from file reference
-          if ((message as any).schema && (message as any).side && (message as any).path) {
-            const loadedSchema = (message as any).schema;
-            const side = (message as any).side as 'source' | 'target';
-            const filePath = (message as any).path;
-
-            // Update schema state for display (but won't be saved to file)
-            const newSourceSchema = side === 'source' ? loadedSchema : sourceSchema;
-            const newTargetSchema = side === 'target' ? loadedSchema : targetSchema;
-
-            setSourceSchema(newSourceSchema);
-            setTargetSchema(newTargetSchema);
-
-            // Update MapSpec with file reference path ONLY (no embedded schema)
-            const updatedMapSpec: MapSpec = mapSpec ? {
-              ...mapSpec,
-              schemas: {
-                source: side === 'source' ? filePath : mapSpec.schemas.source,
-                target: side === 'target' ? filePath : mapSpec.schemas.target,
-                // Don't embed schemas for file references
-                sourceSchema: undefined,
-                targetSchema: undefined
-              },
-              nodes: nodes.filter(n => n.type === 'functoid').map(n => reactFlowToMapSpecNode(n)!),
-              edges: edges.map(e => reactFlowToMapSpecEdge(e))
-            } : {
-              version: '1.0',
-              metadata: {
-                name: 'New Mapper',
-                description: '',
-                version: '1.0.0',
-                source: 'Source Schema',
-                target: 'Target Schema',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              },
-              schemas: {
-                source: side === 'source' ? filePath : 'none',
-                target: side === 'target' ? filePath : 'none',
-                // Don't embed schemas for file references
-                sourceSchema: undefined,
-                targetSchema: undefined
-              },
-              nodes: [],
-              edges: []
-            };
-
-            // Rebuild schema nodes with new schema
-            const { nodes: rfNodes, edges: rfEdges } = mapSpecToReactFlow(
-              updatedMapSpec,
-              newSourceSchema || { type: 'object', properties: {} },
-              newTargetSchema || { type: 'object', properties: {} },
-              schemaOverlays
-            );
-
-            setMapSpec(updatedMapSpec);
-            setNodes(rfNodes);
-            setEdges(rfEdges);
-            // Auto-save will trigger from useEffect watching nodes/edges
-          }
+          // File reference schema loading is not supported with multi-part model
+          // Schemas should be bound directly to parts via SchemaInferenceDialog
+          console.warn('schemaLoaded message received but file references are not supported with multi-part model');
           break;
 
         case 'platformSchemas':
@@ -638,20 +582,11 @@ function MapperCanvasInner() {
       return;
     }
 
-    // Only embed schemas when they're custom (not file references)
-    // File references should only store the path, not the full schema
-    const shouldEmbedSource = mapSpec.schemas.source === 'custom';
-    const shouldEmbedTarget = mapSpec.schemas.target === 'custom';
-
-    // Update MapSpec with current nodes, edges, schemas, and extensions
+    // Update MapSpec with current nodes, edges, and overlays
+    // Schemas are embedded in schemaParts, no need for separate handling
     // Don't update timestamp - let user decide when to update metadata
     const updatedMapSpec: MapSpec = {
       ...mapSpec,
-      schemas: {
-        ...mapSpec.schemas,
-        sourceSchema: shouldEmbedSource ? (sourceSchema || undefined) : undefined,
-        targetSchema: shouldEmbedTarget ? (targetSchema || undefined) : undefined
-      },
       schemaOverlays: Object.keys(schemaOverlays).length > 0 ? schemaOverlays : undefined,
       nodes: nodes
         .filter(n => n.type === 'functoid')
@@ -1084,17 +1019,10 @@ function MapperCanvasInner() {
 
     // Debounce saves
     const timer = setTimeout(() => {
-      // Access current nodes/edges directly here instead of through saveMapSpec closure
-      const shouldEmbedSource = mapSpec.schemas.source === 'custom';
-      const shouldEmbedTarget = mapSpec.schemas.target === 'custom';
-
+      // Update MapSpec with current state
+      // Schemas are embedded in schemaParts, no separate handling needed
       const updatedMapSpec: MapSpec = {
         ...mapSpec,
-        schemas: {
-          ...mapSpec.schemas,
-          sourceSchema: shouldEmbedSource ? (sourceSchema || undefined) : undefined,
-          targetSchema: shouldEmbedTarget ? (targetSchema || undefined) : undefined
-        },
         schemaOverlays: Object.keys(schemaOverlays).length > 0 ? schemaOverlays : undefined,
         nodes: nodes
           .filter(n => n.type === 'functoid')
