@@ -67,6 +67,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Workflow Editor - Stale Content Cache**: Fixed critical issue where editor showed outdated workflow content
+  - **Problem**: When closing and reopening workflow files, editor displayed stale cached content instead of current file contents
+  - **Root Cause**: Core library's `VSCodeModelIntegration` maintains a model cache for cross-model queries (subflows, references) and returned cached models without reloading from disk
+  - **Solution**: Force `model.load()` after retrieving model from cache to refresh content from disk
+  - **Impact**: Preserves cache benefits for cross-model queries while ensuring editor always shows fresh file content
+  - Also applies to external file changes detected by file watchers
+
 - **Mapper Code Generation - Nested Objects**: Fixed flat key generation to produce proper nested object structures
   - **JSONata Generator**: Replaced flat keys like `"body.address.city"` with nested `{ body: { address: { city: ... } } }`
     - Added `buildNestedObject()` method to convert dotted paths to nested objects

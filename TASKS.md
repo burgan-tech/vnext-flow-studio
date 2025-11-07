@@ -18,31 +18,33 @@ This file tracks ongoing development tasks, known issues, and planned improvemen
   - Added code comments explaining the behavior
   - Documented in CHANGELOG with workarounds
 
+### Completed ✅ (Current Session)
+- [x] Fixed critical workflow editor caching issue
+  - **Issue**: Editor showed stale cached content even after closing and reopening
+  - **Root Cause**: `VSCodeModelIntegration` cache returned stale models without reloading from disk
+  - **Solution**: Force `model.load()` after getting model from cache to refresh from disk
+  - **Impact**: Models stay cached for cross-model queries but always show fresh content in editor
+  - Files: `ModelBridge.ts` (lines 252-262), `extension.ts` (external change detection)
+
 ### In Progress 🚧
-- [ ] Remove debug logging after testing
-  - Debug console.log statements added throughout mapper creation flow
-  - Files: `commands.ts`, `NewMapperDialog.ts`, `MapperEditorProvider.ts`
-  - Keep for now but should clean up before release
+None currently
 
 ## Pending Tasks 📋
 
 ### High Priority
-- [ ] Test new mapper creation dialog thoroughly
-  - Test with different folder structures
-  - Test error handling (duplicate names, invalid characters)
-  - Test with "Open in Editor" checkbox both checked and unchecked
-  - Verify file is created correctly and opens properly
+None currently
 
 ### Medium Priority
+- [ ] Consider removing verbose debug logging
+  - Debug logs added for cache investigation: `[ModelBridge] File content loaded from disk`, mismatch detection
+  - These are helpful for troubleshooting but could be reduced for production
+  - Consider keeping key logs and removing verbose ones
+
+### Low Priority
 - [ ] Improve VS Code preview mode handling
   - Investigate if we can programmatically disable preview mode for mapper files
   - Consider adding a notification on first use suggesting to disable preview mode
   - Add to extension README/docs
-
-### Low Priority
-- [ ] Clean up debug logging before release
-  - Remove or gate behind debug flag: all console.log statements added in this session
-  - Consider adding a proper logging framework with levels (debug, info, warn, error)
 
 ## Known Issues 🐛
 
@@ -53,7 +55,7 @@ This file tracks ongoing development tasks, known issues, and planned improvemen
   - Not a bug in our extension - VS Code default behavior
 
 ### Under Investigation
-- None currently
+None currently
 
 ## Future Enhancements 💡
 
@@ -80,6 +82,10 @@ This file tracks ongoing development tasks, known issues, and planned improvemen
 - VS Code's `CustomTextEditorProvider` reuses panels when files are opened in preview mode
 - Setting `retainContextWhenHidden: false` helps but doesn't fully solve preview mode issue
 - Panel disposal happens when a preview tab is replaced by another file
+- **Cache Architecture**: Core's `VSCodeModelIntegration` maintains a model cache for cross-model queries (subflows, references)
+  - Cache is intentional and should NOT be cleared
+  - Solution: Force `model.load()` after getting cached model to refresh from disk
+  - This preserves cache benefits while ensuring fresh content in editor
 
 ### Decisions Made
 - Decided to document preview mode as "Known Issue" rather than trying to work around it
@@ -89,4 +95,4 @@ This file tracks ongoing development tasks, known issues, and planned improvemen
 ---
 
 **Last Updated:** 2025-11-07
-**Session:** New Mapper Dialog Implementation
+**Session:** New Mapper Dialog Implementation + Workflow Caching Fix

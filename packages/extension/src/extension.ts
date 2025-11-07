@@ -209,7 +209,7 @@ async function openFlowEditor(
 
           // Only reload if this is an external change
           if (!isInternalChange) {
-            console.log('External file change detected, reloading model:', changedUri.path);
+            console.log('[FlowEditor] External file change detected, reloading:', changedUri.path);
 
             // Reload the model
             await model.load({
@@ -220,12 +220,11 @@ async function openFlowEditor(
 
             // Properly update the webview with the new model data
             await modelBridge.updateWebviewForModel(model, panel);
-          } else {
-            console.log('File change from internal save, ignoring:', changedUri.path);
+            console.log('[FlowEditor] External changes reloaded and applied');
           }
         }
       } catch (error) {
-        console.warn('File change handling error:', error);
+        console.error('[FlowEditor] File change handling error:', error);
       }
     };
 

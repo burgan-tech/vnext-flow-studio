@@ -216,6 +216,8 @@ export class ModelBridge {
    */
   async openWorkflow(flowUri: vscode.Uri, panel: vscode.WebviewPanel): Promise<WorkflowModel> {
     try {
+      console.log('[ModelBridge] openWorkflow called for:', flowUri.fsPath);
+
       // Get the workspace folder for this file to use as basePath
       const workspaceFolder = vscode.workspace.getWorkspaceFolder(flowUri);
 
@@ -230,7 +232,7 @@ export class ModelBridge {
       console.log('[ModelBridge] openWorkflow - workflow file:', flowUri.fsPath);
       console.log('[ModelBridge] openWorkflow - detected basePath:', basePath);
 
-      // Load the model with all components preloaded
+      // Get the model from integration (may be cached for cross-model queries)
       const model = await this.integration.openWorkflow(flowUri.fsPath, {
         resolveReferences: true,
         loadScripts: true,
@@ -238,6 +240,19 @@ export class ModelBridge {
         preloadComponents: true, // This will scan and load all tasks, schemas, views, etc.
         basePath: basePath // Use VS Code workspace folder as base path
       });
+
+      // CRITICAL: Force reload from disk even if model was cached
+      // The cache is needed for cross-model queries (subflows, references)
+      // But we must refresh the content from disk when opening in editor
+      console.log('[ModelBridge] Reloading model from disk to ensure fresh content');
+      await model.load({
+        resolveReferences: true,
+        loadScripts: true,
+        validate: true,
+        preloadComponents: true,
+        basePath: basePath
+      });
+      console.log('[ModelBridge] Model reloaded successfully');
 
       // Track the association between panel and model using the flow URI as the key
       const panelKey = flowUri.toString();
