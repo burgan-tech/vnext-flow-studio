@@ -149,8 +149,17 @@ export async function checkStatus(outputChannel?: vscode.OutputChannel): Promise
 
       // Parse output to determine status
       status.configured = !output.includes('PROJECT_ROOT not set') && !output.includes('not found');
-      status.apiReachable = output.includes('API') && output.includes('✓') || output.includes('OK');
-      status.dbReachable = output.includes('DB') && output.includes('✓') || output.includes('OK');
+
+      // Check each line for API and DB status
+      const lines = output.split('\n');
+      for (const line of lines) {
+        if (line.includes('API')) {
+          status.apiReachable = line.includes('✓') || line.includes('OK');
+        }
+        if (line.includes('DB')) {
+          status.dbReachable = line.includes('✓') || line.includes('OK');
+        }
+      }
 
       console.log('[CLI] checkStatus final:', status);
       resolve(status);
