@@ -7,6 +7,7 @@ import './enhanced-editors.css';
 import './styles/reference-selector.css';
 import './styles/palette.css';
 import './styles/service-task-properties.css';
+import './styles/comments.css';
 
 function App() {
   return <Canvas />;

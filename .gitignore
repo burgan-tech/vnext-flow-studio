@@ -14,3 +14,6 @@ out/
 
 # Extension build artifacts (schemas copied from submodule)
 packages/extension/schemas/
+
+# CLI source code (not part of this project)
+vnext-workflow-cli/

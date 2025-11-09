@@ -153,7 +153,9 @@ export function toReactFlow(
         data: {
           from: state.key,
           tKey: transition.key,
-          triggerType: transition.triggerType
+          triggerType: transition.triggerType,
+          transition: transition,
+          _comment: transition._comment
         }
       });
     }
@@ -174,7 +176,8 @@ export function toReactFlow(
       data: {
         triggerType: st.triggerType,
         isStartTransition: true,  // Mark this as the start transition
-        transition: st  // Include full transition data for editing
+        transition: st,  // Include full transition data for editing
+        _comment: st._comment
       }
     });
   }
@@ -209,7 +212,9 @@ export function toReactFlow(
         style: { strokeDasharray: '4 4' },
         data: {
           sharedKey: sharedTransition.key,
-          triggerType: sharedTransition.triggerType
+          triggerType: sharedTransition.triggerType,
+          transition: sharedTransition,
+          _comment: sharedTransition._comment
         }
       });
     }

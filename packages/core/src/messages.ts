@@ -20,7 +20,9 @@ export type MsgToWebview =
   | { type: 'catalog:update'; tasks: TaskComponentDefinition[]; catalogs?: Record<string, any[]> }
   | { type: 'plugins:update'; plugins: any[]; variants: Record<string, any[]> }
   | { type: 'select:node'; nodeId: string }
-  | { type: 'confirm:response'; save: boolean };
+  | { type: 'confirm:response'; save: boolean }
+  | { type: 'deploy:status'; installed: boolean; configured: boolean; version?: string; projectRoot?: string; apiReachable?: boolean; dbReachable?: boolean }
+  | { type: 'deploy:result'; success: boolean; message: string };
 
 export type MsgFromWebview =
   | { type: 'ready' }
@@ -32,6 +34,7 @@ export type MsgFromWebview =
   | { type: 'domain:removeState'; stateKey: string }
   | { type: 'domain:updateState'; stateKey: string; state: State }
   | { type: 'domain:updateTransition'; from: string; transitionKey: string; transition: Transition }
+  | { type: 'domain:updateComment'; elementType: 'state' | 'transition' | 'workflow'; stateKey?: string; from?: string; transitionKey?: string; comment: string }
   | { type: 'domain:makeTransitionShared'; from: string; transitionKey: string }
   | { type: 'domain:updateSharedTransition'; transitionKey: string; sharedTransition: SharedTransition }
   | { type: 'domain:updateStartTransition'; startTransition: Transition }
@@ -43,6 +46,7 @@ export type MsgFromWebview =
       type: 'request:autoLayout';
       nodeSizes?: Record<string, { width: number; height: number }>;
     }
+  | { type: 'request:exportDocumentation'; content: string; filename: string; svgContent?: string; svgFilename?: string }
   | {
       type: 'mapping:loadFromFile';
       stateKey?: string;
@@ -76,4 +80,10 @@ export type MsgFromWebview =
   | {
       type: 'confirm:unsavedChanges';
       message?: string;
-    };
+    }
+  | { type: 'deploy:current' }
+  | { type: 'deploy:changed' }
+  | { type: 'deploy:checkStatus' }
+  | { type: 'deploy:install' }
+  | { type: 'deploy:configure' }
+  | { type: 'deploy:changeProjectRoot' };

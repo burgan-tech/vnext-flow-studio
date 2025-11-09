@@ -10,6 +10,15 @@
         "${workspaceFolder}/packages/extension/dist/**/*.js"
       ],
       "preLaunchTask": "Build Extension"
+    },
+    {
+      "name": "Run Extension (No Build)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/packages/extension"],
+      "outFiles": [
+        "${workspaceFolder}/packages/extension/dist/**/*.js"
+      ]
     }
   ]
 }

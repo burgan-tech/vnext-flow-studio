@@ -9,6 +9,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Workflow Comments System**: Comprehensive comment support for workflows, states, and transitions
+  - **Comment Storage**: Comments stored in workflow definition JSON with dedicated `comment` fields
+  - **Visual Indicators**: Comment icon badge displays on elements with comments (states and transitions)
+  - **Comment Modal**: Click badge to view/edit comments in a light-themed modal dialog
+    - Modal matches editor's light theme design system
+    - Markdown support for rich text formatting
+    - Auto-focus on textarea when opening
+    - Save/Cancel actions with visual feedback
+  - **Element-Level Comments**:
+    - Workflow-level comments for overall documentation
+    - State comments for documenting business logic at each step
+    - Transition comments for documenting conditions and rules
+  - **UI Components**:
+    - `CommentIcon.tsx`: Visual indicator badge with click handler
+    - `CommentModal.tsx`: Full-featured comment editor dialog
+    - Light theme styling matches other modals (white background, dark text, blue accents)
+
+- **Documentation Viewer**: Built-in documentation browser for workflow specifications
+  - Accessible from Deploy & Run toolbar's Documentation button
+  - Modal dialog with light theme styling
+  - Placeholder for embedding workflow documentation, guides, and references
+  - `DocumentationViewer.tsx`: Reusable component for future documentation integration
+
+- **Lucidchart-Style Toolbar**: Complete toolbar redesign with modern vertical layout
+  - **Always-Visible Icon Bar**: Thin vertical strip (48px) on left side of canvas
+    - Three icon buttons: States, Deploy & Run, Documentation
+    - Uses Lucide React icons for modern, clean appearance
+    - Active state highlighting with blue background
+  - **Flyout Panels**: Click-based panel expansion system
+    - Panels slide out to the right of icon bar
+    - Outside-click detection for automatic panel closing
+    - Overlay canvas without blocking workflow view
+  - **States Panel**: Drag-and-drop workflow building (280px width)
+    - Vertically expanding panel based on available states
+    - Maintains all existing drag-and-drop functionality
+  - **Deploy & Run Panel**: CLI integration and deployment controls (described below)
+  - **Components**:
+    - `ToolbarIconButton.tsx`: Reusable icon button component
+    - `FlyoutPanel.tsx`: Reusable panel container with header and close button
+
+- **vnext-workflow-cli Integration**: Complete deployment workflow integration
+  - **Automated CLI Management**:
+    - One-click CLI installation from extension UI
+    - Automatic PROJECT_ROOT configuration with folder picker
+    - Change project root with visual folder selection
+    - Smart status checking (installation, configuration, API/DB connectivity)
+  - **Smart UI States**: Progressive deployment panel based on CLI status
+    - Loading state: "Checking CLI status..."
+    - Not Installed: Shows "Install CLI Now" button with description
+    - Not Configured: Shows "Configure CLI Now" button
+    - Fully Configured: Shows deployment options with live status indicators
+  - **Status Indicators**: Real-time display of system health
+    - CLI version (e.g., "Installed (1.0.1)")
+    - Project Root: Shows configured directory path with "Change Project Root" button
+    - API connectivity: Green "Connected" or red "Not reachable"
+    - Database connectivity: Green "Connected" or red "Not reachable"
+  - **Deployment Actions**:
+    - Deploy Current File: Saves and deploys currently open workflow
+    - Deploy Changed Files: Deploys all Git-modified workflows
+    - Refresh Status: Manually refresh CLI status and connectivity
+  - **Terminal Integration**:
+    - Commands execute in reusable "Workflow Deployment" terminal
+    - Full ANSI color support (green checkmarks, colored output)
+    - Deployment history preserved in single terminal instance
+    - Terminal automatically recreated if manually closed
+    - Commands run from PROJECT_ROOT for proper folder detection
+  - **CLI Wrapper** (`packages/extension/src/cli.ts`):
+    - `checkCliInstalled()`: Verify `wf` command availability
+    - `getCliVersion()`: Get installed CLI version from `wf --version`
+    - `getProjectRoot()`: Parse PROJECT_ROOT from CLI config
+    - `checkStatus()`: Run `wf check` and parse connectivity status
+    - `deployFile()`: Deploy single workflow file via terminal
+    - `deployChanged()`: Deploy Git-modified files via terminal
+    - `installCli()`: Install `@burgan-tech/vnext-workflow-cli` globally
+    - `configureCli()`: Set PROJECT_ROOT configuration
+    - `changeProjectRoot()`: Show folder picker and update PROJECT_ROOT
+  - **Message Protocol** (bidirectional webview ↔ extension communication):
+    - `deploy:current`: Deploy currently open workflow
+    - `deploy:changed`: Deploy all Git-modified workflows
+    - `deploy:checkStatus`: Check CLI installation and connectivity
+    - `deploy:install`: Trigger global npm installation
+    - `deploy:configure`: Configure PROJECT_ROOT
+    - `deploy:changeProjectRoot`: Show folder picker and update root
+    - `deploy:status`: Response with CLI state (installed, configured, version, projectRoot, apiReachable, dbReachable)
+    - `deploy:result`: Deployment outcome (success, message)
+
 - **New Mapper Dialog**: Popup dialog for creating new mappers
   - Single popup form replaces multiple top-bar input prompts
   - Fields: mapper name (validated), description (optional), and "Open in Mapper Editor" checkbox

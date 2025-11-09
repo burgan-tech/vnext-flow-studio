@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -11,6 +12,9 @@ import {
 
 import type { Node as RFNode } from '@xyflow/react';
 import { useHighlight } from '../mapper/contexts/HighlightContext';
+import { CommentIcon } from '../components/CommentIcon';
+import { CommentModal } from '../components/CommentModal';
+import { useBridge } from '../hooks/useBridge';
 
 type FloatingEdgeProps = {
   id: string;
@@ -139,9 +143,15 @@ export function FloatingEdge(props: FloatingEdgeProps) {
   const nodes = useNodes();
   const edges = useEdges();
   const { highlightedEdges } = useHighlight();
+  const { postMessage } = useBridge();
+  const [showCommentModal, setShowCommentModal] = useState(false);
 
   const sourceNode = useMemo(() => nodes.find((n) => n.id === source), [nodes, source]);
   const targetNode = useMemo(() => nodes.find((n) => n.id === target), [nodes, target]);
+
+  // Get edge data for comment
+  const edgeData = useMemo(() => edges.find((e) => e.id === id)?.data, [edges, id]);
+  const hasComment = !!edgeData?._comment;
 
   // Check if this edge is highlighted
   const isHighlighted = highlightedEdges.has(id);
@@ -331,6 +341,39 @@ export function FloatingEdge(props: FloatingEdgeProps) {
   // Apply higher z-index for selected or highlighted edges to ensure their labels appear on top
   const labelZIndex = selected || isHighlighted ? 1000 : 0;
 
+  // Comment handler
+  const handleCommentSave = (newComment: string) => {
+    // Determine transition type and send appropriate message
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(id);
+    const sharedMatch = /^t:shared:([^:]+):/.exec(id);
+    const startMatch = /^t:start:(.+)$/.exec(id);
+
+    if (localMatch) {
+      postMessage({
+        type: 'domain:updateComment',
+        elementType: 'transition',
+        from: localMatch[1],
+        transitionKey: localMatch[2],
+        comment: newComment
+      });
+    } else if (sharedMatch) {
+      postMessage({
+        type: 'domain:updateComment',
+        elementType: 'transition',
+        transitionKey: sharedMatch[1],
+        comment: newComment
+      });
+    } else if (startMatch) {
+      postMessage({
+        type: 'domain:updateComment',
+        elementType: 'transition',
+        transitionKey: startMatch[1],
+        comment: newComment
+      });
+    }
+    setShowCommentModal(false);
+  };
+
   return (
     <>
       <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={edgeStyle} className={edgeClassName} />
@@ -345,14 +388,34 @@ export function FloatingEdge(props: FloatingEdgeProps) {
               borderRadius: `${labelBgBorderRadius}px`,
               zIndex: labelZIndex,
               ...finalLabelBgStyle,
-              ...labelStyle
+              ...labelStyle,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
             }}
             className="react-flow__edge-text"
           >
-            {label}
+            <CommentIcon
+              hasComment={hasComment}
+              onClick={() => setShowCommentModal(true)}
+              title={hasComment ? 'View transition documentation' : 'Add transition documentation'}
+            />
+            <span>{label}</span>
           </div>
         </EdgeLabelRenderer>
       ) : null}
+
+      {/* Comment Modal - rendered in portal outside React Flow */}
+      {showCommentModal && createPortal(
+        <CommentModal
+          content={edgeData?._comment || ''}
+          title={`Transition Documentation: ${label || 'Untitled'}`}
+          isEditing={true}
+          onSave={handleCommentSave}
+          onClose={() => setShowCommentModal(false)}
+        />,
+        document.body
+      )}
     </>
   );
 }

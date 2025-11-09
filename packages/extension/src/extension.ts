@@ -531,11 +531,16 @@ export function activate(context: vscode.ExtensionContext) {
   // Store active panels for command access
   const activePanels = new Map<string, vscode.WebviewPanel>();
 
+  // Create output channel for deployment logs
+  const deploymentOutputChannel = vscode.window.createOutputChannel('Workflow Deployment');
+  context.subscriptions.push(deploymentOutputChannel);
+
   // Create the model bridge
   const modelBridge = new ModelBridge({
     context,
     diagnosticsProvider,
-    activePanels
+    activePanels,
+    deploymentOutputChannel
   });
 
   // Register custom editor provider

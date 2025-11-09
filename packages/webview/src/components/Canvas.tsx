@@ -20,11 +20,17 @@ import {
   MarkerType,
   XYPosition,
   ReactFlowInstance,
-  OnSelectionChangeParams
+  OnSelectionChangeParams,
+  getNodesBounds
 } from '@xyflow/react';
+import { toSvg } from 'html-to-image';
+import { Boxes, Rocket, BookOpen } from 'lucide-react';
 import { PluggableStateNode } from './nodes/PluggableStateNode';
 import { PropertyPanel, type PropertySelection } from './PropertyPanel';
 import { LayerControlButton } from './LayerControlButton';
+import { DocumentationViewer } from './DocumentationViewer';
+import { ToolbarIconButton } from './ToolbarIconButton';
+import { FlyoutPanel } from './FlyoutPanel';
 import { useBridge } from '../hooks/useBridge';
 import { FloatingEdge } from '../edges/FloatingEdge';
 import type {
@@ -107,6 +113,9 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [_designHints, setDesignHints] = useState<Map<string, DesignHints>>(new Map());
   const pendingMeasuredAutoLayout = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showDocumentation, setShowDocumentation] = useState(false);
+  const [activePanel, setActivePanel] = useState<'states' | 'deploy' | null>(null);
+  const [cliStatus, setCliStatus] = useState<{ installed: boolean; configured: boolean; version?: string; apiReachable?: boolean; dbReachable?: boolean } | null>(null);
 
   // Layer visibility state - use diagram settings if available, otherwise localStorage
   const [showRegularTransitions, setShowRegularTransitions] = useState(() => {
@@ -148,6 +157,140 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     setShowSharedTransitions(newValue);
     localStorage.setItem('flow-layer-shared', String(newValue));
   }, [showSharedTransitions]);
+
+  // Export documentation with diagram
+  const handleExportWithDiagram = useCallback(async (documentation: string, filename: string) => {
+    try {
+      // Use reactFlowInstance instead of useReactFlow hook
+      if (!reactFlowInstance) {
+        throw new Error('React Flow instance not ready');
+      }
+
+      const flowNodes = reactFlowInstance.getNodes();
+
+      if (flowNodes.length === 0) {
+        throw new Error('No nodes to export');
+      }
+
+      const nodesBounds = getNodesBounds(flowNodes);
+
+      // Add padding around the content
+      const padding = 50;
+      const imageWidth = nodesBounds.width + padding * 2;
+      const imageHeight = nodesBounds.height + padding * 2;
+
+      // Get the React Flow wrapper element
+      const canvasElement = document.querySelector('.react-flow');
+      if (!canvasElement) {
+        throw new Error('Canvas element not found');
+      }
+
+      // Temporarily set the viewport to fit the content
+      const currentViewport = reactFlowInstance.getViewport();
+      await reactFlowInstance.setViewport({
+        x: -nodesBounds.x + padding,
+        y: -nodesBounds.y + padding,
+        zoom: 1
+      });
+
+      // Wait for the viewport to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Generate SVG with white background
+      const svgDataUrl = await toSvg(canvasElement as HTMLElement, {
+        backgroundColor: '#ffffff',
+        width: imageWidth,
+        height: imageHeight,
+        pixelRatio: 2,
+        filter: (node) => {
+          // Exclude controls and other UI elements
+          if (node.classList) {
+            return !node.classList.contains('react-flow__controls') &&
+                   !node.classList.contains('react-flow__panel') &&
+                   !node.classList.contains('flow-canvas__toolbar');
+          }
+          return true;
+        }
+      });
+
+      // Restore the original viewport
+      await reactFlowInstance.setViewport(currentViewport);
+
+      // Extract SVG content from data URL
+      let svgContent: string;
+      if (svgDataUrl.includes('base64,')) {
+        // Base64-encoded SVG
+        const base64Data = svgDataUrl.split(',')[1];
+        svgContent = atob(base64Data);
+      } else if (svgDataUrl.includes('charset=utf-8,')) {
+        // URL-encoded SVG
+        const encodedSvg = svgDataUrl.split(',')[1];
+        svgContent = decodeURIComponent(encodedSvg);
+      } else {
+        throw new Error('Unexpected SVG data URL format');
+      }
+
+      // Add necessary CSS styles to the SVG to ensure edges are visible
+      const edgeStyles = `<style>
+.react-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: 2;
+  fill: none;
+}
+.react-flow__edge.trigger-auto .react-flow__edge-path {
+  stroke: #3b82f6;
+}
+.react-flow__edge.trigger-manual .react-flow__edge-path {
+  stroke: #94a3b8;
+}
+.react-flow__edge.trigger-timeout .react-flow__edge-path {
+  stroke: #f59e0b;
+}
+.react-flow__edge.trigger-event .react-flow__edge-path {
+  stroke: #8b5cf6;
+}
+.react-flow__edge.shared-transition .react-flow__edge-path {
+  stroke-dasharray: 4 4;
+}
+.react-flow__edge .react-flow__edge-text {
+  font-size: 12px;
+  fill: #1e293b;
+}
+</style>`;
+
+      // Inject styles into SVG (insert after the opening <svg> tag)
+      svgContent = svgContent.replace(/(<svg[^>]*>)/, `$1${edgeStyles}`);
+
+      // Create SVG filename (replace .md with .svg)
+      const svgFilename = filename.replace(/\.md$/, '.svg');
+
+      // Reference SVG as image in markdown
+      const documentationWithImage = `${documentation.split('\n')[0]}
+
+![Workflow Diagram](./${svgFilename})
+
+---
+
+${documentation.split('\n').slice(1).join('\n')}`;
+
+      // Send export request with both markdown and SVG
+      postMessage({
+        type: 'request:exportDocumentation',
+        content: documentationWithImage,
+        filename,
+        svgContent,
+        svgFilename
+      });
+    } catch (error) {
+      console.error('Failed to export with diagram:', error);
+      // Fallback to export without image
+      postMessage({
+        type: 'request:exportDocumentation',
+        content: documentation,
+        filename
+      });
+    }
+  }, [reactFlowInstance, postMessage]);
 
   // Apply edge filtering whenever visibility settings or allEdges change
   useEffect(() => {
@@ -337,9 +480,34 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
           }
           break;
         }
+        case 'deploy:status':
+          console.log('[Canvas] Received deploy:status:', message);
+          setCliStatus({
+            installed: message.installed,
+            configured: message.configured,
+            version: message.version,
+            projectRoot: message.projectRoot,
+            apiReachable: message.apiReachable,
+            dbReachable: message.dbReachable
+          });
+          break;
+        case 'deploy:result':
+          // Result is handled via notifications from the extension
+          // Just update status after deployment
+          if (message.success) {
+            postMessage({ type: 'deploy:checkStatus' });
+          }
+          break;
       }
     });
-  }, [onMessage, reactFlowInstance, nodes, workflow]);
+  }, [onMessage, reactFlowInstance, nodes, workflow, postMessage]);
+
+  // Check CLI status when deploy panel is opened
+  useEffect(() => {
+    if (activePanel === 'deploy') {
+      postMessage({ type: 'deploy:checkStatus' });
+    }
+  }, [activePanel, postMessage]);
 
   // (moved) measured auto layout effect declared after handleAutoLayoutRequest
 
@@ -990,121 +1158,258 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     <div className="canvas-shell">
       <div className="canvas-shell__flow">
         <div className="flow-canvas" style={{ height: '100vh' }}>
-          <div className="flow-canvas__toolbar" role="toolbar" aria-label="Add new state">
-            <div className="flow-canvas__toolbar-section">
-              <div className="flow-canvas__toolbar-header">
-                <span className="flow-canvas__toolbar-icon">⊞</span>
-                <span className="flow-canvas__toolbar-title">States</span>
-              </div>
-              <div className="flow-canvas__toolbar-items">
-                {/* All states now come from plugins */}
-                {plugins.map((plugin) => {
-                    // Get the appropriate state class based on plugin ID
-                    // Map plugin IDs to their corresponding CSS classes
-                    const pluginClassMap: Record<string, string> = {
-                      'Initial': 'state-node--initial',
-                      'Intermediate': 'state-node--intermediate',
-                      'Final': 'state-node--final',
-                      'SubFlow': 'state-node--subflow',
-                      'ServiceTask': 'state-node--service-task'
-                    };
-                    const pluginStateClass = pluginClassMap[plugin.id] || 'state-node--intermediate';
-                    const hasVariants = pluginVariants.get(plugin.id) && pluginVariants.get(plugin.id)!.length > 0;
+          {/* Vertical Icon Bar */}
+          <div className="toolbar-icon-bar" role="toolbar" aria-label="Toolbar">
+            <ToolbarIconButton
+              icon={Boxes}
+              label="States"
+              isActive={activePanel === 'states'}
+              onClick={() => setActivePanel(activePanel === 'states' ? null : 'states')}
+            />
+            <ToolbarIconButton
+              icon={Rocket}
+              label="Deploy & Run"
+              isActive={activePanel === 'deploy'}
+              onClick={() => setActivePanel(activePanel === 'deploy' ? null : 'deploy')}
+            />
+            <ToolbarIconButton
+              icon={BookOpen}
+              label="Documentation"
+              onClick={() => setShowDocumentation(true)}
+            />
+          </div>
 
-                    // If has variants, wrap in group div, otherwise render button directly like regular states
-                    if (hasVariants) {
-                      return (
-                        <div key={plugin.id} className="flow-canvas__plugin-group">
+          {/* Flyout Panel for States */}
+          <FlyoutPanel
+            title="States"
+            isOpen={activePanel === 'states'}
+            onClose={() => setActivePanel(null)}
+          >
+            <div className="flyout-panel__palette">
+              {plugins.map((plugin) => {
+                const pluginClassMap: Record<string, string> = {
+                  'Initial': 'state-node--initial',
+                  'Intermediate': 'state-node--intermediate',
+                  'Final': 'state-node--final',
+                  'SubFlow': 'state-node--subflow',
+                  'ServiceTask': 'state-node--service-task'
+                };
+                const pluginStateClass = pluginClassMap[plugin.id] || 'state-node--intermediate';
+                const hasVariants = pluginVariants.get(plugin.id) && pluginVariants.get(plugin.id)!.length > 0;
+
+                if (hasVariants) {
+                  return (
+                    <div key={plugin.id} className="flow-canvas__plugin-group">
+                      <button
+                        type="button"
+                        className="flow-canvas__palette-item"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData(
+                            'application/reactflow',
+                            JSON.stringify({
+                              type: 'plugin',
+                              pluginId: plugin.id
+                            })
+                          );
+                          e.dataTransfer.effectAllowed = 'copy';
+                        }}
+                        onClick={() => handleAddPluginState(plugin)}
+                        title={plugin.description}
+                      >
+                        <span className={`flow-canvas__palette-preview ${pluginStateClass}`}>
+                          <span className="flow-canvas__palette-icon-column">
+                            <span className="flow-canvas__palette-type-icon">{plugin.icon || '⚙'}</span>
+                          </span>
+                          <span className="flow-canvas__palette-content">
+                            {plugin.label}
+                          </span>
+                        </span>
+                      </button>
+                      <div className="flow-canvas__variants">
+                        {pluginVariants.get(plugin.id)!.map((variant: any) => (
                           <button
+                            key={variant.id}
                             type="button"
-                            className="flow-canvas__palette-item"
+                            className="flow-canvas__variant-item"
                             draggable
                             onDragStart={(e) => {
                               e.dataTransfer.setData(
                                 'application/reactflow',
                                 JSON.stringify({
                                   type: 'plugin',
-                                  pluginId: plugin.id
+                                  pluginId: plugin.id,
+                                  variantId: variant.id
                                 })
                               );
                               e.dataTransfer.effectAllowed = 'copy';
                             }}
-                            onClick={() => handleAddPluginState(plugin)}
-                            title={plugin.description}
+                            onClick={() => handleAddPluginState(plugin, variant)}
+                            title={variant.description}
                           >
-                            <span className={`flow-canvas__palette-preview ${pluginStateClass}`}>
-                              <span className="flow-canvas__palette-icon-column">
-                                <span className="flow-canvas__palette-type-icon">{plugin.icon || '⚙'}</span>
-                              </span>
-                              <span className="flow-canvas__palette-content">
-                                {plugin.label}
-                              </span>
-                            </span>
+                            <span className="flow-canvas__variant-icon">{'⚙'}</span>
+                            <span className="flow-canvas__variant-label">{variant.label}</span>
                           </button>
-                          <div className="flow-canvas__variants">
-                            {pluginVariants.get(plugin.id)!.map((variant: any) => (
-                              <button
-                                key={variant.id}
-                                type="button"
-                                className="flow-canvas__variant-item"
-                                draggable
-                                onDragStart={(e) => {
-                                  e.dataTransfer.setData(
-                                    'application/reactflow',
-                                    JSON.stringify({
-                                      type: 'plugin',
-                                      pluginId: plugin.id,
-                                      variantId: variant.id
-                                    })
-                                  );
-                                  e.dataTransfer.effectAllowed = 'copy';
-                                }}
-                                onClick={() => handleAddPluginState(plugin, variant)}
-                                title={variant.description}
-                              >
-                                <span className="flow-canvas__variant-icon">{'⚙'}</span>
-                                <span className="flow-canvas__variant-label">{variant.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    } else {
-                      // Render button directly without wrapper, just like regular states
-                      return (
-                        <button
-                          key={plugin.id}
-                          type="button"
-                          className="flow-canvas__palette-item"
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData(
-                              'application/reactflow',
-                              JSON.stringify({
-                                type: 'plugin',
-                                pluginId: plugin.id
-                              })
-                            );
-                            e.dataTransfer.effectAllowed = 'copy';
-                          }}
-                          onClick={() => handleAddPluginState(plugin)}
-                          title={plugin.description}
-                        >
-                          <span className={`flow-canvas__palette-preview ${pluginStateClass}`}>
-                            <span className="flow-canvas__palette-icon-column">
-                              <span className="flow-canvas__palette-type-icon">{plugin.icon || '⚙'}</span>
-                            </span>
-                            <span className="flow-canvas__palette-content">
-                              {plugin.label}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    }
-                })}
-              </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <button
+                      key={plugin.id}
+                      type="button"
+                      className="flow-canvas__palette-item"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(
+                          'application/reactflow',
+                          JSON.stringify({
+                            type: 'plugin',
+                            pluginId: plugin.id
+                          })
+                        );
+                        e.dataTransfer.effectAllowed = 'copy';
+                      }}
+                      onClick={() => handleAddPluginState(plugin)}
+                      title={plugin.description}
+                    >
+                      <span className={`flow-canvas__palette-preview ${pluginStateClass}`}>
+                        <span className="flow-canvas__palette-icon-column">
+                          <span className="flow-canvas__palette-type-icon">{plugin.icon || '⚙'}</span>
+                        </span>
+                        <span className="flow-canvas__palette-content">
+                          {plugin.label}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                }
+              })}
             </div>
-          </div>
+          </FlyoutPanel>
+
+          {/* Flyout Panel for Deploy */}
+          <FlyoutPanel
+            title="Deploy & Run"
+            isOpen={activePanel === 'deploy'}
+            onClose={() => setActivePanel(null)}
+          >
+            <div className="flyout-panel__deploy">
+              {!cliStatus ? (
+                <div className="deploy-loading">
+                  <p>Checking CLI status...</p>
+                </div>
+              ) : !cliStatus.installed ? (
+                <div className="deploy-setup">
+                  <div className="deploy-setup__header">
+                    <h3>CLI Not Installed</h3>
+                    <p>The vnext-workflow-cli is required to deploy workflows.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="deploy-btn deploy-btn--primary"
+                    onClick={() => postMessage({ type: 'deploy:install' })}
+                  >
+                    Install CLI Now
+                  </button>
+                  <div className="deploy-info">
+                    <p className="deploy-info__note">
+                      This will run: <code>npm install -g @burgan-tech/vnext-workflow-cli</code>
+                    </p>
+                  </div>
+                </div>
+              ) : !cliStatus.configured ? (
+                <div className="deploy-setup">
+                  <div className="deploy-setup__header">
+                    <h3>CLI Not Configured</h3>
+                    <p>The CLI needs to be configured with your project root.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="deploy-btn deploy-btn--primary"
+                    onClick={() => postMessage({ type: 'deploy:configure' })}
+                  >
+                    Configure CLI Now
+                  </button>
+                  <div className="deploy-info">
+                    <p className="deploy-info__note">
+                      ℹ️ Version: <code>{cliStatus.version || 'Unknown'}</code>
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="deploy-status">
+                    <div className="deploy-status__item">
+                      <span className="deploy-status__label">CLI:</span>
+                      <span className="deploy-status__value deploy-status__value--success">Installed ({cliStatus.version})</span>
+                    </div>
+                    <div className="deploy-status__item">
+                      <span className="deploy-status__label">API:</span>
+                      <span className={`deploy-status__value ${cliStatus.apiReachable ? 'deploy-status__value--success' : 'deploy-status__value--error'}`}>
+                        {cliStatus.apiReachable ? 'Connected' : 'Not reachable'}
+                      </span>
+                    </div>
+                    <div className="deploy-status__item">
+                      <span className="deploy-status__label">Database:</span>
+                      <span className={`deploy-status__value ${cliStatus.dbReachable ? 'deploy-status__value--success' : 'deploy-status__value--error'}`}>
+                        {cliStatus.dbReachable ? 'Connected' : 'Not reachable'}
+                      </span>
+                    </div>
+                    <div className="deploy-status__item">
+                      <span className="deploy-status__label">Project Root:</span>
+                      <span className="deploy-status__value">{cliStatus.projectRoot || 'Not set'}</span>
+                    </div>
+                  </div>
+
+                  <div className="deploy-section">
+                    <button
+                      type="button"
+                      className="deploy-btn deploy-btn--secondary"
+                      onClick={() => postMessage({ type: 'deploy:changeProjectRoot' })}
+                    >
+                      Change Project Root
+                    </button>
+                  </div>
+
+                  <div className="deploy-section">
+                    <h3 className="deploy-section__title">Current File</h3>
+                    <p className="deploy-section__desc">Deploy the currently open workflow file to the vNext API</p>
+                    <button
+                      type="button"
+                      className="deploy-btn deploy-btn--primary"
+                      onClick={() => postMessage({ type: 'deploy:current' })}
+                    >
+                      Deploy Current File
+                    </button>
+                  </div>
+
+                  <div className="deploy-section">
+                    <h3 className="deploy-section__title">Changed Files</h3>
+                    <p className="deploy-section__desc">Deploy all Git-modified workflow files</p>
+                    <button
+                      type="button"
+                      className="deploy-btn deploy-btn--secondary"
+                      onClick={() => postMessage({ type: 'deploy:changed' })}
+                    >
+                      Deploy Changed Files
+                    </button>
+                  </div>
+
+                  <div className="deploy-section">
+                    <button
+                      type="button"
+                      className="deploy-btn deploy-btn--secondary"
+                      onClick={() => postMessage({ type: 'deploy:checkStatus' })}
+                    >
+                      Refresh Status
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </FlyoutPanel>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -1204,6 +1509,15 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
             </button>
           )}
         </div>
+      )}
+
+      {/* Documentation Viewer */}
+      {showDocumentation && workflow && (
+        <DocumentationViewer
+          workflow={workflow}
+          onClose={() => setShowDocumentation(false)}
+          onExportWithDiagram={handleExportWithDiagram}
+        />
       )}
     </div>
   );

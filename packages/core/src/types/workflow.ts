@@ -45,17 +45,20 @@ export type SchemaRef =
 export interface Mapping {
   location: string;
   code: string;
+  _comment?: string;
 }
 
 export interface Rule {
   location: string;
   code: string;
+  _comment?: string;
 }
 
 export interface ExecutionTask {
   order: number;
   task: TaskRef;
   mapping: Mapping;
+  _comment?: string;
 }
 
 export interface TransitionBase {
@@ -69,6 +72,7 @@ export interface TransitionBase {
   timer?: TimerConfig | null;
   view?: ViewRef | null;
   onExecutionTasks?: ExecutionTask[];
+  _comment?: string;
 }
 
 // Type guard to check if target is the special "$self" marker
@@ -82,6 +86,7 @@ export type Transition = TransitionBase;
 
 export interface SharedTransition extends TransitionBase {
   availableIn: string[];
+  _comment?: string;
 }
 
 // ViewItem is deprecated - states now have single view reference
@@ -98,6 +103,7 @@ export interface State {
   transitions?: Transition[];
   view?: ViewRef;
   subFlow?: SubFlowConfig | null;
+  _comment?: string;
 }
 
 export interface TimerConfig {
@@ -132,6 +138,7 @@ export interface SubFlowConfig {
   type: 'C' | 'F' | 'S' | 'P';
   process: ProcessRef;
   mapping: ScriptCode;
+  _comment?: string;
 }
 
 export interface Workflow {
@@ -141,6 +148,7 @@ export interface Workflow {
   version: string;
   flowVersion?: string;
   tags: string[];
+  _comment?: string;
   attributes: {
     type: 'C' | 'F' | 'S' | 'P';
     subFlowType?: 'S' | 'P';

@@ -1,7 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import type { State, StateType, DesignHints, TerminalConfig } from '@amorphie-flow-studio/core';
 import { useBridge } from '../../hooks/useBridge';
+import { CommentIcon } from '../CommentIcon';
+import { CommentModal } from '../CommentModal';
 
 interface PluggableStateNodeProps {
   data: {
@@ -147,6 +150,7 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
   } = data;
 
   const { postMessage } = useBridge();
+  const [showCommentModal, setShowCommentModal] = useState(false);
   const stateTypeClass = getStateTypeClass(stateType);
   const stateTypeName = getStateTypeName(stateType);
   const stateSubTypeName = getStateSubTypeName(stateSubType);
@@ -158,6 +162,7 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
   const isStart = variant === 'start';
   const isSubflow = stateType === 4;
   const hasSubflowReference = isSubflow && state?.subFlow?.process;
+  const hasComment = !!state?._comment;
 
   // Calculate terminals to render
   const terminals = useMemo(() => {
@@ -202,6 +207,18 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
     }
   };
 
+  const handleCommentSave = (newComment: string) => {
+    if (state?.key) {
+      postMessage({
+        type: 'domain:updateComment',
+        elementType: 'state',
+        stateKey: state.key,
+        comment: newComment
+      });
+    }
+    setShowCommentModal(false);
+  };
+
   // Calculate node dimensions
   let calculatedWidth: number;
   let calculatedHeight: number;
@@ -241,6 +258,7 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
 
       {/* Shape is the visual rectangle used for edge intersections; handles live inside */}
       <div className="state-node__shape">
+
         {/* Render plugin terminals */}
         {terminals.map(terminal => {
           // Determine terminal type based on role or position
@@ -297,7 +315,15 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
               {stateSubTypeIcon}
             </div>
           )}
-          <div className="state-node__title">{displayTitle}</div>
+          <div className="state-node__title">
+            {state && (
+              <CommentIcon
+                hasComment={hasComment}
+                onClick={() => setShowCommentModal(true)}
+              />
+            )}
+            <span>{displayTitle}</span>
+          </div>
           {state && (
             <div className="state-node__meta">
               <span className="state-node__key">{state.key}</span>
@@ -315,6 +341,18 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
           )}
         </div>
       </div>
+
+      {/* Comment Modal - rendered in portal outside React Flow */}
+      {showCommentModal && state && createPortal(
+        <CommentModal
+          content={state._comment || ''}
+          title={`Documentation: ${displayTitle}`}
+          isEditing={true}
+          onSave={handleCommentSave}
+          onClose={() => setShowCommentModal(false)}
+        />,
+        document.body
+      )}
     </div>
   );
 }
