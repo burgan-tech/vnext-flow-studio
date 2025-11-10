@@ -30,6 +30,8 @@ import {
   type DesignHints
 } from '@amorphie-flow-studio/core';
 import * as cli from './cli.js';
+import { VSCodeOutputChannelLogger } from './VSCodeLogger.js';
+import type { ComponentWatcher, ComponentResolver, FileChangeEvent } from '@amorphie-flow-studio/core';
 
 /**
  * Model bridge configuration
@@ -58,6 +60,11 @@ export class ModelBridge {
   private lastSaveTime: Map<string, number> = new Map();
   private deploymentTerminal: vscode.Terminal | undefined;
 
+  // Component watching
+  private componentWatcher?: ComponentWatcher;
+  private componentWatcherLogger?: VSCodeOutputChannelLogger;
+  private globalResolver?: ComponentResolver;
+
   constructor(config: ModelBridgeConfig) {
     this.config = config;
     this.integration = new VSCodeModelIntegration();
@@ -67,6 +74,14 @@ export class ModelBridge {
 
     // Set up integration event handlers
     this.setupEventHandlers();
+
+    // Set up component file watching for hot reloading (async, runs in background)
+    this.setupComponentWatching().catch(error => {
+      console.error('[ModelBridge] Failed to setup component watching:', error);
+      vscode.window.showWarningMessage(
+        `Component file watching failed to start: ${error.message}`
+      );
+    });
 
     // Listen for terminal close events to clear our reference
     config.context.subscriptions.push(
@@ -181,6 +196,142 @@ export class ModelBridge {
         this.updateDiagnosticsFromValidation(model, result);
       }
     });
+  }
+
+  /**
+   * Set up component file watching for hot reloading
+   */
+  private async setupComponentWatching(): Promise<void> {
+    try {
+      // Get workspace folders
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) {
+        console.log('[ModelBridge] No workspace folders, skipping component watching');
+        return;
+      }
+
+      // We'll watch the first workspace folder
+      // In multi-root workspaces, you might want to watch all folders
+      const workspaceRoot = workspaceFolders[0].uri.fsPath;
+
+      // Create a separate logger for component watching
+      this.componentWatcherLogger = new VSCodeOutputChannelLogger('Component Watcher', true);
+      this.componentWatcherLogger.info('=== Component Watcher Starting ===');
+      this.componentWatcherLogger.info(`Workspace: ${workspaceRoot}`);
+
+      // Import ComponentResolver dynamically to avoid circular dependencies
+      const { ComponentResolver } = await import('@amorphie-flow-studio/core');
+
+      // Create a global component resolver
+      this.globalResolver = new ComponentResolver({
+        basePath: workspaceRoot,
+        useCache: true
+      });
+
+      this.componentWatcherLogger.info('ComponentResolver created, enabling file watching...');
+
+      // Enable file watching with custom logger
+      this.componentWatcher = await this.globalResolver.enableFileWatching({
+        basePath: workspaceRoot,
+        debounceMs: 500, // Longer debounce for VS Code
+        logger: this.componentWatcherLogger
+      });
+
+      this.componentWatcherLogger.info('File watching enabled successfully');
+
+      // Listen for component changes
+      this.componentWatcher.on('change', async (event: FileChangeEvent) => {
+        this.componentWatcherLogger?.info(`Component file changed: ${event.type} ${event.componentType} - ${path.basename(event.path)}`);
+
+        // Notify all open webviews about catalog update
+        await this.notifyAllPanelsAboutCatalogUpdate();
+      });
+
+      this.componentWatcher.on('componentAdded', (data: { path: string; type: string }) => {
+        this.componentWatcherLogger?.info(`✅ Component added: ${data.type}`);
+        vscode.window.showInformationMessage(`Component added: ${path.basename(data.path)}`);
+      });
+
+      this.componentWatcher.on('componentChanged', (data: { path: string; type: string }) => {
+        this.componentWatcherLogger?.info(`🔄 Component updated: ${data.type}`);
+      });
+
+      this.componentWatcher.on('componentDeleted', (data: { path: string; type: string }) => {
+        this.componentWatcherLogger?.warn(`🗑️ Component deleted: ${data.type}`);
+        vscode.window.showWarningMessage(`Component deleted: ${path.basename(data.path)}`);
+      });
+
+      this.componentWatcher.on('error', (error: Error) => {
+        this.componentWatcherLogger?.error('Component watcher error:', error);
+        vscode.window.showWarningMessage(
+          `Component file watching encountered an error: ${error.message}`
+        );
+      });
+
+      this.componentWatcherLogger.info('Component file watching enabled');
+      this.componentWatcherLogger.info(`Watching: ${workspaceRoot}`);
+
+      console.log('[ModelBridge] Component file watching enabled');
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[ModelBridge] Failed to enable component watching:', error);
+
+      if (this.componentWatcherLogger) {
+        this.componentWatcherLogger.error('Failed to start component watching:', error);
+      }
+
+      // Re-throw so the constructor's catch handler can show a notification
+      throw error;
+    }
+  }
+
+  /**
+   * Notify all open panels about catalog update
+   */
+  private async notifyAllPanelsAboutCatalogUpdate(): Promise<void> {
+    for (const [panelKey, panel] of this.config.activePanels) {
+      const model = this.panelModelMap.get(panelKey);
+      if (!model) continue;
+
+      try {
+        // Reload components for this model
+        await model.load({
+          preloadComponents: true,
+          basePath: model.getModelState().metadata.basePath
+        });
+
+        // Get updated catalogs and tasks
+        const catalogs = this.getCatalogsFromModel(model);
+        const tasks = this.getTasksFromModel(model);
+
+        // Refresh plugin variants
+        await this.refreshPluginVariants(model);
+
+        // Get plugin variants
+        const activePlugins = pluginManager.getActivePlugins();
+        const pluginVariants: Record<string, any[]> = {};
+        for (const plugin of activePlugins) {
+          const variants = pluginManager.getVariants(plugin.id);
+          if (variants.length > 0) {
+            pluginVariants[plugin.id] = variants;
+          }
+        }
+
+        // Send update to webview
+        panel.webview.postMessage({
+          type: 'catalog:update',
+          tasks,
+          catalogs,
+          pluginVariants
+        });
+
+        this.componentWatcherLogger?.debug(`Sent catalog update to panel: ${panelKey}`);
+      } catch (error) {
+        console.error(`[ModelBridge] Failed to update catalog for panel ${panelKey}:`, error);
+        this.componentWatcherLogger?.error(`Failed to update catalog for panel:`, error);
+      }
+    }
   }
 
   /**
@@ -2171,6 +2322,20 @@ export class ModelBridge {
       clearTimeout(timer);
     }
     this.autosaveTimers.clear();
+
+    // Stop component watcher
+    if (this.componentWatcher) {
+      this.componentWatcher.stop().catch(error => {
+        console.error('[ModelBridge] Error stopping component watcher:', error);
+      });
+      this.componentWatcher = undefined;
+    }
+
+    // Dispose component watcher logger
+    if (this.componentWatcherLogger) {
+      this.componentWatcherLogger.dispose();
+      this.componentWatcherLogger = undefined;
+    }
 
     // Clean up resources
     this.panelModelMap.clear();

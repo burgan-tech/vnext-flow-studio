@@ -2,6 +2,7 @@
 
 export { WorkflowModel } from './WorkflowModel.js';
 export { ComponentResolver, type ComponentResolverOptions } from './ComponentResolver.js';
+export { ComponentWatcher, type ComponentWatcherOptions, type FileChangeEvent, type WatcherStats } from './ComponentWatcher.js';
 export { ScriptManager } from './ScriptManager.js';
 export { ModelLoader, type DiscoveryOptions, type DiscoveredWorkflow } from './ModelLoader.js';
 export { ModelSaver } from './ModelSaver.js';
@@ -14,6 +15,17 @@ export {
   getWorkflowTemplate,
   type WorkflowTemplateOptions
 } from './WorkflowTemplate.js';
+
+// Logger exports
+export {
+  type ILogger,
+  type LogLevel,
+  ConsoleLogger,
+  SilentLogger,
+  MultiLogger,
+  BufferedLogger,
+  createLogger
+} from './Logger.js';
 
 // Export all types
 export type {

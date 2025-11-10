@@ -16,6 +16,7 @@ import type {
   Workflow
 } from '../types/index.js';
 import { ScriptManager } from './ScriptManager.js';
+import { ComponentWatcher, type ComponentWatcherOptions } from './ComponentWatcher.js';
 
 /**
  * Options for the component resolver
@@ -88,6 +89,9 @@ export class ComponentResolver implements IComponentResolver {
   private functionCache: Map<string, FunctionDefinition> = new Map();
   private extensionCache: Map<string, ExtensionDefinition> = new Map();
   private workflowCache: Map<string, Workflow> = new Map();
+
+  // File watcher (optional)
+  private watcher?: ComponentWatcher;
 
   constructor(options: ComponentResolverOptions = {}) {
     this.options = {
@@ -610,5 +614,55 @@ export class ComponentResolver implements IComponentResolver {
       extensions: Array.from(this.extensionCache.values()),
       workflows: Array.from(this.workflowCache.values())
     };
+  }
+
+  /**
+   * Enable file watching for automatic cache updates
+   */
+  async enableFileWatching(options?: Partial<ComponentWatcherOptions>): Promise<ComponentWatcher> {
+    if (this.watcher) {
+      console.warn('[ComponentResolver] File watching already enabled');
+      return this.watcher;
+    }
+
+    const basePath = this.options.basePath || process.cwd();
+    this.watcher = new ComponentWatcher(this, {
+      basePath,
+      ...options
+    });
+
+    // Listen to watcher events
+    this.watcher.on('change', (event) => {
+      console.log(`[ComponentResolver] Component changed: ${event.type} ${event.componentType} at ${event.path}`);
+    });
+
+    this.watcher.on('error', (error) => {
+      console.error('[ComponentResolver] Watcher error:', error);
+    });
+
+    await this.watcher.start();
+    console.log('[ComponentResolver] File watching enabled');
+
+    return this.watcher;
+  }
+
+  /**
+   * Disable file watching
+   */
+  async disableFileWatching(): Promise<void> {
+    if (!this.watcher) {
+      return;
+    }
+
+    await this.watcher.stop();
+    this.watcher = undefined;
+    console.log('[ComponentResolver] File watching disabled');
+  }
+
+  /**
+   * Get the file watcher instance
+   */
+  getWatcher(): ComponentWatcher | undefined {
+    return this.watcher;
   }
 }

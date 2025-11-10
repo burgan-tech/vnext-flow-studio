@@ -270,5 +270,24 @@ export function registerCommands(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(createWorkflowCommand, freezeVersionsCommand, createMapperCommand);
+  // Command to show component watcher statistics
+  const showWatcherStatsCommand = vscode.commands.registerCommand(
+    'flowEditor.showWatcherStats',
+    async () => {
+      // Get the ModelBridge instance (we'll need to pass it in)
+      vscode.window.showInformationMessage(
+        'Component watcher statistics can be viewed in the "Component Watcher" output channel. ' +
+        'Use View → Output and select "Component Watcher" from the dropdown.'
+      );
+      // Show the output channel
+      vscode.commands.executeCommand('workbench.action.output.show');
+    }
+  );
+
+  context.subscriptions.push(
+    createWorkflowCommand,
+    freezeVersionsCommand,
+    createMapperCommand,
+    showWatcherStatsCommand
+  );
 }
