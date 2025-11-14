@@ -71,8 +71,8 @@ export class SettingsEditorProvider {
 
       if (shouldSetupDefaults === 'Set up defaults') {
         const defaultEnv = {
-          id: 'dev',
-          name: 'Local Development',
+          id: 'local',
+          name: 'local',
           baseUrl: 'http://localhost:4201',
           domain: 'core',
           database: {
@@ -84,8 +84,8 @@ export class SettingsEditorProvider {
           }
         };
 
-        environments = { dev: defaultEnv };
-        activeEnvironment = 'dev';
+        environments = { local: defaultEnv };
+        activeEnvironment = 'local';
 
         // Save the defaults
         await config.update('amorphie.environments', environments, vscode.ConfigurationTarget.Workspace);
@@ -443,8 +443,8 @@ export class SettingsEditorProvider {
       <div class="form-row">
         <div class="form-group">
           <label for="envId">Environment ID*</label>
-          <input type="text" id="envId" placeholder="local, dev, prod">
-          <p class="help-text">Unique identifier (lowercase, no spaces)</p>
+          <input type="text" id="envId" placeholder="local">
+          <p class="help-text">Unique identifier (lowercase, no spaces). Use "local" for local development.</p>
         </div>
 
         <div class="form-group">
@@ -493,7 +493,7 @@ export class SettingsEditorProvider {
       </div>
 
       <h3 style="margin: 24px 0 16px 0;">Database Configuration</h3>
-      <p class="help-text" style="margin-bottom: 16px;"><strong>Important:</strong> Required for deployment - used to clean up existing workflow instances. Fill in your database connection details.</p>
+      <p class="help-text" style="margin-bottom: 16px;"><strong>Required for deployment</strong> - Used to clean up existing workflow instances before deployment. Defaults are configured for local development with Docker.</p>
 
       <div class="form-group">
         <label>
@@ -665,7 +665,7 @@ export class SettingsEditorProvider {
       document.getElementById('authTokenGroup').style.display = 'none';
       document.getElementById('authBasicGroup').style.display = 'none';
 
-      // Clear database fields with sensible defaults
+      // Database fields with defaults matching the "local" environment
       document.getElementById('envDbUseDocker').checked = true;
       document.getElementById('dbDockerGroup').style.display = 'block';
       document.getElementById('dbDirectGroup').style.display = 'none';
