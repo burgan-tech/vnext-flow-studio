@@ -15,13 +15,22 @@ export function FlyoutPanel({ title, isOpen, onClose, children }: FlyoutPanelPro
     if (!isOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        // Check if click is not on the icon bar either
-        const iconBar = document.querySelector('.toolbar-icon-bar');
-        if (iconBar && !iconBar.contains(event.target as Node)) {
-          onClose();
-        }
+      const target = event.target as Node;
+
+      // Don't close if clicking inside the panel
+      if (panelRef.current && panelRef.current.contains(target)) {
+        return;
       }
+
+      // Don't close if clicking on the toolbar icons
+      const iconBar = document.querySelector('.toolbar-icon-bar');
+      if (iconBar && iconBar.contains(target)) {
+        return;
+      }
+
+      // Close for any other click
+      console.log('[FlyoutPanel] Click outside detected, closing panel');
+      onClose();
     };
 
     // Add slight delay to prevent immediate close on button click
