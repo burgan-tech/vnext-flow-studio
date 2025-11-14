@@ -62,7 +62,18 @@ export async function getInstanceInfo(
   } else {
     // Direct connection - requires pg module
     try {
-      const { Client } = await import('pg');
+      let pg;
+      try {
+        pg = await import('pg');
+      } catch (importError) {
+        console.error('[DatabaseCleanup] Failed to import pg module:', importError);
+        console.error('[DatabaseCleanup] Direct database connections require the "pg" package.');
+        console.error('[DatabaseCleanup] Please use Docker connection instead (set useDocker: true in database config).');
+        console.error('[DatabaseCleanup] Or install pg globally: npm install -g pg');
+        return null;
+      }
+
+      const { Client } = pg;
       const client = new Client({
         host: dbConfig.host,
         port: dbConfig.port,
@@ -146,7 +157,17 @@ export async function deleteWorkflowInstance(
   } else {
     // Direct connection
     try {
-      const { Client } = await import('pg');
+      let pg;
+      try {
+        pg = await import('pg');
+      } catch (importError) {
+        console.error('[DatabaseCleanup] Failed to import pg module:', importError);
+        console.error('[DatabaseCleanup] Direct database connections require the "pg" package.');
+        console.error('[DatabaseCleanup] Please use Docker connection instead (set useDocker: true in database config).');
+        return false;
+      }
+
+      const { Client } = pg;
       const client = new Client({
         host: dbConfig.host,
         port: dbConfig.port,
@@ -184,7 +205,17 @@ export async function testDatabaseConnection(dbConfig: DatabaseConfig): Promise<
   } else {
     // Direct connection
     try {
-      const { Client } = await import('pg');
+      let pg;
+      try {
+        pg = await import('pg');
+      } catch (importError) {
+        console.error('[DatabaseCleanup] Failed to import pg module:', importError);
+        console.error('[DatabaseCleanup] Direct database connections require the "pg" package.');
+        console.error('[DatabaseCleanup] Please use Docker connection instead (set useDocker: true in database config).');
+        return false;
+      }
+
+      const { Client } = pg;
       const client = new Client({
         host: dbConfig.host,
         port: dbConfig.port,
