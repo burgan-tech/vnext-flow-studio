@@ -654,9 +654,10 @@ export class SettingsEditorProvider {
     });
 
     function clearAddEnvForm() {
-      document.getElementById('envId').value = '';
-      document.getElementById('envName').value = '';
-      document.getElementById('envUrl').value = '';
+      // Pre-fill with sensible defaults
+      document.getElementById('envId').value = 'local';
+      document.getElementById('envName').value = 'local';
+      document.getElementById('envUrl').value = 'http://localhost:4201';
       document.getElementById('envDomain').value = 'core';
       document.getElementById('envAuthType').value = '';
       document.getElementById('envAuthToken').value = '';
