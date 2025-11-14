@@ -379,6 +379,7 @@ export class ModelBridge {
    */
   async openWorkflow(flowUri: vscode.Uri, panel: vscode.WebviewPanel): Promise<WorkflowModel> {
     try {
+      const startTime = Date.now();
       console.log('[ModelBridge] openWorkflow called for:', flowUri.fsPath);
 
       // Get the workspace folder for this file to use as basePath
@@ -386,6 +387,7 @@ export class ModelBridge {
 
       // Find the project-specific base path by looking for component directories
       // This supports multi-project workspaces (e.g., workspace/loans/, workspace/credit-cards/)
+      console.log('[ModelBridge] Finding project base path...');
       const basePath = await this.findProjectBasePath(
         flowUri.fsPath,
         workspaceFolder?.uri.fsPath
@@ -396,6 +398,8 @@ export class ModelBridge {
       console.log('[ModelBridge] openWorkflow - detected basePath:', basePath);
 
       // Get the model from integration (may be cached for cross-model queries)
+      console.log('[ModelBridge] Loading workflow model...');
+      const modelStartTime = Date.now();
       const model = await this.integration.openWorkflow(flowUri.fsPath, {
         resolveReferences: true,
         loadScripts: true,
@@ -403,11 +407,13 @@ export class ModelBridge {
         preloadComponents: true, // This will scan and load all tasks, schemas, views, etc.
         basePath: basePath // Use VS Code workspace folder as base path
       });
+      console.log(`[ModelBridge] Model opened in ${Date.now() - modelStartTime}ms`);
 
       // CRITICAL: Force reload from disk even if model was cached
       // The cache is needed for cross-model queries (subflows, references)
       // But we must refresh the content from disk when opening in editor
       console.log('[ModelBridge] Reloading model from disk to ensure fresh content');
+      const reloadStartTime = Date.now();
       await model.load({
         resolveReferences: true,
         loadScripts: true,
@@ -415,7 +421,7 @@ export class ModelBridge {
         preloadComponents: true,
         basePath: basePath
       });
-      console.log('[ModelBridge] Model reloaded successfully');
+      console.log(`[ModelBridge] Model reloaded in ${Date.now() - reloadStartTime}ms`);
 
       // Track the association between panel and model using the flow URI as the key
       const panelKey = flowUri.toString();
@@ -449,13 +455,17 @@ export class ModelBridge {
       // Generate diagram if it doesn't exist
       let generatedDiagram = false;
       if (!diagram) {
+        console.log('[ModelBridge] Auto-generating diagram...');
+        const layoutStartTime = Date.now();
         diagram = await autoLayout(workflow);
         model.setDiagram(diagram);
         await this.saveModel(model);
+        console.log(`[ModelBridge] Diagram generated and saved in ${Date.now() - layoutStartTime}ms`);
         generatedDiagram = true;
       }
 
       // Get tasks from the model
+      console.log('[ModelBridge] Getting tasks from model...');
       const tasks = this.getTasksFromModel(model);
 
       // Get design hints for this model
@@ -468,16 +478,22 @@ export class ModelBridge {
       const allDesignHints = hintsManager.getAllHints();
 
       // Convert to React Flow format
+      console.log('[ModelBridge] Converting to React Flow format...');
       const derived = toReactFlow(workflow, diagram, 'en', allDesignHints.states);
 
       // Get problems
+      console.log('[ModelBridge] Getting lint problems...');
       const problemsById = await this.getLintProblems(model);
 
       // Get catalogs from model
+      console.log('[ModelBridge] Getting catalogs from model...');
       const catalogs = this.getCatalogsFromModel(model);
 
       // Refresh plugin variants with discovered tasks
+      console.log('[ModelBridge] Refreshing plugin variants...');
+      const pluginStartTime = Date.now();
       await this.refreshPluginVariants(model);
+      console.log(`[ModelBridge] Plugin variants refreshed in ${Date.now() - pluginStartTime}ms`);
 
       // Get active plugins and their variants
       const activePlugins = pluginManager.getActivePlugins();
@@ -503,8 +519,8 @@ export class ModelBridge {
         }
       }
 
-
       // Send initial data to webview
+      console.log('[ModelBridge] Sending init message to webview...');
       const initMessage: MsgToWebview = {
         type: 'init',
         workflow,
@@ -520,6 +536,7 @@ export class ModelBridge {
       };
 
       panel.webview.postMessage(initMessage);
+      console.log(`[ModelBridge] Init message sent. Total time: ${Date.now() - startTime}ms`);
 
       // Update panel title
       panel.title = this.getWorkflowLabel(workflow);
