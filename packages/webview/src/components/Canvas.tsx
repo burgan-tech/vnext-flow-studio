@@ -44,7 +44,6 @@ import { TransitionLabelEditPopup } from './editors/TransitionLabelEditPopup';
 import { TimeoutConfigPopup } from './editors/TimeoutConfigPopup';
 import { StateToolbar } from './toolbar/StateToolbar';
 import { TransitionToolbar } from './toolbar/TransitionToolbar';
-import { ContextMenuSubmenu } from './ContextMenuSubmenu';
 import { useBridge } from '../hooks/useBridge';
 import { FloatingEdge } from '../edges/FloatingEdge';
 import type {
@@ -120,7 +119,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string; edgeId?: string } | null>(null);
-  const [taskCatalog, setTaskCatalog] = useState<TaskComponentDefinition[]>([]);
+  const [_taskCatalog, _setTaskCatalog] = useState<TaskComponentDefinition[]>([]);
   const [catalogs, setCatalogs] = useState<Record<string, any[]>>({});
   const [plugins, setPlugins] = useState<StatePlugin[]>([]);
   const [pluginVariants, setPluginVariants] = useState<Map<string, StateVariant[]>>(new Map());

@@ -253,7 +253,6 @@ export class ModelBridge {
       console.log('[ModelBridge] Component file watching enabled');
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('[ModelBridge] Failed to enable component watching:', error);
 
       if (this.componentWatcherLogger) {
@@ -2507,7 +2506,7 @@ export class ModelBridge {
    * Handle deploy changed files request
    * TODO: Implement Git integration to detect changed *.flow.json files
    */
-  private async handleDeployChanged(panel: vscode.WebviewPanel, force?: boolean): Promise<void> {
+  private async handleDeployChanged(panel: vscode.WebviewPanel, _force?: boolean): Promise<void> {
     panel.webview.postMessage({
       type: 'deploy:result',
       success: false,

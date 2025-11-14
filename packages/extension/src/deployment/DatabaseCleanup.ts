@@ -178,7 +178,7 @@ export async function testDatabaseConnection(dbConfig: DatabaseConfig): Promise<
       const cmd = `docker exec ${dbConfig.dockerContainer} psql -U ${dbConfig.user} -d ${dbConfig.database} -c "SELECT 1;"`;
       await execAsync(cmd);
       return true;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   } else {
@@ -197,7 +197,7 @@ export async function testDatabaseConnection(dbConfig: DatabaseConfig): Promise<
       await client.query('SELECT 1');
       await client.end();
       return true;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }

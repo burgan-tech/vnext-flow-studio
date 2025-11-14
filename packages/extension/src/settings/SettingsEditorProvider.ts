@@ -202,7 +202,7 @@ export class SettingsEditorProvider {
     vscode.window.showInformationMessage(`Active environment set to '${id}'`);
   }
 
-  private getWebviewContent(webview: vscode.Webview): string {
+  private getWebviewContent(_webview: vscode.Webview): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
