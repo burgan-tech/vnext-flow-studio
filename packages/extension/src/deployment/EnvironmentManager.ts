@@ -22,6 +22,7 @@ export class EnvironmentManager {
   static getEnvironments(): Record<string, EnvironmentConfig> {
     const config = vscode.workspace.getConfiguration(this.SETTINGS_KEY);
     const environments = config.get<Record<string, EnvironmentConfig>>(this.ENVIRONMENTS_KEY);
+    console.log('[EnvironmentManager] All environments from settings:', JSON.stringify(environments, null, 2));
     return environments || {};
   }
 
@@ -39,11 +40,15 @@ export class EnvironmentManager {
   static getActiveEnvironment(): EnvironmentConfig | undefined {
     const envId = this.getActiveEnvironmentId();
     if (!envId) {
+      console.log('[EnvironmentManager] No active environment ID found');
       return undefined;
     }
 
     const environments = this.getEnvironments();
-    return environments[envId];
+    const activeEnv = environments[envId];
+    console.log(`[EnvironmentManager] Active environment ID: ${envId}`);
+    console.log(`[EnvironmentManager] Active environment data:`, JSON.stringify(activeEnv, null, 2));
+    return activeEnv;
   }
 
   /**

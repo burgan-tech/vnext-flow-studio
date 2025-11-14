@@ -2368,6 +2368,9 @@ export class ModelBridge {
       return;
     }
 
+    // Log environment config for debugging
+    console.log('[ModelBridge] Active environment:', JSON.stringify(environment, null, 2));
+
     // Save the workflow before deploying
     await this.saveModel(model);
 
@@ -2391,6 +2394,11 @@ export class ModelBridge {
     // Log to output channel without showing it (user can view manually if needed)
     this.config.deploymentOutputChannel.appendLine('');
     this.config.deploymentOutputChannel.appendLine(`=== Deploying ${workflow.key} to ${environment.name || environment.id} ===`);
+    this.config.deploymentOutputChannel.appendLine(`Database configured: ${environment.database ? 'YES' : 'NO'}`);
+    if (environment.database) {
+      this.config.deploymentOutputChannel.appendLine(`  Docker: ${environment.database.useDocker}`);
+      this.config.deploymentOutputChannel.appendLine(`  Database: ${environment.database.database}`);
+    }
 
     try {
       // Deploy with dependencies and progress updates
