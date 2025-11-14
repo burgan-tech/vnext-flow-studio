@@ -15,16 +15,18 @@ export function FlyoutPanel({ title, isOpen, onClose, children }: FlyoutPanelPro
     if (!isOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
+      const target = event.target as HTMLElement;
 
       // Don't close if clicking inside the panel
       if (panelRef.current && panelRef.current.contains(target)) {
+        console.log('[FlyoutPanel] Click inside panel, not closing');
         return;
       }
 
       // Don't close if clicking on the toolbar icons
       const iconBar = document.querySelector('.toolbar-icon-bar');
       if (iconBar && iconBar.contains(target)) {
+        console.log('[FlyoutPanel] Click on toolbar, not closing');
         return;
       }
 
@@ -33,12 +35,13 @@ export function FlyoutPanel({ title, isOpen, onClose, children }: FlyoutPanelPro
       onClose();
     };
 
-    // Add slight delay to prevent immediate close on button click
-    setTimeout(() => {
+    // Add slight delay to prevent immediate close on button click that opened the panel
+    const timeoutId = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
     }, 100);
 
     return () => {
+      clearTimeout(timeoutId);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen, onClose]);
