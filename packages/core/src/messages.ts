@@ -98,6 +98,7 @@ export type MsgFromWebview =
   | { type: 'deploy:changed'; force?: boolean }
   | { type: 'deploy:checkStatus' }
   | { type: 'deploy:selectEnvironment' }
+  | { type: 'deploy:openSettings' }
   | { type: 'task:openPopupEditor'; stateKey: string; lane?: 'onEntries' | 'onExits' }
   | { type: 'task:createNew' }
   | { type: 'transition:editKey'; transitionId: string }

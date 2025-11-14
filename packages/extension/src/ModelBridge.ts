@@ -689,6 +689,10 @@ export class ModelBridge {
         case 'deploy:selectEnvironment':
           await this.handleSelectEnvironment(panel);
           break;
+
+        case 'deploy:openSettings':
+          await vscode.commands.executeCommand('amorphie.openSettings');
+          break;
       }
 
       // After handling the message, update the webview if needed

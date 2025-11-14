@@ -103,22 +103,58 @@ export class EnvironmentManager {
         ready: false,
         configured: false,
         apiReachable: false,
-        error: 'No environment configured. Please configure an environment in settings.'
+        error: 'No environment configured. Please configure an environment in Amorphie Settings.'
+      };
+    }
+
+    // Check database configuration
+    if (!environment.database) {
+      return {
+        ready: false,
+        configured: true,
+        environment,
+        apiReachable: false,
+        error: `Database configuration not set for environment '${environment.name || environment.id}'. Configure database connection in Amorphie Settings.`
       };
     }
 
     // Test API connection
+    let apiReachable = false;
     try {
       const adapter = new AmorphieRuntimeAdapter();
-      const connected = await adapter.testConnection(environment);
+      apiReachable = await adapter.testConnection(environment);
 
-      if (!connected) {
+      if (!apiReachable) {
         return {
           ready: false,
           configured: true,
           environment,
           apiReachable: false,
           error: `Cannot connect to API at ${environment.baseUrl}`
+        };
+      }
+    } catch (error) {
+      return {
+        ready: false,
+        configured: true,
+        environment,
+        apiReachable: false,
+        error: `API connection test failed: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
+
+    // Test database connection
+    try {
+      const { testDatabaseConnection } = await import('../deployment/DatabaseCleanup.js');
+      const dbConnected = await testDatabaseConnection(environment.database);
+
+      if (!dbConnected) {
+        return {
+          ready: false,
+          configured: true,
+          environment,
+          apiReachable: true,
+          error: `Cannot connect to database. Check your database configuration in Amorphie Settings.`
         };
       }
 
@@ -133,8 +169,8 @@ export class EnvironmentManager {
         ready: false,
         configured: true,
         environment,
-        apiReachable: false,
-        error: `Connection test failed: ${error instanceof Error ? error.message : String(error)}`
+        apiReachable: true,
+        error: `Database connection test failed: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }

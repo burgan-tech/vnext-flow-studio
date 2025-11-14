@@ -2199,16 +2199,26 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               ) : deployStatus.error ? (
                 <div className="deploy-setup">
                   <div className="deploy-setup__header">
-                    <h3>Deployment Error</h3>
+                    <h3>Deployment Configuration Needed</h3>
                     <p>{deployStatus.error}</p>
                   </div>
-                  <button
-                    type="button"
-                    className="deploy-btn deploy-btn--primary"
-                    onClick={() => postMessage({ type: 'deploy:selectEnvironment' })}
-                  >
-                    Select Different Environment
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                    <button
+                      type="button"
+                      className="deploy-btn deploy-btn--primary"
+                      onClick={() => postMessage({ type: 'deploy:selectEnvironment' })}
+                    >
+                      Select Different Environment
+                    </button>
+                    <button
+                      type="button"
+                      className="deploy-btn deploy-btn--secondary"
+                      onClick={() => postMessage({ type: 'deploy:openSettings' })}
+                      title="Open Amorphie Settings to configure database connection"
+                    >
+                      Configure Settings
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -2220,7 +2230,13 @@ ${documentation.split('\n').slice(1).join('\n')}`;
                     <div className="deploy-status__item">
                       <span className="deploy-status__label">API:</span>
                       <span className={`deploy-status__value ${deployStatus.apiReachable ? 'deploy-status__value--success' : 'deploy-status__value--error'}`}>
-                        {deployStatus.apiReachable ? 'Connected' : 'Not reachable'}
+                        {deployStatus.apiReachable ? '✓ Connected' : '✗ Not reachable'}
+                      </span>
+                    </div>
+                    <div className="deploy-status__item">
+                      <span className="deploy-status__label">Database:</span>
+                      <span className={`deploy-status__value ${deployStatus.ready ? 'deploy-status__value--success' : 'deploy-status__value--error'}`}>
+                        {deployStatus.ready ? '✓ Connected' : '✗ Not configured'}
                       </span>
                     </div>
                     {deployStatus.environment && (
