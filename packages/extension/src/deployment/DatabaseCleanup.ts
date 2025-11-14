@@ -64,12 +64,23 @@ export async function getInstanceInfo(
       await client.connect();
       console.log('[DatabaseCleanup] Querying schema:', dbSchema, 'for key:', key);
 
+      // First, check if there are ANY instances in this schema
+      const countQuery = `SELECT COUNT(*) as count FROM "${dbSchema}"."Instances"`;
+      const countResult = await client.query(countQuery);
+      console.log(`[DatabaseCleanup] Total instances in schema "${dbSchema}":`, countResult.rows[0].count);
+
+      // Then query for our specific key
       const query = `SELECT "Id", "Status" FROM "${dbSchema}"."Instances" WHERE "Key" = $1 ORDER BY "CreatedAt" DESC LIMIT 1`;
       const result = await client.query(query, [key]);
 
       console.log('[DatabaseCleanup] Query result rows:', result.rows.length);
       if (result.rows.length > 0) {
         console.log('[DatabaseCleanup] Found instance:', result.rows[0]);
+      } else {
+        // Debug: show what keys actually exist
+        const keysQuery = `SELECT DISTINCT "Key" FROM "${dbSchema}"."Instances" LIMIT 10`;
+        const keysResult = await client.query(keysQuery);
+        console.log('[DatabaseCleanup] Sample keys in schema:', keysResult.rows.map(r => r.Key));
       }
 
       await client.end();
