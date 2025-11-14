@@ -507,6 +507,13 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
     const oldState = { ...this.state.workflow.attributes.states[stateIndex] };
     const newState = { ...oldState, ...updates };
 
+    // Remove properties that are explicitly set to undefined
+    Object.keys(updates).forEach(updateKey => {
+      if (updates[updateKey as keyof State] === undefined) {
+        delete newState[updateKey as keyof State];
+      }
+    });
+
     this.state.workflow.attributes.states[stateIndex] = newState;
 
     // Re-resolve the state
