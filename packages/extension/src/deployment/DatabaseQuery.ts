@@ -2,7 +2,6 @@
  * Database query utilities for change detection
  */
 
-import { Client } from 'pg';
 import type { DatabaseConfig } from '@amorphie-flow-studio/graph-core';
 
 /**
@@ -33,6 +32,24 @@ export async function getComponentData(
   flow: string,
   key: string
 ): Promise<ComponentDatabaseData> {
+  // Import pg dynamically to avoid activation errors when module is missing
+  let pg;
+  try {
+    pg = await import('pg');
+  } catch (importError) {
+    console.error('[DatabaseQuery] Failed to import pg module:', importError);
+    console.error('[DatabaseQuery] Direct database connections require the "pg" package.');
+    console.error('[DatabaseQuery] Please use Docker connection instead (set useDocker: true in database config).');
+    return {
+      data: null,
+      enteredAt: new Date(0),
+      etag: '',
+      version: '',
+      exists: false
+    };
+  }
+
+  const { Client } = pg;
   const client = new Client({
     host: dbConfig.host,
     port: dbConfig.port,
@@ -87,6 +104,17 @@ export async function getComponentDataBatch(
   dbConfig: DatabaseConfig,
   components: Array<{ flow: string; key: string }>
 ): Promise<Map<string, ComponentDatabaseData>> {
+  // Import pg dynamically to avoid activation errors when module is missing
+  let pg;
+  try {
+    pg = await import('pg');
+  } catch (importError) {
+    console.error('[DatabaseQuery] Failed to import pg module:', importError);
+    console.error('[DatabaseQuery] Direct database connections require the "pg" package.');
+    console.error('[DatabaseQuery] Please use Docker connection instead (set useDocker: true in database config).');
+    return new Map<string, ComponentDatabaseData>();
+  }
+
   const results = new Map<string, ComponentDatabaseData>();
 
   // Group by schema for efficient querying
@@ -99,6 +127,7 @@ export async function getComponentDataBatch(
     bySchema.get(schema)!.push(comp.key);
   }
 
+  const { Client } = pg;
   const client = new Client({
     host: dbConfig.host,
     port: dbConfig.port,
