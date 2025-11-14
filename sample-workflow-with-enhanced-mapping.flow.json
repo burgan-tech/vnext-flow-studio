@@ -1,0 +1,182 @@
+{
+  "$schema": "https://vnext.io/schemas/workflow-definition.schema.json",
+  "key": "user-onboarding",
+  "flow": "onboarding",
+  "domain": "idm",
+  "version": "1.0.0",
+  "flowVersion": "1.0.0",
+  "tags": ["onboarding", "user-management"],
+  "attributes": {
+    "type": "F",
+    "labels": [
+      {
+        "label": "User Onboarding",
+        "language": "en-US"
+      },
+      {
+        "label": "Kullanıcı Kayıt",
+        "language": "tr-TR"
+      }
+    ],
+    "startTransition": {
+      "key": "start",
+      "target": "initial-state",
+      "triggerType": 0,
+      "versionStrategy": "Minor",
+      "mapping": {
+        "code": "// Generated start transition mapping\nvar userId = context.GetData(\"userId\");\nvar timestamp = DateTime.UtcNow;\ncontext.SetData(\"startedAt\", timestamp);\ncontext.SetData(\"userId\", userId);",
+        "location": "generated/mappings/start-mapping.csx",
+        "designTime": {
+          "mode": "split",
+          "input": {
+            "code": "var userId = context.GetData(\"userId\");\nvar timestamp = DateTime.UtcNow;"
+          },
+          "output": {
+            "code": "context.SetData(\"startedAt\", timestamp);\ncontext.SetData(\"userId\", userId);"
+          }
+        },
+        "generatedAt": "2025-01-15T10:00:00Z"
+      }
+    },
+    "states": [
+      {
+        "key": "initial-state",
+        "stateType": 1,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Initial State",
+            "language": "en-US"
+          }
+        ],
+        "onEntries": [
+          {
+            "order": 1,
+            "task": {
+              "key": "validate-user",
+              "domain": "idm",
+              "flow": "sys-tasks",
+              "version": "1.0.0"
+            },
+            "mapping": {
+              "code": "// Generated from unified mapper file\nvar userData = context.GetData(\"userData\");\nvar validationResult = ValidateUserData(userData);\ncontext.SetData(\"validationResult\", validationResult);",
+              "location": "generated/mappings/validate-user-unified.csx",
+              "designTime": {
+                "mode": "unified",
+                "unifiedRef": "mappings/validate-user-complete.csx"
+              },
+              "generatedAt": "2025-01-15T10:05:00Z"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "key": "to-verification",
+            "target": "verification-state",
+            "versionStrategy": "Minor",
+            "triggerType": 0,
+            "mapping": {
+              "code": "// Generated mixed mapping\n// Input mapping (from file)\nvar verificationData = PrepareVerificationData(context);\n\n// Output mapping (inline)\ncontext.SetData(\"verificationData\", verificationData);\ncontext.SetData(\"status\", \"pending-verification\");",
+              "location": "generated/mappings/to-verification-mixed.csx",
+              "designTime": {
+                "mode": "split",
+                "input": {
+                  "ref": "mappings/input/verification-prep.csx"
+                },
+                "output": {
+                  "code": "context.SetData(\"verificationData\", verificationData);\ncontext.SetData(\"status\", \"pending-verification\");"
+                }
+              },
+              "generatedAt": "2025-01-15T10:10:00Z"
+            },
+            "onExecutionTasks": [
+              {
+                "order": 1,
+                "task": {
+                  "key": "send-verification-email",
+                  "domain": "notification",
+                  "flow": "sys-tasks",
+                  "version": "1.0.0"
+                },
+                "mapping": {
+                  "code": "// Generated from both file references\nvar emailData = ExtractEmailData(context);\nvar formattedEmail = FormatEmailContent(emailData);\ncontext.SetData(\"emailPayload\", formattedEmail);",
+                  "location": "generated/mappings/email-both-refs.csx",
+                  "designTime": {
+                    "mode": "split",
+                    "input": {
+                      "ref": "mappings/input/email-extract.csx"
+                    },
+                    "output": {
+                      "ref": "mappings/output/email-format.csx"
+                    }
+                  },
+                  "generatedAt": "2025-01-15T10:12:00Z"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "verification-state",
+        "stateType": 2,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Verification State",
+            "language": "en-US"
+          }
+        ],
+        "transitions": [
+          {
+            "key": "verify-success",
+            "target": "final-state",
+            "versionStrategy": "Minor",
+            "triggerType": 0,
+            "mapping": {
+              "code": "// Manual code without design-time metadata\nvar verificationCode = context.GetData(\"verificationCode\");\nvar isValid = VerifyCode(verificationCode);\ncontext.SetData(\"verified\", isValid);",
+              "location": "mappings/manual/verify-success.csx",
+              "designTime": null
+            }
+          }
+        ]
+      },
+      {
+        "key": "final-state",
+        "stateType": 3,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Completed",
+            "language": "en-US"
+          }
+        ],
+        "onEntries": [
+          {
+            "order": 1,
+            "task": {
+              "key": "complete-onboarding",
+              "domain": "idm",
+              "flow": "sys-tasks",
+              "version": "1.0.0"
+            },
+            "mapping": {
+              "code": "// Generated with both inline code\nvar userId = context.GetData(\"userId\");\nvar timestamp = DateTime.UtcNow;\ncontext.SetData(\"completedAt\", timestamp);\ncontext.SetData(\"userId\", userId);\ncontext.SetData(\"status\", \"completed\");",
+              "location": "generated/mappings/complete-both-inline.csx",
+              "designTime": {
+                "mode": "split",
+                "input": {
+                  "code": "var userId = context.GetData(\"userId\");\nvar timestamp = DateTime.UtcNow;"
+                },
+                "output": {
+                  "code": "context.SetData(\"completedAt\", timestamp);\ncontext.SetData(\"userId\", userId);\ncontext.SetData(\"status\", \"completed\");"
+                }
+              },
+              "generatedAt": "2025-01-15T10:20:00Z"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

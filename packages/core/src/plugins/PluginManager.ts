@@ -432,6 +432,7 @@ export class PluginManager implements IPluginManager {
         case 1: return this.getPlugin('Initial') || null;
         case 3: return this.getPlugin('Final') || null;
         case 4: return this.getPlugin('SubFlow') || null;
+        case 5: return this.getPlugin('Wizard') || null;
         case 2:
         default:
           // Regular intermediate state, NOT ServiceTask

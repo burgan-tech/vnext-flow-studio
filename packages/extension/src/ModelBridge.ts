@@ -4,6 +4,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs/promises';
+import * as os from 'os';
 import {
   VSCodeModelIntegration,
   WorkflowModel,
@@ -15,6 +17,7 @@ import {
   IntermediateStatePlugin,
   FinalStatePlugin,
   SubFlowStatePlugin,
+  WizardStatePlugin,
   ServiceTaskPlugin,
   DesignHintsManager,
   type Workflow,
@@ -29,7 +32,7 @@ import {
   type Problem,
   type DesignHints
 } from '@amorphie-flow-studio/core';
-import * as cli from './cli.js';
+import { DeploymentService, EnvironmentManager } from './deployment/index.js';
 import { VSCodeOutputChannelLogger } from './VSCodeLogger.js';
 import type { ComponentWatcher, ComponentResolver, FileChangeEvent } from '@amorphie-flow-studio/core';
 
@@ -58,12 +61,14 @@ export class ModelBridge {
   private autosaveTimers: Map<string, NodeJS.Timeout> = new Map();
   private lastSavedContent: Map<string, string> = new Map();
   private lastSaveTime: Map<string, number> = new Map();
-  private deploymentTerminal: vscode.Terminal | undefined;
 
   // Component watching
   private componentWatcher?: ComponentWatcher;
   private componentWatcherLogger?: VSCodeOutputChannelLogger;
   private globalResolver?: ComponentResolver;
+
+  // Deployment service
+  private deploymentService?: DeploymentService;
 
   constructor(config: ModelBridgeConfig) {
     this.config = config;
@@ -82,34 +87,8 @@ export class ModelBridge {
         `Component file watching failed to start: ${error.message}`
       );
     });
-
-    // Listen for terminal close events to clear our reference
-    config.context.subscriptions.push(
-      vscode.window.onDidCloseTerminal((terminal) => {
-        if (terminal === this.deploymentTerminal) {
-          this.deploymentTerminal = undefined;
-        }
-      })
-    );
   }
 
-  /**
-   * Get or create the deployment terminal
-   */
-  private getDeploymentTerminal(): vscode.Terminal {
-    // Check if terminal still exists
-    if (this.deploymentTerminal && vscode.window.terminals.includes(this.deploymentTerminal)) {
-      return this.deploymentTerminal;
-    }
-
-    // Create new terminal
-    this.deploymentTerminal = vscode.window.createTerminal({
-      name: 'Workflow Deployment',
-      hideFromUser: false
-    });
-
-    return this.deploymentTerminal;
-  }
 
   /**
    * Initialize the plugin system
@@ -120,6 +99,7 @@ export class ModelBridge {
     pluginManager.register(IntermediateStatePlugin);
     pluginManager.register(FinalStatePlugin);
     pluginManager.register(SubFlowStatePlugin);
+    pluginManager.register(WizardStatePlugin);
 
     // Register Service Task plugin
     pluginManager.register(ServiceTaskPlugin);
@@ -132,6 +112,7 @@ export class ModelBridge {
     pluginManager.activate('Intermediate');
     pluginManager.activate('Final');
     pluginManager.activate('SubFlow');
+    pluginManager.activate('Wizard');
     pluginManager.activate('ServiceTask');
 
     // Refresh variants for active plugins
@@ -573,22 +554,22 @@ export class ModelBridge {
 
         case 'domain:addTransition':
           await this.addTransition(model, message.from, message.target, message.triggerType);
-          this.scheduleAutosave(model);
+          this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:moveTransition':
           await this.moveTransition(model, message.oldFrom, message.tKey, message.newFrom, message.newTarget);
-          this.scheduleAutosave(model);
+          this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:removeTransition':
           await this.removeTransition(model, message.from, message.tKey);
-          this.scheduleAutosave(model);
+          this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:removeState':
           await this.removeState(model, message.stateKey);
-          this.scheduleAutosave(model);
+          this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:updateState':
@@ -602,8 +583,10 @@ export class ModelBridge {
           break;
 
         case 'domain:makeTransitionShared':
+          console.log('[ModelBridge] Handling domain:makeTransitionShared');
           await this.makeTransitionShared(model, message.from, message.transitionKey);
-          this.scheduleAutosave(model);
+          console.log('[ModelBridge] makeTransitionShared complete, scheduling immediate autosave');
+          this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:updateSharedTransition':
@@ -613,18 +596,25 @@ export class ModelBridge {
 
         case 'domain:updateStartTransition':
           await this.updateStartTransition(model, message.startTransition);
+          await this.updateWebviewForModel(model, panel);
           this.scheduleAutosave(model);
           break;
 
         case 'domain:convertSharedToRegular':
           await this.convertSharedToRegular(model, message.transitionKey, message.targetState);
-          this.scheduleAutosave(model);
+          this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
-        case 'domain:removeFromSharedTransition':
-          await this.removeFromSharedTransition(model, message.transitionKey, message.stateKey);
-          this.scheduleAutosave(model);
+        case 'domain:removeFromSharedTransition': {
+          console.log('[ModelBridge] Handling domain:removeFromSharedTransition');
+          const deleted = await this.removeFromSharedTransition(model, message.transitionKey, message.stateKey);
+          console.log('[ModelBridge] Deletion result:', deleted);
+          if (deleted) {
+            console.log('[ModelBridge] Scheduling immediate autosave');
+            this.scheduleAutosave(model, 100); // Immediate save for structural changes
+          }
           break;
+        }
 
         case 'domain:updateComment':
           await this.updateComment(model, message);
@@ -633,7 +623,7 @@ export class ModelBridge {
 
         case 'domain:addState':
           await this.addState(model, message.state, message.position, message.pluginId, message.hints);
-          this.scheduleAutosave(model);
+          this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'mapping:createFile':
@@ -644,8 +634,24 @@ export class ModelBridge {
           await this.loadMappingFromFile(model, message);
           break;
 
+        case 'mapping:openMapper':
+          await this.openMapperForTask(model, message);
+          break;
+
+        case 'task:createNew':
+          await vscode.commands.executeCommand('taskEditor.newTask');
+          break;
+
         case 'rule:loadFromFile':
           await this.loadRuleFromFile(model, message);
+          break;
+
+        case 'editor:openInVSCode':
+          await this.openScriptInVSCode(model, message.location, panel);
+          break;
+
+        case 'editor:createScript':
+          await this.createScriptFile(model, message.content, message.location, message.scriptType, panel);
           break;
 
         case 'request:lint':
@@ -669,33 +675,27 @@ export class ModelBridge {
           break;
 
         case 'deploy:current':
-          await this.handleDeployCurrent(model, panel);
+          await this.handleDeployCurrent(model, panel, message.force);
           break;
 
         case 'deploy:changed':
-          await this.handleDeployChanged(panel);
+          await this.handleDeployChanged(panel, message.force);
           break;
 
         case 'deploy:checkStatus':
           await this.handleCheckDeployStatus(panel);
           break;
 
-        case 'deploy:install':
-          await this.handleInstallCli(panel);
-          break;
-
-        case 'deploy:configure':
-          await this.handleConfigureCli(panel);
-          break;
-
-        case 'deploy:changeProjectRoot':
-          await this.handleChangeProjectRoot(panel);
+        case 'deploy:selectEnvironment':
+          await this.handleSelectEnvironment(panel);
           break;
       }
 
       // After handling the message, update the webview if needed
       if (this.shouldUpdateWebview(message.type)) {
+        console.log('[ModelBridge] Updating webview for message type:', message.type);
         await this.updateWebviewForModel(model, panel);
+        console.log('[ModelBridge] Webview update complete');
       }
     } catch (error) {
       console.error(`Error handling message ${message.type}:`, error);
@@ -752,7 +752,11 @@ export class ModelBridge {
       key,
       target,
       versionStrategy: 'Major',
-      triggerType
+      triggerType,
+      labels: [
+        { label: key, language: 'en-US' },
+        { label: key, language: 'tr-TR' }
+      ]
     });
 
     // Autosave will be triggered by the message handler
@@ -928,30 +932,43 @@ export class ModelBridge {
     from: string,
     transitionKey: string
   ): Promise<void> {
+    console.log('[ModelBridge] makeTransitionShared called:', { from, transitionKey });
     const workflow = model.getWorkflow();
     const state = workflow.attributes.states.find(s => s.key === from);
 
+    console.log('[ModelBridge] Found state:', state?.key, 'transitions:', state?.transitions?.length);
+
     if (!state?.transitions) {
+      console.error('[ModelBridge] No transitions found on state');
       throw new Error(`Transition ${transitionKey} not found`);
     }
 
     const index = state.transitions.findIndex(t => t.key === transitionKey);
+    console.log('[ModelBridge] Transition index:', index);
+
     if (index === -1) {
+      console.error('[ModelBridge] Transition not found in state.transitions');
+      console.log('[ModelBridge] Available transitions:', state.transitions.map(t => t.key));
       throw new Error(`Transition ${transitionKey} not found`);
     }
 
     const transition = state.transitions.splice(index, 1)[0];
+    console.log('[ModelBridge] Removed transition:', { key: transition.key, target: transition.target });
+
     if (state.transitions.length === 0) {
       delete state.transitions;
+      console.log('[ModelBridge] Deleted empty transitions array');
     }
 
     // Add to shared transitions
     if (!workflow.attributes.sharedTransitions) {
       workflow.attributes.sharedTransitions = [];
+      console.log('[ModelBridge] Created sharedTransitions array');
     }
 
     // Check if this is a self-loop transition
     const isSelfLoop = transition.target === from;
+    console.log('[ModelBridge] Is self-loop:', isSelfLoop, 'target:', transition.target, 'from:', from);
 
     const sharedTransition: SharedTransition = {
       ...transition,
@@ -960,7 +977,10 @@ export class ModelBridge {
       availableIn: [from]
     };
 
+    console.log('[ModelBridge] Adding shared transition:', { key: sharedTransition.key, target: sharedTransition.target, availableIn: sharedTransition.availableIn });
+
     workflow.attributes.sharedTransitions.push(sharedTransition);
+    console.log('[ModelBridge] Total shared transitions now:', workflow.attributes.sharedTransitions.length);
     // Autosave will be triggered by the message handler
   }
 
@@ -994,6 +1014,13 @@ export class ModelBridge {
     startTransition: Transition
   ): Promise<void> {
     const workflow = model.getWorkflow();
+
+    // Enforce schema requirement: startTransition.triggerType must be 0 (Manual)
+    if (startTransition.triggerType !== 0) {
+      console.warn('[ModelBridge] startTransition.triggerType must be 0 (Manual), forcing correction');
+      startTransition.triggerType = 0;
+    }
+
     workflow.attributes.startTransition = startTransition;
     // Autosave will be triggered by the message handler
   }
@@ -1033,6 +1060,10 @@ export class ModelBridge {
     }
 
     const { availableIn, ...regularTransition } = sharedTransition;
+    // Resolve "$self" target to the actual state
+    if (regularTransition.target === '$self') {
+      regularTransition.target = targetState;
+    }
     state.transitions.push(regularTransition as Transition);
 
     // Autosave will be triggered by the message handler
@@ -1040,44 +1071,71 @@ export class ModelBridge {
 
   /**
    * Remove state from shared transition
+   * @returns true if deletion occurred, false if cancelled by user
    */
   private async removeFromSharedTransition(
     model: WorkflowModel,
     transitionKey: string,
     stateKey: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     const workflow = model.getWorkflow();
 
+    console.log('[ModelBridge] removeFromSharedTransition called:', { transitionKey, stateKey });
+
     if (!workflow.attributes.sharedTransitions) {
-      return;
+      console.log('[ModelBridge] No shared transitions found');
+      return false;
     }
 
     const transition = workflow.attributes.sharedTransitions.find(t => t.key === transitionKey);
     if (!transition) {
-      return;
+      console.log('[ModelBridge] Transition not found:', transitionKey);
+      return false;
     }
+
+    console.log('[ModelBridge] Found transition:', {
+      key: transition.key,
+      target: transition.target,
+      availableIn: transition.availableIn
+    });
 
     if (transition.availableIn.length === 1 && transition.availableIn[0] === stateKey) {
       // Last state - remove the entire shared transition
+      const targetDisplay = transition.target === '$self' ? `${stateKey} (self-loop)` : transition.target;
+      console.log('[ModelBridge] Showing delete warning for last state');
+
       const answer = await vscode.window.showWarningMessage(
-        `This is the last state for shared transition "${transitionKey}". Delete the entire shared transition?`,
+        `This is the last state using shared transition "${transitionKey}" → ${targetDisplay}. Delete the entire shared transition?`,
         'Yes, Delete',
         'Cancel'
       );
 
+      console.log('[ModelBridge] User answered:', answer);
+
       if (answer === 'Yes, Delete') {
         const index = workflow.attributes.sharedTransitions.findIndex(t => t.key === transitionKey);
+        console.log('[ModelBridge] Deleting transition at index:', index, 'before length:', workflow.attributes.sharedTransitions.length);
+
         workflow.attributes.sharedTransitions.splice(index, 1);
+
+        console.log('[ModelBridge] After deletion, length:', workflow.attributes.sharedTransitions.length);
+
         if (workflow.attributes.sharedTransitions.length === 0) {
           delete workflow.attributes.sharedTransitions;
+          console.log('[ModelBridge] Deleted sharedTransitions array (was empty)');
         }
+        return true;
+      } else {
+        // User cancelled
+        console.log('[ModelBridge] User cancelled deletion');
+        return false;
       }
     } else {
       // Remove state from availableIn
+      console.log('[ModelBridge] Removing state from availableIn (not last state)');
       transition.availableIn = transition.availableIn.filter(s => s !== stateKey);
+      return true;
     }
-
-    // Autosave will be triggered by the message handler
   }
 
   /**
@@ -1275,6 +1333,175 @@ export class ModelBridge {
     }
 
     await this.saveModel(model);
+  }
+
+  /**
+   * Open a script file in VS Code
+   */
+  private async openScriptInVSCode(model: WorkflowModel, location: string, panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      // Resolve the absolute path
+      const basePath = path.dirname(model.getModelState().metadata.workflowPath);
+      const absolutePath = path.resolve(basePath, location);
+
+      // Check if file exists
+      try {
+        await vscode.workspace.fs.stat(vscode.Uri.file(absolutePath));
+      } catch {
+        panel.webview.postMessage({
+          type: 'editor:fileOpened',
+          success: false,
+          error: `File not found: ${location}`
+        });
+        vscode.window.showErrorMessage(`Script file not found: ${location}`);
+        return;
+      }
+
+      // Open the file in VS Code in a new tab (preserves the workflow editor)
+      const document = await vscode.workspace.openTextDocument(absolutePath);
+      await vscode.window.showTextDocument(document, {
+        viewColumn: vscode.ViewColumn.Beside,
+        preserveFocus: false
+      });
+
+      panel.webview.postMessage({
+        type: 'editor:fileOpened',
+        success: true
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      panel.webview.postMessage({
+        type: 'editor:fileOpened',
+        success: false,
+        error: errorMessage
+      });
+      vscode.window.showErrorMessage(`Failed to open file: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Create a new script file (.csx)
+   */
+  private async createScriptFile(
+    model: WorkflowModel,
+    content: string,
+    location: string,
+    scriptType: 'mapping' | 'rule',
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    try {
+      // Validate the location path
+      if (location.includes('..') || path.isAbsolute(location)) {
+        panel.webview.postMessage({
+          type: 'editor:scriptCreated',
+          success: false,
+          error: 'Script files must use relative paths within the project directory.'
+        });
+        vscode.window.showErrorMessage(
+          `Invalid file location: ${location}\nScript files must use relative paths within the project directory.`
+        );
+        return;
+      }
+
+      // Get the absolute path
+      const basePath = path.dirname(model.getModelState().metadata.workflowPath);
+      const absolutePath = path.resolve(basePath, location);
+
+      // Ensure the path is within the project directory (security check)
+      const normalizedBasePath = path.normalize(basePath);
+      const normalizedAbsolutePath = path.normalize(absolutePath);
+      if (!normalizedAbsolutePath.startsWith(normalizedBasePath)) {
+        panel.webview.postMessage({
+          type: 'editor:scriptCreated',
+          success: false,
+          error: 'Cannot create files outside of project directory.'
+        });
+        vscode.window.showErrorMessage(
+          `Security Error: Cannot create files outside of project directory.\nAttempted path: ${absolutePath}`
+        );
+        return;
+      }
+
+      // Check if file already exists
+      const script = model.getScript(location);
+      if (script?.exists) {
+        panel.webview.postMessage({
+          type: 'editor:scriptCreated',
+          success: false,
+          error: 'File already exists'
+        });
+        vscode.window.showErrorMessage(`File already exists: ${location}`);
+        return;
+      }
+
+      // Create the script file
+      await model.updateScript(location, content);
+      await this.saveModel(model);
+
+      // Reload model to pick up the new script
+      await model.load({
+        preloadComponents: true,
+        basePath: model.getModelState().metadata.basePath
+      });
+
+      // Send updated catalogs to webview
+      const catalogs = this.getCatalogsFromModel(model);
+      const tasks = Array.from(model.getModelState().components.tasks.values());
+      panel.webview.postMessage({
+        type: 'catalog:update',
+        tasks,
+        catalogs
+      });
+
+      // Send success response
+      panel.webview.postMessage({
+        type: 'editor:scriptCreated',
+        success: true,
+        location
+      });
+
+      // No need to show confirmation message - user can open file from the popup using "Edit in VS Code" button
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      panel.webview.postMessage({
+        type: 'editor:scriptCreated',
+        success: false,
+        error: errorMessage
+      });
+      vscode.window.showErrorMessage(`Failed to create script file: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Open mapper editor for task mapping
+   */
+  private async openMapperForTask(model: WorkflowModel, message: any): Promise<void> {
+    const { existingMapperRef } = message;
+
+    if (existingMapperRef) {
+      // Open existing mapper file with the mapper editor (not workflow editor)
+      const workflowPath = model.getModelState().metadata.workflowPath;
+      const workflowDir = path.dirname(workflowPath);
+      const mapperPath = path.resolve(workflowDir, existingMapperRef);
+      const mapperUri = vscode.Uri.file(mapperPath);
+
+      try {
+        // Explicitly open with the mapper editor (viewType: mapperEditor.canvas)
+        await vscode.commands.executeCommand('vscode.openWith', mapperUri, 'mapperEditor.canvas');
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to open mapper: ${error}`);
+      }
+    } else {
+      // No mapper selected - show info message
+      const action = await vscode.window.showInformationMessage(
+        'No mapper selected. You can select an existing mapper from the dropdown or create a new one.',
+        'Create New Mapper'
+      );
+
+      if (action === 'Create New Mapper') {
+        await vscode.commands.executeCommand('flowEditor.createMapper');
+      }
+    }
   }
 
   /**
@@ -1735,10 +1962,12 @@ export class ModelBridge {
    */
   private scheduleAutosave(model: WorkflowModel, delayMs: number = 2000): void {
     const modelKey = this.getModelKey(model);
+    console.log('[ModelBridge] scheduleAutosave called for:', modelKey, 'delayMs:', delayMs);
 
     // Clear existing timer if any
     const existingTimer = this.autosaveTimers.get(modelKey);
     if (existingTimer) {
+      console.log('[ModelBridge] Clearing existing autosave timer');
       clearTimeout(existingTimer);
     }
 
@@ -1780,6 +2009,11 @@ export class ModelBridge {
 
     const workflow = model.getWorkflow();
     const diagram = model.getDiagram();
+
+    console.log('[ModelBridge] updateWebviewForModel - shared transitions count:', workflow.attributes.sharedTransitions?.length || 0);
+    if (workflow.attributes.sharedTransitions) {
+      console.log('[ModelBridge] Shared transitions:', workflow.attributes.sharedTransitions.map(t => ({ key: t.key, target: t.target, availableIn: t.availableIn })));
+    }
 
     if (!diagram) {
       return;
@@ -1896,6 +2130,11 @@ export class ModelBridge {
       rules: catalogs.rule.length,
       workflows: catalogs.workflow.length
     });
+
+    // Debug: Log mapper details
+    if (catalogs.mapper.length > 0) {
+      console.log('[ModelBridge] Mapper files found:', catalogs.mapper.map(m => m.location));
+    }
     return catalogs;
   }
 
@@ -2093,151 +2332,48 @@ export class ModelBridge {
   /**
    * Handle deploy current file request
    */
-  private async handleDeployCurrent(model: WorkflowModel, panel: vscode.WebviewPanel): Promise<void> {
-    // Check if CLI is installed
-    const installed = await cli.checkCliInstalled();
-    if (!installed) {
-      await cli.showInstallationGuide();
-      panel.webview.postMessage({
-        type: 'deploy:result',
-        success: false,
-        message: 'vnext-workflow-cli is not installed'
-      });
-      return;
+  private async handleDeployCurrent(model: WorkflowModel, panel: vscode.WebviewPanel, force?: boolean): Promise<void> {
+    // Initialize deployment service if needed
+    if (!this.deploymentService) {
+      if (!this.globalResolver) {
+        console.error('[ModelBridge] Cannot deploy: globalResolver not initialized');
+        panel.webview.postMessage({
+          type: 'deploy:result',
+          success: false,
+          message: 'Component resolver not initialized. Try reopening the workspace.'
+        });
+        return;
+      }
+      this.deploymentService = new DeploymentService(
+        this.globalResolver,
+        this.config.deploymentOutputChannel
+      );
     }
 
-    // Check if CLI is configured
-    const status = await cli.checkStatus(this.config.deploymentOutputChannel);
-    if (!status.configured) {
-      await cli.showConfigurationGuide();
-      panel.webview.postMessage({
-        type: 'deploy:result',
-        success: false,
-        message: 'vnext-workflow-cli is not configured'
-      });
+    // Get active environment
+    const environment = EnvironmentManager.getActiveEnvironment();
+    if (!environment) {
+      const configured = await EnvironmentManager.promptForEnvironmentConfiguration();
+      if (!configured) {
+        panel.webview.postMessage({
+          type: 'deploy:result',
+          success: false,
+          message: 'No deployment environment configured'
+        });
+      }
       return;
     }
 
     // Save the workflow before deploying
     await this.saveModel(model);
 
-    // Get or create deployment terminal
-    const terminal = this.getDeploymentTerminal();
-
-    // Deploy the current file
+    // Get workflow info
+    const workflow = model.getWorkflow();
     const workflowPath = model.getModelState().metadata.workflowPath;
-    const result = await cli.deployFile(workflowPath, terminal);
 
-    // Send result back to webview
-    panel.webview.postMessage({
-      type: 'deploy:result',
-      success: result.success,
-      message: result.message
-    });
-  }
-
-  /**
-   * Handle deploy changed files request
-   */
-  private async handleDeployChanged(panel: vscode.WebviewPanel): Promise<void> {
-    // Check if CLI is installed
-    const installed = await cli.checkCliInstalled();
-    if (!installed) {
-      await cli.showInstallationGuide();
-      panel.webview.postMessage({
-        type: 'deploy:result',
-        success: false,
-        message: 'vnext-workflow-cli is not installed'
-      });
-      return;
-    }
-
-    // Check if CLI is configured
-    const status = await cli.checkStatus(this.config.deploymentOutputChannel);
-    if (!status.configured) {
-      await cli.showConfigurationGuide();
-      panel.webview.postMessage({
-        type: 'deploy:result',
-        success: false,
-        message: 'vnext-workflow-cli is not configured'
-      });
-      return;
-    }
-
-    // Get or create deployment terminal
-    const terminal = this.getDeploymentTerminal();
-
-    // Deploy changed files
-    const result = await cli.deployChanged(terminal);
-
-    // Send result back to webview
-    panel.webview.postMessage({
-      type: 'deploy:result',
-      success: result.success,
-      message: result.message
-    });
-  }
-
-  /**
-   * Handle check deployment status request
-   */
-  private async handleCheckDeployStatus(panel: vscode.WebviewPanel): Promise<void> {
-    // Check status
-    const status = await cli.checkStatus(this.config.deploymentOutputChannel);
-
-    // Send status back to webview
-    panel.webview.postMessage({
-      type: 'deploy:status',
-      installed: status.installed,
-      configured: status.configured,
-      version: status.version,
-      projectRoot: status.projectRoot,
-      apiReachable: status.apiReachable,
-      dbReachable: status.dbReachable
-    });
-  }
-
-  /**
-   * Handle CLI installation request
-   */
-  private async handleInstallCli(panel: vscode.WebviewPanel): Promise<void> {
-    // Install CLI
-    const result = await cli.installCli(this.config.deploymentOutputChannel);
-
-    // Send result back to webview
-    panel.webview.postMessage({
-      type: 'deploy:result',
-      success: result.success,
-      message: result.message
-    });
-
-    // Show notification
-    if (result.success) {
-      vscode.window.showInformationMessage('vnext-workflow-cli installed successfully');
-
-      // Check status after installation
-      const status = await cli.checkStatus(this.config.deploymentOutputChannel);
-      panel.webview.postMessage({
-        type: 'deploy:status',
-        installed: status.installed,
-        configured: status.configured,
-        version: status.version,
-        projectRoot: status.projectRoot,
-        apiReachable: status.apiReachable,
-        dbReachable: status.dbReachable
-      });
-    } else {
-      vscode.window.showErrorMessage(`Installation failed: ${result.message}`);
-    }
-  }
-
-  /**
-   * Handle CLI configuration request
-   */
-  private async handleConfigureCli(panel: vscode.WebviewPanel): Promise<void> {
-    // Get workspace folder
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
+    // Get workspace root
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
       panel.webview.postMessage({
         type: 'deploy:result',
         success: false,
@@ -2246,75 +2382,123 @@ export class ModelBridge {
       vscode.window.showErrorMessage('No workspace folder found');
       return;
     }
+    const workspaceRoot = workspaceFolders[0].uri.fsPath;
 
-    // Configure CLI
-    const result = await cli.configureCli(workspaceFolder.uri.fsPath, this.config.deploymentOutputChannel);
+    // Log to output channel without showing it (user can view manually if needed)
+    this.config.deploymentOutputChannel.appendLine('');
+    this.config.deploymentOutputChannel.appendLine(`=== Deploying ${workflow.key} to ${environment.name || environment.id} ===`);
 
-    // Send result back to webview
+    try {
+      // Deploy with dependencies and progress updates
+      const batchResult = await this.deploymentService.deployWithDependencies(
+        { component: workflow, filePath: workflowPath, environment, force },
+        workspaceRoot,
+        (progress) => {
+          // Send progress to webview
+          panel.webview.postMessage({
+            type: 'deploy:progress',
+            step: progress.step,
+            current: progress.current,
+            total: progress.total,
+            workflow: progress.workflow,
+            message: progress.message,
+            percentage: progress.percentage
+          });
+        }
+      );
+
+      // Send final result
+      const successMessage = batchResult.success
+        ? `Successfully deployed ${workflow.key}${batchResult.total > 1 ? ` and ${batchResult.total - 1} dependencies` : ''}`
+        : `Failed to deploy ${workflow.key}: ${batchResult.results.find(r => !r.success)?.error || 'Unknown error'}`;
+
+      panel.webview.postMessage({
+        type: 'deploy:result',
+        success: batchResult.success,
+        message: successMessage,
+        results: batchResult.results
+      });
+
+      if (batchResult.success) {
+        vscode.window.showInformationMessage(
+          `Successfully deployed ${workflow.key}${batchResult.total > 1 ? ` with ${batchResult.total - 1} dependencies` : ''} to ${environment.name || environment.id}`
+        );
+      } else {
+        const failedResults = batchResult.results.filter(r => !r.success);
+        vscode.window.showErrorMessage(
+          `Failed to deploy ${failedResults.length} component(s): ${failedResults.map(r => r.key).join(', ')}`
+        );
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.config.deploymentOutputChannel.appendLine(`ERROR: ${errorMessage}`);
+
+      panel.webview.postMessage({
+        type: 'deploy:result',
+        success: false,
+        message: `Deployment failed: ${errorMessage}`
+      });
+
+      vscode.window.showErrorMessage(`Deployment failed: ${errorMessage}`);
+    }
+  }
+
+
+  /**
+   * Handle deploy changed files request
+   * TODO: Implement Git integration to detect changed *.flow.json files
+   */
+  private async handleDeployChanged(panel: vscode.WebviewPanel, force?: boolean): Promise<void> {
     panel.webview.postMessage({
       type: 'deploy:result',
-      success: result.success,
-      message: result.message
+      success: false,
+      message: 'Deploy changed files not yet implemented. Use "Deploy Current" for now.'
     });
 
-    // Show notification
-    if (result.success) {
-      vscode.window.showInformationMessage('vnext-workflow-cli configured successfully');
-
-      // Check status after configuration
-      const status = await cli.checkStatus(this.config.deploymentOutputChannel);
-      panel.webview.postMessage({
-        type: 'deploy:status',
-        installed: status.installed,
-        configured: status.configured,
-        version: status.version,
-        projectRoot: status.projectRoot,
-        apiReachable: status.apiReachable,
-        dbReachable: status.dbReachable
-      });
-    } else {
-      vscode.window.showErrorMessage(`Configuration failed: ${result.message}`);
-    }
+    vscode.window.showInformationMessage(
+      'Deploy changed files not yet implemented. Use "Deploy Current" to deploy the currently open workflow.'
+    );
   }
 
   /**
-   * Handle change project root request
+   * Handle check deployment status request
    */
-  private async handleChangeProjectRoot(panel: vscode.WebviewPanel): Promise<void> {
-    // Change project root (will show folder picker)
-    const result = await cli.changeProjectRoot(this.config.deploymentOutputChannel);
+  private async handleCheckDeployStatus(panel: vscode.WebviewPanel): Promise<void> {
+    // Check deployment status
+    const status = await EnvironmentManager.checkDeploymentStatus();
 
-    // Send result back to webview
+    // Send status back to webview
     panel.webview.postMessage({
-      type: 'deploy:result',
-      success: result.success,
-      message: result.message
+      type: 'deploy:status',
+      ready: status.ready,
+      configured: status.configured,
+      environment: status.environment ? {
+        id: status.environment.id,
+        name: status.environment.name,
+        baseUrl: status.environment.baseUrl,
+        domain: status.environment.domain
+      } : undefined,
+      apiReachable: status.apiReachable,
+      error: status.error
     });
+  }
 
-    // Show notification and refresh status
-    if (result.success) {
-      vscode.window.showInformationMessage('Project root changed successfully');
+  /**
+   * Handle environment selection request
+   */
+  private async handleSelectEnvironment(panel: vscode.WebviewPanel): Promise<void> {
+    const environment = await EnvironmentManager.promptForEnvironmentSelection();
 
-      // Wait a moment for config file to be fully written
-      await new Promise(resolve => setTimeout(resolve, 500));
+    if (environment) {
+      vscode.window.showInformationMessage(
+        `Switched to environment: ${environment.name || environment.id}`
+      );
 
-      // Check status after changing project root
-      const status = await cli.checkStatus(this.config.deploymentOutputChannel);
-      panel.webview.postMessage({
-        type: 'deploy:status',
-        installed: status.installed,
-        configured: status.configured,
-        version: status.version,
-        projectRoot: status.projectRoot,
-        apiReachable: status.apiReachable,
-        dbReachable: status.dbReachable
-      });
-    } else {
-      if (result.message !== 'No folder selected') {
-        vscode.window.showErrorMessage(`Failed to change project root: ${result.message}`);
-      }
+      // Refresh status
+      await this.handleCheckDeployStatus(panel);
     }
   }
+
 
   dispose(): void {
     // Clear all autosave timers

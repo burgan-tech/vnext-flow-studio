@@ -1,0 +1,164 @@
+/* Task Search Panel Styles */
+
+.task-search-panel {
+  margin-bottom: 20px;
+}
+
+.task-search-panel__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.task-search-panel__required {
+  color: #ef4444;
+  margin-left: 4px;
+}
+
+.task-search-panel__input-container {
+  position: relative;
+}
+
+.task-search-panel__input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  transition: all 0.2s;
+}
+
+.task-search-panel__input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.task-search-panel__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.task-search-panel__results {
+  padding: 4px;
+}
+
+.task-search-panel__result-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s;
+  margin-bottom: 2px;
+}
+
+.task-search-panel__result-item:hover {
+  background: #f1f5f9;
+}
+
+.task-search-panel__result-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.task-search-panel__result-key {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+}
+
+.task-search-panel__result-version {
+  font-size: 11px;
+  color: #64748b;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+}
+
+.task-search-panel__result-path {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+}
+
+.task-search-panel__result-description {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.task-search-panel__empty {
+  padding: 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.task-search-panel__empty p {
+  margin: 0;
+}
+
+.task-search-panel__divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
+.task-search-panel__create-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3b82f6;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  border-radius: 0;
+  margin: 4px 0;
+}
+
+.task-search-panel__create-btn:hover {
+  background: #eff6ff;
+}
+
+.task-search-panel__help {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Scrollbar */
+.task-search-panel__dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+
+.task-search-panel__dropdown::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.task-search-panel__dropdown::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.task-search-panel__dropdown::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

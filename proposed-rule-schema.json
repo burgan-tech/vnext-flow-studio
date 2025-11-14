@@ -1,0 +1,333 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Enhanced Rule Definition Proposal",
+  "description": "Proposed evolution for rule definitions (one-way boolean evaluation)",
+
+  "definitions": {
+    "enhancedRule": {
+      "type": "object",
+      "required": ["code", "location"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Final generated code for runtime rule evaluation (ALWAYS REQUIRED). Must evaluate to boolean."
+        },
+        "location": {
+          "type": "string",
+          "description": "Location of the generated runtime rule code file"
+        },
+        "designTime": {
+          "anyOf": [
+            {
+              "type": "object",
+              "description": "Design-time metadata for rule code generation",
+              "required": ["mode"],
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["simple", "composite"],
+                  "description": "Design-time rule authoring mode"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": { "mode": { "const": "simple" } }
+                  },
+                  "then": {
+                    "properties": {
+                      "rule": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": ["code"],
+                            "properties": {
+                              "code": {
+                                "type": "string",
+                                "description": "Inline rule code that evaluates to boolean"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "required": ["ref"],
+                            "properties": {
+                              "ref": {
+                                "type": "string",
+                                "description": "Path to CSX file containing rule logic",
+                                "pattern": "^.*\\.csx$"
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        ],
+                        "description": "Single rule - can be inline code or file reference"
+                      }
+                    },
+                    "required": ["rule"]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": { "mode": { "const": "composite" } }
+                  },
+                  "then": {
+                    "properties": {
+                      "operator": {
+                        "type": "string",
+                        "enum": ["AND", "OR"],
+                        "description": "Logical operator to combine conditions"
+                      },
+                      "conditions": {
+                        "type": "array",
+                        "description": "Array of conditions to be combined",
+                        "minItems": 2,
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["code"],
+                              "properties": {
+                                "code": {
+                                  "type": "string",
+                                  "description": "Inline condition code that evaluates to boolean"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "description": "Human-readable description of this condition"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": ["ref"],
+                              "properties": {
+                                "ref": {
+                                  "type": "string",
+                                  "description": "Path to CSX file containing condition logic",
+                                  "pattern": "^.*\\.csx$"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "description": "Human-readable description of this condition"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": ["operator", "conditions"]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "null",
+              "description": "No design-time metadata (code was manually written)"
+            }
+          ]
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when runtime code was generated from design-time definition"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+
+  "examples": [
+    {
+      "title": "Example 1: Simple Inline Rule",
+      "description": "Single inline condition",
+      "data": {
+        "code": "return context.GetData<decimal>(\"amount\") > 1000;",
+        "location": "generated/rules/amount-check.csx",
+        "designTime": {
+          "mode": "simple",
+          "rule": {
+            "code": "return context.GetData<decimal>(\"amount\") > 1000;"
+          }
+        },
+        "generatedAt": "2025-01-15T11:00:00Z"
+      }
+    },
+    {
+      "title": "Example 2: Simple File Reference Rule",
+      "description": "Single rule from external file",
+      "data": {
+        "code": "// Generated from rule file\nreturn ValidateUserEligibility(context);",
+        "location": "generated/rules/eligibility-check.csx",
+        "designTime": {
+          "mode": "simple",
+          "rule": {
+            "ref": "rules/user-eligibility.csx"
+          }
+        },
+        "generatedAt": "2025-01-15T11:05:00Z"
+      }
+    },
+    {
+      "title": "Example 3: Composite Rule with AND - All Inline",
+      "description": "Multiple conditions combined with AND operator",
+      "data": {
+        "code": "// Generated composite rule (AND)\nvar condition1 = context.GetData<decimal>(\"amount\") > 1000;\nvar condition2 = context.GetData<bool>(\"isVerified\");\nvar condition3 = context.GetData<string>(\"status\") == \"active\";\nreturn condition1 && condition2 && condition3;",
+        "location": "generated/rules/approval-required-composite.csx",
+        "designTime": {
+          "mode": "composite",
+          "operator": "AND",
+          "conditions": [
+            {
+              "code": "return context.GetData<decimal>(\"amount\") > 1000;",
+              "description": "Amount exceeds threshold"
+            },
+            {
+              "code": "return context.GetData<bool>(\"isVerified\");",
+              "description": "User is verified"
+            },
+            {
+              "code": "return context.GetData<string>(\"status\") == \"active\";",
+              "description": "Account is active"
+            }
+          ]
+        },
+        "generatedAt": "2025-01-15T11:10:00Z"
+      }
+    },
+    {
+      "title": "Example 4: Composite Rule with OR - All File References",
+      "description": "Multiple conditions from files combined with OR",
+      "data": {
+        "code": "// Generated composite rule (OR)\nvar condition1 = CheckHighPriority(context);\nvar condition2 = CheckUrgentStatus(context);\nvar condition3 = CheckVIPCustomer(context);\nreturn condition1 || condition2 || condition3;",
+        "location": "generated/rules/priority-routing-composite.csx",
+        "designTime": {
+          "mode": "composite",
+          "operator": "OR",
+          "conditions": [
+            {
+              "ref": "rules/conditions/high-priority.csx",
+              "description": "Request is high priority"
+            },
+            {
+              "ref": "rules/conditions/urgent-status.csx",
+              "description": "Request marked as urgent"
+            },
+            {
+              "ref": "rules/conditions/vip-customer.csx",
+              "description": "Customer has VIP status"
+            }
+          ]
+        },
+        "generatedAt": "2025-01-15T11:15:00Z"
+      }
+    },
+    {
+      "title": "Example 5: Composite Rule with Mixed Sources",
+      "description": "Mix of inline code and file references with AND operator",
+      "data": {
+        "code": "// Generated composite rule (AND) - mixed sources\nvar condition1 = context.GetData<decimal>(\"balance\") > 500;\nvar condition2 = CheckCreditScore(context);\nvar condition3 = context.GetData<int>(\"age\") >= 18;\nreturn condition1 && condition2 && condition3;",
+        "location": "generated/rules/loan-eligibility-mixed.csx",
+        "designTime": {
+          "mode": "composite",
+          "operator": "AND",
+          "conditions": [
+            {
+              "code": "return context.GetData<decimal>(\"balance\") > 500;",
+              "description": "Sufficient balance"
+            },
+            {
+              "ref": "rules/conditions/credit-score-check.csx",
+              "description": "Credit score is acceptable"
+            },
+            {
+              "code": "return context.GetData<int>(\"age\") >= 18;",
+              "description": "Legal age requirement"
+            }
+          ]
+        },
+        "generatedAt": "2025-01-15T11:20:00Z"
+      }
+    },
+    {
+      "title": "Example 6: Manual Rule (No Design-Time)",
+      "description": "Directly written rule without design-time generation",
+      "data": {
+        "code": "// Manual rule with complex logic\nvar user = context.GetData<User>(\"user\");\nif (user == null) return false;\nif (user.Role == \"Admin\") return true;\nif (user.Permissions.Contains(\"approve\")) return true;\nreturn false;",
+        "location": "rules/manual/admin-approval-check.csx",
+        "designTime": null
+      }
+    },
+    {
+      "title": "Example 7: Composite OR with Two Conditions",
+      "description": "Minimum two conditions for composite rules",
+      "data": {
+        "code": "// Generated composite rule (OR)\nvar condition1 = context.GetData<bool>(\"isExpedited\");\nvar condition2 = context.GetData<decimal>(\"amount\") > 10000;\nreturn condition1 || condition2;",
+        "location": "generated/rules/fast-track-composite.csx",
+        "designTime": {
+          "mode": "composite",
+          "operator": "OR",
+          "conditions": [
+            {
+              "code": "return context.GetData<bool>(\"isExpedited\");",
+              "description": "Expedited processing requested"
+            },
+            {
+              "code": "return context.GetData<decimal>(\"amount\") > 10000;",
+              "description": "High value transaction"
+            }
+          ]
+        },
+        "generatedAt": "2025-01-15T11:25:00Z"
+      }
+    }
+  ],
+
+  "generationExamples": {
+    "compositeAND": {
+      "description": "How to generate AND composite rules",
+      "pseudocode": "var condition1 = <eval condition1>;\nvar condition2 = <eval condition2>;\nvar conditionN = <eval conditionN>;\nreturn condition1 && condition2 && ... && conditionN;"
+    },
+    "compositeOR": {
+      "description": "How to generate OR composite rules",
+      "pseudocode": "var condition1 = <eval condition1>;\nvar condition2 = <eval condition2>;\nvar conditionN = <eval conditionN>;\nreturn condition1 || condition2 || ... || conditionN;"
+    }
+  },
+
+  "migrationNotes": {
+    "backward-compatibility": "Existing rule definitions can be converted by setting code/location as before and designTime as null",
+    "generation-workflow": [
+      "1. Designer creates rule using simple or composite mode",
+      "2. For simple mode: single inline code or file reference",
+      "3. For composite mode: multiple conditions with AND/OR operator",
+      "4. Build step generates final boolean-returning code",
+      "5. Runtime executes generated code, expecting boolean result",
+      "6. Designer reconstructs UI from designTime metadata"
+    ],
+    "differences-from-mapping": [
+      "Rules are one-way evaluations (no input/output split)",
+      "Rules must return boolean (true/false)",
+      "Rules support composite mode for combining multiple conditions",
+      "Rules are used in automatic transitions (triggerType: 1)"
+    ],
+    "tooling-requirements": [
+      "Rule editor UI with simple/composite toggle",
+      "Condition builder for composite rules",
+      "AND/OR operator selector",
+      "Validation to ensure boolean return type",
+      "Visual condition list for composite rules",
+      "Description field for each condition (optional but recommended)"
+    ]
+  },
+
+  "usageContext": {
+    "transitions": "Used in transitions with triggerType: 1 (automatic trigger)",
+    "sharedTransitions": "Used in shared transitions with triggerType: 1",
+    "validation": "Rules determine if a transition should automatically fire",
+    "evaluation": "Runtime evaluates rule code and expects boolean result"
+  }
+}

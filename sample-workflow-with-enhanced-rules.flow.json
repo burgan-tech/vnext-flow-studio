@@ -1,0 +1,207 @@
+{
+  "$schema": "https://vnext.io/schemas/workflow-definition.schema.json",
+  "key": "loan-approval",
+  "flow": "lending",
+  "domain": "finance",
+  "version": "1.0.0",
+  "flowVersion": "1.0.0",
+  "tags": ["lending", "approval"],
+  "attributes": {
+    "type": "F",
+    "labels": [
+      {
+        "label": "Loan Approval Process",
+        "language": "en-US"
+      }
+    ],
+    "startTransition": {
+      "key": "start",
+      "target": "application-received",
+      "triggerType": 0,
+      "versionStrategy": "Minor",
+      "mapping": {
+        "code": "var applicationId = context.GetData(\"applicationId\");\ncontext.SetData(\"startedAt\", DateTime.UtcNow);",
+        "location": "generated/mappings/start.csx"
+      }
+    },
+    "sharedTransitions": [
+      {
+        "key": "reject-application",
+        "target": "rejected",
+        "versionStrategy": "Minor",
+        "triggerType": 1,
+        "availableIn": ["application-received", "credit-check", "document-review"],
+        "rule": {
+          "code": "// Auto-reject if credit score too low or has default history\nvar creditScore = context.GetData<decimal>(\"creditScore\");\nvar hasDefaultHistory = context.GetData<bool>(\"hasDefaultHistory\");\nreturn creditScore < 600 || hasDefaultHistory;",
+          "location": "generated/rules/auto-reject.csx",
+          "designTime": {
+            "source": {
+              "code": "var creditScore = context.GetData<decimal>(\"creditScore\");\nvar hasDefaultHistory = context.GetData<bool>(\"hasDefaultHistory\");\nreturn creditScore < 600 || hasDefaultHistory;"
+            }
+          },
+          "generatedAt": "2025-01-15T12:00:00Z"
+        }
+      }
+    ],
+    "states": [
+      {
+        "key": "application-received",
+        "stateType": 1,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Application Received",
+            "language": "en-US"
+          }
+        ],
+        "transitions": [
+          {
+            "key": "to-credit-check",
+            "target": "credit-check",
+            "versionStrategy": "Minor",
+            "triggerType": 1,
+            "rule": {
+              "code": "return context.GetData<decimal>(\"amount\") <= 50000;",
+              "location": "generated/rules/auto-credit-check.csx",
+              "designTime": {
+                "source": {
+                  "code": "return context.GetData<decimal>(\"amount\") <= 50000;"
+                }
+              },
+              "generatedAt": "2025-01-15T12:05:00Z"
+            }
+          },
+          {
+            "key": "to-manual-review",
+            "target": "manual-review",
+            "versionStrategy": "Minor",
+            "triggerType": 0,
+            "labels": [
+              {
+                "label": "Request Manual Review",
+                "language": "en-US"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "credit-check",
+        "stateType": 2,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Credit Check",
+            "language": "en-US"
+          }
+        ],
+        "transitions": [
+          {
+            "key": "to-document-review",
+            "target": "document-review",
+            "versionStrategy": "Minor",
+            "triggerType": 1,
+            "rule": {
+              "code": "// Generated from rule file\nreturn ValidateCreditScore(context);",
+              "location": "generated/rules/credit-validation.csx",
+              "designTime": {
+                "source": {
+                  "ref": "rules/credit-score-validation.csx"
+                }
+              },
+              "generatedAt": "2025-01-15T12:10:00Z"
+            }
+          }
+        ]
+      },
+      {
+        "key": "document-review",
+        "stateType": 2,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Document Review",
+            "language": "en-US"
+          }
+        ],
+        "transitions": [
+          {
+            "key": "to-approval",
+            "target": "approved",
+            "versionStrategy": "Minor",
+            "triggerType": 1,
+            "rule": {
+              "code": "// Complex approval logic from file\nreturn CheckFinalApprovalCriteria(context);",
+              "location": "generated/rules/final-approval.csx",
+              "designTime": {
+                "source": {
+                  "ref": "rules/final-approval-criteria.csx"
+                }
+              },
+              "generatedAt": "2025-01-15T12:15:00Z"
+            }
+          }
+        ]
+      },
+      {
+        "key": "manual-review",
+        "stateType": 2,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Manual Review",
+            "language": "en-US"
+          }
+        ],
+        "transitions": [
+          {
+            "key": "approve-manually",
+            "target": "approved",
+            "versionStrategy": "Minor",
+            "triggerType": 0,
+            "labels": [
+              {
+                "label": "Approve",
+                "language": "en-US"
+              }
+            ]
+          },
+          {
+            "key": "reject-manually",
+            "target": "rejected",
+            "versionStrategy": "Minor",
+            "triggerType": 0,
+            "labels": [
+              {
+                "label": "Reject",
+                "language": "en-US"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "approved",
+        "stateType": 3,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Approved",
+            "language": "en-US"
+          }
+        ]
+      },
+      {
+        "key": "rejected",
+        "stateType": 3,
+        "versionStrategy": "Minor",
+        "labels": [
+          {
+            "label": "Rejected",
+            "language": "en-US"
+          }
+        ]
+      }
+    ]
+  }
+}

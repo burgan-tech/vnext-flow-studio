@@ -21,8 +21,12 @@ export type MsgToWebview =
   | { type: 'plugins:update'; plugins: any[]; variants: Record<string, any[]> }
   | { type: 'select:node'; nodeId: string }
   | { type: 'confirm:response'; save: boolean }
-  | { type: 'deploy:status'; installed: boolean; configured: boolean; version?: string; projectRoot?: string; apiReachable?: boolean; dbReachable?: boolean }
-  | { type: 'deploy:result'; success: boolean; message: string };
+  | { type: 'deploy:status'; ready: boolean; configured: boolean; environment?: { id: string; name?: string; baseUrl: string; domain: string }; apiReachable: boolean; error?: string }
+  | { type: 'deploy:progress'; step: 'normalizing' | 'validating' | 'deploying' | 'completed' | 'failed'; current: number; total: number; workflow?: { key: string; domain: string; filePath: string }; message: string; percentage: number }
+  | { type: 'deploy:result'; success: boolean; message: string; results?: Array<{ success: boolean; key: string; domain: string; error?: string }> }
+  | { type: 'mapper:saved'; mapperRef: string; mapperId: string }
+  | { type: 'editor:scriptCreated'; success: boolean; location?: string; error?: string }
+  | { type: 'editor:fileOpened'; success: boolean; error?: string };
 
 export type MsgFromWebview =
   | { type: 'ready' }
@@ -40,6 +44,7 @@ export type MsgFromWebview =
   | { type: 'domain:updateStartTransition'; startTransition: Transition }
   | { type: 'domain:convertSharedToRegular'; transitionKey: string; targetState: string }
   | { type: 'domain:removeFromSharedTransition'; transitionKey: string; stateKey: string }
+  | { type: 'domain:addToSharedTransition'; transitionKey: string; stateKey: string }
   | { type: 'domain:addState'; state: State; position: { x: number; y: number }; pluginId?: string; hints?: any }
   | { type: 'request:lint' }
   | {
@@ -69,6 +74,14 @@ export type MsgFromWebview =
       code?: string;
     }
   | {
+      type: 'mapping:openMapper';
+      stateKey: string;
+      lane: 'onEntries' | 'onExits';
+      taskIndex: number;
+      mappingType: 'input' | 'output';
+      existingMapperRef?: string;
+    }
+  | {
       type: 'rule:loadFromFile';
       from: string;
       transitionKey: string;
@@ -81,9 +94,12 @@ export type MsgFromWebview =
       type: 'confirm:unsavedChanges';
       message?: string;
     }
-  | { type: 'deploy:current' }
-  | { type: 'deploy:changed' }
+  | { type: 'deploy:current'; force?: boolean }
+  | { type: 'deploy:changed'; force?: boolean }
   | { type: 'deploy:checkStatus' }
-  | { type: 'deploy:install' }
-  | { type: 'deploy:configure' }
-  | { type: 'deploy:changeProjectRoot' };
+  | { type: 'deploy:selectEnvironment' }
+  | { type: 'task:openPopupEditor'; stateKey: string; lane?: 'onEntries' | 'onExits' }
+  | { type: 'task:createNew' }
+  | { type: 'transition:editKey'; transitionId: string }
+  | { type: 'editor:openInVSCode'; location: string }
+  | { type: 'editor:createScript'; content: string; location: string; scriptType: 'mapping' | 'rule' };

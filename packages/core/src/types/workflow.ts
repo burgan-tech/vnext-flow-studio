@@ -3,7 +3,7 @@
 export type Lang = 'en' | 'tr' | 'en-US' | 'tr-TR';
 export type VersionStrategy = 'Major' | 'Minor';
 export type TriggerType = 0 | 1 | 2 | 3; // Manual, Auto, Timeout, Event
-export type StateType = 1 | 2 | 3 | 4; // Initial, Intermediate, Final, SubFlow
+export type StateType = 1 | 2 | 3 | 4 | 5; // Initial, Intermediate, Final, SubFlow, Wizard
 export type StateSubType = 1 | 2 | 3; // Success, Failed, Cancelled
 
 export interface Label {
@@ -72,6 +72,7 @@ export interface TransitionBase {
   timer?: TimerConfig | null;
   view?: ViewRef | null;
   onExecutionTasks?: ExecutionTask[];
+  mapping?: Mapping | null;
   _comment?: string;
 }
 
@@ -137,7 +138,10 @@ export type ProcessRef =
 export interface SubFlowConfig {
   type: 'C' | 'F' | 'S' | 'P';
   process: ProcessRef;
-  mapping: ScriptCode;
+  inputMapping?: Mapping | null;
+  outputMapping?: Mapping | null;
+  // Deprecated: use inputMapping/outputMapping instead
+  mapping?: ScriptCode;
   _comment?: string;
 }
 

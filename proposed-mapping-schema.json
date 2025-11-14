@@ -1,0 +1,285 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Enhanced Mapping Definition Proposal",
+  "description": "Proposed evolution for mapping definitions supporting design-time and runtime needs",
+
+  "definitions": {
+    "enhancedMapping": {
+      "type": "object",
+      "required": ["code", "location"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Final generated code for runtime execution (ALWAYS REQUIRED)"
+        },
+        "location": {
+          "type": "string",
+          "description": "Location of the generated runtime code file"
+        },
+        "designTime": {
+          "anyOf": [
+            {
+              "type": "object",
+              "description": "Design-time metadata for code generation",
+              "required": ["mode"],
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["unified", "split"],
+                  "description": "Design-time mapping mode"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": { "mode": { "const": "unified" } }
+                  },
+                  "then": {
+                    "required": ["unifiedRef"],
+                    "properties": {
+                      "unifiedRef": {
+                        "type": "string",
+                        "description": "Path to CSX file containing both input and output mapping",
+                        "pattern": "^.*\\.csx$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": { "mode": { "const": "split" } }
+                  },
+                  "then": {
+                    "properties": {
+                      "input": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": ["code"],
+                            "properties": {
+                              "code": {
+                                "type": "string",
+                                "description": "Inline code snippet for input mapping"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "required": ["ref"],
+                            "properties": {
+                              "ref": {
+                                "type": "string",
+                                "description": "Path to CSX file for input mapping",
+                                "pattern": "^.*\\.csx$"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Input mapping - can be inline code or file reference"
+                      },
+                      "output": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": ["code"],
+                            "properties": {
+                              "code": {
+                                "type": "string",
+                                "description": "Inline code snippet for output mapping"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "required": ["ref"],
+                            "properties": {
+                              "ref": {
+                                "type": "string",
+                                "description": "Path to CSX file for output mapping",
+                                "pattern": "^.*\\.csx$"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Output mapping - can be inline code or file reference"
+                      }
+                    },
+                    "anyOf": [
+                      { "required": ["input"] },
+                      { "required": ["output"] }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "null",
+              "description": "No design-time metadata (code was manually written)"
+            }
+          ]
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when runtime code was generated from design-time definition"
+        }
+      }
+    }
+  },
+
+  "examples": [
+    {
+      "title": "Example 1: Unified CSX Reference",
+      "description": "Single CSX file handles both input and output mapping",
+      "data": {
+        "code": "// Generated unified mapping code\nvar input = context.GetData();\nvar output = ProcessMapping(input);\ncontext.SetData(output);",
+        "location": "generated/mappings/transition-abc-unified.csx",
+        "designTime": {
+          "mode": "unified",
+          "unifiedRef": "mappings/transition-abc-complete.csx"
+        },
+        "generatedAt": "2025-01-15T10:30:00Z"
+      }
+    },
+    {
+      "title": "Example 2: Split Mode - Both Inline Code",
+      "description": "Both input and output as inline code snippets",
+      "data": {
+        "code": "// Generated combined mapping code\n// Input mapping\nvar userId = context.GetData(\"userId\");\nvar userName = context.GetData(\"userName\");\n\n// Output mapping\ncontext.SetData(\"processedUserId\", userId);\ncontext.SetData(\"displayName\", userName);",
+        "location": "generated/mappings/transition-xyz-combined.csx",
+        "designTime": {
+          "mode": "split",
+          "input": {
+            "code": "var userId = context.GetData(\"userId\");\nvar userName = context.GetData(\"userName\");"
+          },
+          "output": {
+            "code": "context.SetData(\"processedUserId\", userId);\ncontext.SetData(\"displayName\", userName);"
+          }
+        },
+        "generatedAt": "2025-01-15T10:35:00Z"
+      }
+    },
+    {
+      "title": "Example 3: Split Mode - Both File References",
+      "description": "Both input and output as CSX file references",
+      "data": {
+        "code": "// Generated from input and output mapper files\n// Input mapping from file\nvar data = ExtractInputData(context);\n\n// Output mapping from file\nMapOutputData(context, data);",
+        "location": "generated/mappings/state-entry-merged.csx",
+        "designTime": {
+          "mode": "split",
+          "input": {
+            "ref": "mappings/input/state-entry-input.csx"
+          },
+          "output": {
+            "ref": "mappings/output/state-entry-output.csx"
+          }
+        },
+        "generatedAt": "2025-01-15T10:40:00Z"
+      }
+    },
+    {
+      "title": "Example 3a: Split Mode - Mixed: Input Inline, Output Reference",
+      "description": "Input as inline code, output as file reference",
+      "data": {
+        "code": "// Generated mixed mapping\n// Input mapping (inline)\nvar requestData = context.GetData(\"request\");\nvar userId = requestData.userId;\n\n// Output mapping (from file)\nMapResponseOutput(context, userId);",
+        "location": "generated/mappings/mixed-input-inline.csx",
+        "designTime": {
+          "mode": "split",
+          "input": {
+            "code": "var requestData = context.GetData(\"request\");\nvar userId = requestData.userId;"
+          },
+          "output": {
+            "ref": "mappings/output/response-mapper.csx"
+          }
+        },
+        "generatedAt": "2025-01-15T10:42:00Z"
+      }
+    },
+    {
+      "title": "Example 3b: Split Mode - Mixed: Input Reference, Output Inline",
+      "description": "Input as file reference, output as inline code",
+      "data": {
+        "code": "// Generated mixed mapping\n// Input mapping (from file)\nvar enrichedData = EnrichInputData(context);\n\n// Output mapping (inline)\ncontext.SetData(\"result\", enrichedData.result);\ncontext.SetData(\"status\", \"completed\");",
+        "location": "generated/mappings/mixed-output-inline.csx",
+        "designTime": {
+          "mode": "split",
+          "input": {
+            "ref": "mappings/input/enrichment-mapper.csx"
+          },
+          "output": {
+            "code": "context.SetData(\"result\", enrichedData.result);\ncontext.SetData(\"status\", \"completed\");"
+          }
+        },
+        "generatedAt": "2025-01-15T10:43:00Z"
+      }
+    },
+    {
+      "title": "Example 4: Manual Code (No Design-time Metadata)",
+      "description": "Directly written runtime code without design-time generation",
+      "data": {
+        "code": "// Manually written mapping\nvar result = context.GetData(\"result\");\ncontext.SetData(\"finalResult\", result);",
+        "location": "mappings/manual/simple-mapping.csx",
+        "designTime": null
+      }
+    },
+    {
+      "title": "Example 5: Input-only Mapping",
+      "description": "Only input mapping defined, no output mapping needed",
+      "data": {
+        "code": "// Generated input-only mapping\nvar requestId = context.GetData(\"requestId\");\nvar timestamp = DateTime.UtcNow;\ncontext.SetData(\"processedAt\", timestamp);",
+        "location": "generated/mappings/input-only.csx",
+        "designTime": {
+          "mode": "split",
+          "input": {
+            "code": "var requestId = context.GetData(\"requestId\");\nvar timestamp = DateTime.UtcNow;"
+          },
+          "output": null
+        },
+        "generatedAt": "2025-01-15T10:45:00Z"
+      }
+    },
+    {
+      "title": "Example 6: Output-only Mapping (Input from File)",
+      "description": "Input from file reference, output as inline code",
+      "data": {
+        "code": "// Generated with file-based input\nvar validated = ValidateInput(context);\ncontext.SetData(\"isValid\", validated);",
+        "location": "generated/mappings/output-only.csx",
+        "designTime": {
+          "mode": "split",
+          "input": {
+            "ref": "mappings/validation/input-validator.csx"
+          },
+          "output": null
+        },
+        "generatedAt": "2025-01-15T10:47:00Z"
+      }
+    }
+  ],
+
+  "migrationNotes": {
+    "backward-compatibility": "Existing 'scriptCode' definitions can be converted to this format by setting code/location as before and leaving designTime as null",
+    "generation-workflow": [
+      "1. Designer creates mapping using one of the three modes (unified, split-inline, split-reference)",
+      "2. Build/compile step generates the final 'code' block by combining input/output or reading referenced files",
+      "3. Generated 'code' and 'location' fields are persisted to the workflow definition",
+      "4. Runtime only reads 'code' and 'location' fields, ignoring 'designTime' metadata",
+      "5. Designer can reconstruct the original design-time structure from 'designTime' metadata when reopening"
+    ],
+    "tooling-requirements": [
+      "Code generator to merge split mappings into single runtime code block",
+      "Validation to ensure 'code' and 'location' are always present before deployment",
+      "Designer UI to support all three design-time modes",
+      "Optional: Hot-reload in development to regenerate code when design-time files change"
+    ]
+  }
+}

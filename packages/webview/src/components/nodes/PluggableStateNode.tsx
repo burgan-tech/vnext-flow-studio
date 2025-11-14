@@ -5,6 +5,7 @@ import type { State, StateType, DesignHints, TerminalConfig } from '@amorphie-fl
 import { useBridge } from '../../hooks/useBridge';
 import { CommentIcon } from '../CommentIcon';
 import { CommentModal } from '../CommentModal';
+import { TaskBadges } from '../badges/TaskBadges';
 
 interface PluggableStateNodeProps {
   data: {
@@ -19,6 +20,8 @@ interface PluggableStateNodeProps {
     // Plugin-specific data
     pluginId?: string;
     designHints?: DesignHints;
+    // Callback for task badge clicks
+    onTaskBadgeClick?: (stateKey: string, lane?: 'onEntries' | 'onExits') => void;
   };
   selected?: boolean;
   style?: React.CSSProperties;
@@ -31,6 +34,7 @@ const getStateTypeClass = (stateType: StateType): string => {
     case 2: return 'state-node--intermediate';
     case 3: return 'state-node--final';
     case 4: return 'state-node--subflow';
+    case 5: return 'state-node--wizard';
     default: return '';
   }
 };
@@ -41,6 +45,7 @@ const getStateTypeName = (stateType: StateType): string => {
     case 2: return 'Intermediate';
     case 3: return 'Final';
     case 4: return 'SubFlow';
+    case 5: return 'Wizard';
     default: return 'Unknown';
   }
 };
@@ -74,6 +79,7 @@ const getStateTypeIcon = (stateType: StateType, pluginId?: string): string => {
     case 2: return '▢'; // Intermediate
     case 3: return '◉'; // Final
     case 4: return '⊕'; // Subflow
+    case 5: return '◇'; // Wizard
     default: return '●';
   }
 };
@@ -146,7 +152,8 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
     width: dataWidth,
     height: dataHeight,
     pluginId,
-    designHints
+    designHints,
+    onTaskBadgeClick
   } = data;
 
   const { postMessage } = useBridge();
@@ -217,6 +224,12 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
       });
     }
     setShowCommentModal(false);
+  };
+
+  const handleTaskBadgeClick = (lane: 'onEntries' | 'onExits') => {
+    if (state?.key && onTaskBadgeClick) {
+      onTaskBadgeClick(state.key, lane);
+    }
   };
 
   // Calculate node dimensions
@@ -341,6 +354,14 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
           )}
         </div>
       </div>
+
+      {/* Task badges shown below the node */}
+      {state && (
+        <TaskBadges
+          state={state}
+          onClick={handleTaskBadgeClick}
+        />
+      )}
 
       {/* Comment Modal - rendered in portal outside React Flow */}
       {showCommentModal && state && createPortal(

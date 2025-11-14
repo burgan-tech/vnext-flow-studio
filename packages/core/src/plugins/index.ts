@@ -16,6 +16,7 @@ export { InitialStatePlugin } from './initial/index.js';
 export { IntermediateStatePlugin } from './intermediate/index.js';
 export { FinalStatePlugin } from './final/index.js';
 export { SubFlowStatePlugin } from './subflow/index.js';
+export { WizardStatePlugin } from './wizard/index.js';
 
 // Export Service Task plugin
 export { ServiceTaskPlugin } from './serviceTask/index.js';

@@ -20,17 +20,31 @@ import {
   MarkerType,
   XYPosition,
   ReactFlowInstance,
-  OnSelectionChangeParams,
-  getNodesBounds
+  getNodesBounds,
+  reconnectEdge
 } from '@xyflow/react';
 import { toSvg } from 'html-to-image';
 import { Boxes, Rocket, BookOpen } from 'lucide-react';
 import { PluggableStateNode } from './nodes/PluggableStateNode';
-import { PropertyPanel, type PropertySelection } from './PropertyPanel';
 import { LayerControlButton } from './LayerControlButton';
 import { DocumentationViewer } from './DocumentationViewer';
+import { DeploymentResultModal } from './DeploymentResultModal';
 import { ToolbarIconButton } from './ToolbarIconButton';
 import { FlyoutPanel } from './FlyoutPanel';
+import { TaskMappingPopup } from './editors/TaskMappingPopup';
+import { TransitionMappingPopup } from './editors/TransitionMappingPopup';
+import { StateKeyEditPopup } from './editors/StateKeyEditPopup';
+import { StateLabelEditPopup } from './editors/StateLabelEditPopup';
+import { StateViewEditPopup } from './editors/StateViewEditPopup';
+import { SubFlowConfigPopup } from './editors/SubFlowConfigPopup';
+import { TransitionSchemaEditPopup } from './editors/TransitionSchemaEditPopup';
+import { TransitionRuleEditPopup, type TransitionRuleData } from './editors/TransitionRuleEditPopup';
+import { TransitionKeyEditPopup } from './editors/TransitionKeyEditPopup';
+import { TransitionLabelEditPopup } from './editors/TransitionLabelEditPopup';
+import { TimeoutConfigPopup } from './editors/TimeoutConfigPopup';
+import { StateToolbar } from './toolbar/StateToolbar';
+import { TransitionToolbar } from './toolbar/TransitionToolbar';
+import { ContextMenuSubmenu } from './ContextMenuSubmenu';
 import { useBridge } from '../hooks/useBridge';
 import { FloatingEdge } from '../edges/FloatingEdge';
 import type {
@@ -86,8 +100,10 @@ const decorateEdges = (edges: Edge[]): Edge[] =>
     // Force our floating edge renderer for consistent visuals
     const type = 'floating' as const;
 
-    // Add edge type to data for filtering
-    return className ? { ...edge, className, type, data: { ...edge.data, isShared } } : { ...edge, type, data: { ...edge.data, isShared } };
+    // Add edge type to data for filtering and enable reconnection
+    return className
+      ? { ...edge, className, type, reconnectable: true, data: { ...edge.data, isShared } }
+      : { ...edge, type, reconnectable: true, data: { ...edge.data, isShared } };
   });
 
 interface CanvasProps {
@@ -102,8 +118,6 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [edges, setEdges] = useState<Edge[]>([]); // Displayed edges after filtering
   const [workflow, setWorkflow] = useState<Workflow | null>(initialWorkflow || null);
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
-  const [selection, setSelection] = useState<PropertySelection>(null);
-  const selectionRef = useRef<PropertySelection>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string; edgeId?: string } | null>(null);
   const [taskCatalog, setTaskCatalog] = useState<TaskComponentDefinition[]>([]);
@@ -115,7 +129,42 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showDocumentation, setShowDocumentation] = useState(false);
   const [activePanel, setActivePanel] = useState<'states' | 'deploy' | null>(null);
-  const [cliStatus, setCliStatus] = useState<{ installed: boolean; configured: boolean; version?: string; apiReachable?: boolean; dbReachable?: boolean } | null>(null);
+  const [deployStatus, setDeployStatus] = useState<{ ready: boolean; configured: boolean; environment?: { id: string; name?: string; baseUrl: string; domain: string }; apiReachable: boolean; error?: string } | null>(null);
+  const [deployProgress, setDeployProgress] = useState<{ step: string; current: number; total: number; workflow?: { key: string; domain: string; filePath: string }; message: string; percentage: number } | null>(null);
+  const [deployResult, setDeployResult] = useState<{ success: boolean; message: string; results?: Array<{ success: boolean; key: string; domain: string; error?: string }> } | null>(null);
+
+  // Task Mapping Popup state
+  const [taskPopupState, setTaskPopupState] = useState<{
+    stateKey?: string;
+    lane?: 'onEntries' | 'onExits';
+    transitionId?: string;
+  } | null>(null);
+
+  // Transition Mapping Popup state
+  const [transitionMappingPopupState, setTransitionMappingPopupState] = useState<{
+    transitionId: string;
+  } | null>(null);
+
+  // State Edit Popups state
+  const [stateKeyEditPopup, setStateKeyEditPopup] = useState<{ stateKey: string } | null>(null);
+  const [stateLabelEditPopup, setStateLabelEditPopup] = useState<{ stateKey: string } | null>(null);
+  const [stateViewEditPopup, setStateViewEditPopup] = useState<{ stateKey: string } | null>(null);
+  const [stateSubFlowEditPopup, setStateSubFlowEditPopup] = useState<{ stateKey: string } | null>(null);
+
+  // Transition Edit Popups state
+  const [transitionSchemaEditPopup, setTransitionSchemaEditPopup] = useState<{ transitionId: string } | null>(null);
+  const [transitionRuleEditPopup, setTransitionRuleEditPopup] = useState<{ transitionId: string } | null>(null);
+  const [transitionKeyEditPopup, setTransitionKeyEditPopup] = useState<{ transitionId: string } | null>(null);
+  const [transitionLabelEditPopup, setTransitionLabelEditPopup] = useState<{ transitionId: string } | null>(null);
+  const [timeoutConfigPopup, setTimeoutConfigPopup] = useState<{ transitionId: string } | null>(null);
+
+  // Reconnection mode state
+  const [reconnectionMode, setReconnectionMode] = useState<{
+    edgeId: string;
+    end: 'source' | 'target';
+    oldSource: string;
+    oldTarget: string;
+  } | null>(null);
 
   // Layer visibility state - use diagram settings if available, otherwise localStorage
   const [showRegularTransitions, setShowRegularTransitions] = useState(() => {
@@ -293,9 +342,27 @@ ${documentation.split('\n').slice(1).join('\n')}`;
   }, [reactFlowInstance, postMessage]);
 
   // Apply edge filtering whenever visibility settings or allEdges change
+  // Also highlight edge when in reconnection mode
   useEffect(() => {
-    setEdges(filterEdgesByVisibility(allEdges));
-  }, [allEdges, filterEdgesByVisibility]);
+    const filteredEdges = filterEdgesByVisibility(allEdges);
+
+    // Highlight edge being reconnected
+    if (reconnectionMode) {
+      const highlightedEdges = filteredEdges.map(edge => {
+        if (edge.id === reconnectionMode.edgeId) {
+          return {
+            ...edge,
+            animated: true,
+            style: { ...edge.style, strokeWidth: 3, stroke: '#2563eb' }
+          };
+        }
+        return edge;
+      });
+      setEdges(highlightedEdges);
+    } else {
+      setEdges(filteredEdges);
+    }
+  }, [allEdges, filterEdgesByVisibility, reconnectionMode]);
 
   // Update diagram with layer visibility settings when they change
   useEffect(() => {
@@ -384,6 +451,56 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({ type: 'ready' });
   }, [postMessage]);
 
+  // Task Mapping Popup handlers (defined early to avoid initialization errors)
+  const handleOpenTaskPopup = useCallback((stateKey: string, lane?: 'onEntries' | 'onExits') => {
+    setTaskPopupState({ stateKey, lane });
+    setContextMenu(null);
+  }, []);
+
+  // Transition Edit handlers (defined early to avoid initialization errors)
+  const handleEditTransitionKey = useCallback((transitionId: string) => {
+    setTransitionKeyEditPopup({ transitionId });
+    setContextMenu(null);
+  }, []);
+
+  const handleEditTransitionLabels = useCallback((transitionId: string) => {
+    setTransitionLabelEditPopup({ transitionId });
+    setContextMenu(null);
+  }, []);
+
+  const handleEditTransitionTimeout = useCallback((transitionId: string) => {
+    setTimeoutConfigPopup({ transitionId });
+    setContextMenu(null);
+  }, []);
+
+  // Helper to enrich nodes with callbacks
+  const enrichNodes = useCallback((nodes: Node[]) => {
+    return nodes.map((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        onTaskBadgeClick: handleOpenTaskPopup
+      }
+    }));
+  }, [handleOpenTaskPopup]);
+
+  // Handler for transition task badge clicks
+  const handleOpenTransitionTaskBadge = useCallback((edgeId: string) => {
+    setTaskPopupState({ transitionId: edgeId });
+    setContextMenu(null);
+  }, []);
+
+  // Helper to enrich edges with callbacks
+  const enrichEdges = useCallback((edges: Edge[]) => {
+    return edges.map((edge) => ({
+      ...edge,
+      data: {
+        ...edge.data,
+        onTaskBadgeClick: () => handleOpenTransitionTaskBadge(edge.id)
+      }
+    }));
+  }, [handleOpenTransitionTaskBadge]);
+
   // Handle messages from host
   useEffect(() => {
     return onMessage((message: MsgToWebview) => {
@@ -391,8 +508,8 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         case 'init':
           setWorkflow(message.workflow);
           setDiagram(message.diagram);
-          setNodes(message.derived.nodes);
-          setAllEdges(decorateEdges(message.derived.edges));
+          setNodes(enrichNodes(message.derived.nodes));
+          setAllEdges(enrichEdges(decorateEdges(message.derived.edges)));
           setTaskCatalog(message.tasks);
           // Update layer visibility from diagram if available
           if (message.diagram.layerVisibility) {
@@ -431,16 +548,16 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           break;
         case 'workflow:update':
           setWorkflow(message.workflow);
-          setNodes(message.derived.nodes);
-          setAllEdges(decorateEdges(message.derived.edges));
+          setNodes(enrichNodes(message.derived.nodes));
+          setAllEdges(enrichEdges(decorateEdges(message.derived.edges)));
           break;
         case 'diagram:update':
           setDiagram(message.diagram);
           setNodes((prevNodes) =>
-            prevNodes.map((node) => {
+            enrichNodes(prevNodes.map((node) => {
               const position = message.diagram.nodePos[node.id];
               return position ? { ...node, position } : node;
-            })
+            }))
           );
           if (reactFlowInstance) {
             requestAnimationFrame(() => {
@@ -451,6 +568,11 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         case 'catalog:update':
           setTaskCatalog(message.tasks);
           if (message.catalogs) {
+            console.log('[Canvas] Received catalog update:', {
+              mapper: message.catalogs.mapper?.length || 0,
+              task: message.catalogs.task?.length || 0,
+              mappers: message.catalogs.mapper
+            });
             setCatalogs(message.catalogs);
           }
           break;
@@ -461,14 +583,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             // Clear existing selection
             setNodes(nds => nds.map(n => ({ ...n, selected: n.id === message.nodeId })));
             setAllEdges(eds => eds.map(e => ({ ...e, selected: false })));
-
-            // Set the selection for property panel
-            if (workflow) {
-              const state = workflow.attributes.states.find(s => s.key === message.nodeId);
-              if (state) {
-                setSelection({ kind: 'state', stateKey: message.nodeId });
-              }
-            }
 
             // Focus on the selected node
             if (reactFlowInstance) {
@@ -482,25 +596,50 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         }
         case 'deploy:status':
           console.log('[Canvas] Received deploy:status:', message);
-          setCliStatus({
-            installed: message.installed,
+          setDeployStatus({
+            ready: message.ready,
             configured: message.configured,
-            version: message.version,
-            projectRoot: message.projectRoot,
+            environment: message.environment,
             apiReachable: message.apiReachable,
-            dbReachable: message.dbReachable
+            error: message.error
+          });
+          break;
+        case 'deploy:progress':
+          setDeployProgress({
+            step: message.step,
+            current: message.current,
+            total: message.total,
+            workflow: message.workflow,
+            message: message.message,
+            percentage: message.percentage
           });
           break;
         case 'deploy:result':
-          // Result is handled via notifications from the extension
-          // Just update status after deployment
+          setDeployResult({
+            success: message.success,
+            message: message.message,
+            results: message.results
+          });
+          setDeployProgress(null); // Clear progress when done
+          // Update status after deployment
           if (message.success) {
             postMessage({ type: 'deploy:checkStatus' });
           }
           break;
+        case 'mapper:saved':
+          console.log('[Canvas] Mapper saved:', message.mapperRef, message.mapperId);
+          // TODO: Auto-update task mapping if task editor is still open
+          // For now, users need to manually select the mapper from the dropdown
+          break;
+        case 'transition:editKey':
+          console.log('[Canvas] Received transition:editKey message:', message.transitionId);
+          if (message.transitionId) {
+            handleEditTransitionKey(message.transitionId);
+          }
+          break;
       }
     });
-  }, [onMessage, reactFlowInstance, nodes, workflow, postMessage]);
+  }, [onMessage, reactFlowInstance, nodes, workflow, postMessage, enrichNodes, enrichEdges, handleEditTransitionKey]);
 
   // Check CLI status when deploy panel is opened
   useEffect(() => {
@@ -546,12 +685,17 @@ ${documentation.split('\n').slice(1).join('\n')}`;
   // Handle connection end
   const onConnectEnd = useCallback(() => {
     setIsConnecting(false);
-  }, []);
+    // Clear reconnection mode if user didn't complete the connection
+    if (reconnectionMode) {
+      setReconnectionMode(null);
+    }
+  }, [reconnectionMode]);
 
   // Handle new connections
   const onConnect: OnConnect = useCallback((connection: Connection) => {
     if (!connection.source || !connection.target) return;
 
+    // Normal connection handling (reconnection is handled via node clicks)
     if (connection.source === '__start__') {
       postMessage({
         type: 'domain:setStart',
@@ -589,6 +733,18 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     // Prevent connections from final states (stateType === 3)
     if (sourceNode?.data?.stateType === 3) {
       return false;
+    }
+
+    // Wizard states (stateType === 5) can only have one outgoing transition
+    if (sourceNode?.data?.stateType === 5) {
+      // Check if this wizard state already has a transition
+      const hasExistingTransition = edges.some(e =>
+        e.source === connection.source &&
+        e.id !== (edge as Edge)?.id // Allow reconnecting existing edges
+      );
+      if (hasExistingTransition) {
+        return false;
+      }
     }
 
     // Check for duplicate connections
@@ -629,6 +785,10 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       return false; // Prevent invalid reconnection
     }
 
+    // Optimistically update edges state for immediate UI feedback
+    setAllEdges((els) => reconnectEdge(oldEdge, newConnection, els));
+
+    // Send domain message to persist the change
     if (oldEdge.id === 'e:start') {
       postMessage({
         type: 'domain:setStart',
@@ -646,7 +806,12 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         });
       }
     }
-  }, [postMessage, isValidConnection]);
+  }, [postMessage, isValidConnection, setAllEdges]);
+
+  // Handle edge update (alternative to onReconnect for some React Flow versions)
+  const onEdgeUpdate = useCallback((oldEdge: Edge, newConnection: Connection) => {
+    return onReconnect(oldEdge, newConnection);
+  }, [onReconnect]);
 
   // Handle edge deletion
   const onEdgesDelete: OnEdgesDelete = useCallback((edgesToDelete: Edge[]) => {
@@ -691,89 +856,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     });
   }, [postMessage]);
 
-  const onSelectionChange = useCallback(
-    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
-      // Preserve last selection when ReactFlow reports an empty selection
-      // (e.g., when the webview loses focus during file pickers).
-      if (selectedNodes.length === 0 && selectedEdges.length === 0) {
-        return;
-      }
-      if (!workflow) {
-        setSelection(null);
-        selectionRef.current = null;
-        return;
-      }
-
-      const firstNode = selectedNodes[0];
-      if (firstNode && workflow.attributes.states.some((state) => state.key === firstNode.id)) {
-        const nextSel: PropertySelection = { kind: 'state', stateKey: firstNode.id };
-        setSelection(nextSel);
-        selectionRef.current = nextSel;
-        return;
-      }
-
-      const firstEdge = selectedEdges[0];
-      if (firstEdge) {
-        // Check for start transition
-        const startMatch = /^t:start:(.+)$/.exec(firstEdge.id);
-        if (startMatch) {
-          const nextSel: PropertySelection = { kind: 'startTransition', transitionKey: startMatch[1] };
-          setSelection(nextSel);
-          selectionRef.current = nextSel;
-          return;
-        }
-
-        // Check for local transition
-        const localMatch = /^t:local:([^:]+):(.+)$/.exec(firstEdge.id);
-        if (localMatch) {
-          const nextSel: PropertySelection = { kind: 'transition', from: localMatch[1], transitionKey: localMatch[2] };
-          setSelection(nextSel);
-          selectionRef.current = nextSel;
-          return;
-        }
-
-        // Check for shared transition
-        const sharedMatch = /^t:shared:([^:]+):/.exec(firstEdge.id);
-        if (sharedMatch) {
-          const nextSel: PropertySelection = { kind: 'sharedTransition', transitionKey: sharedMatch[1] };
-          setSelection(nextSel);
-          selectionRef.current = nextSel;
-          return;
-        }
-      }
-
-      setSelection(null);
-      selectionRef.current = null;
-    },
-    [workflow]
-  );
-
-  useEffect(() => {
-    if (!workflow) {
-      setSelection(null);
-      selectionRef.current = null;
-      return;
-    }
-
-    const current = selectionRef.current;
-    let next: PropertySelection = null;
-    if (current) {
-      if (current.kind === 'state') {
-        next = workflow.attributes.states.some((state) => state.key === current.stateKey)
-          ? current
-          : null;
-      } else if (current.kind === 'transition') {
-        const fromState = workflow.attributes.states.find((state) => state.key === current.from);
-        if (fromState && fromState.transitions) {
-          next = fromState.transitions.some((t) => t.key === current.transitionKey) ? current : null;
-        } else {
-          next = null;
-        }
-      }
-    }
-    setSelection(next);
-    selectionRef.current = next;
-  }, [workflow]);
 
   const handleAddState = useCallback((template: StateTemplate, positionOverride?: XYPosition) => {
     if (!workflow) {
@@ -866,11 +948,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     }
 
     const labelSuffix = suffix > 0 ? ` ${suffix}` : '';
-    const defaultLanguage =
-      workflow.attributes.states.find((state) => state.labels && state.labels.length > 0)?.labels?.[0]?.language ||
-      workflow.attributes.labels?.[0]?.language ||
-      'en';
-
     const stateLabel = variant ? variant.label : `${plugin.defaultLabel}${labelSuffix}`.trim();
 
     // Create state based on variant or plugin
@@ -881,7 +958,10 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       newState = {
         key: stateKey, // Default key, will be overridden below
         stateType: 2 as StateType, // Default to Intermediate if not provided
-        labels: [],
+        labels: [
+          { label: stateLabel, language: 'en-US' },
+          { label: stateLabel, language: 'tr-TR' }
+        ],
         versionStrategy: 'Major' as const, // Default to Major if not provided
         ...variant.stateTemplate
       };
@@ -894,6 +974,19 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         newState.key = stateKey;
         // Set xProfile to plugin ID to ensure proper plugin detection
         newState.xProfile = plugin.id;
+        // Ensure labels for both required languages
+        if (!newState.labels || newState.labels.length === 0) {
+          newState.labels = [
+            { label: stateLabel, language: 'en-US' },
+            { label: stateLabel, language: 'tr-TR' }
+          ];
+        } else {
+          // Ensure both required languages are present
+          const hasEnUS = newState.labels.some(l => l.language === 'en-US');
+          const hasTrTR = newState.labels.some(l => l.language === 'tr-TR');
+          if (!hasEnUS) newState.labels.push({ label: stateLabel, language: 'en-US' });
+          if (!hasTrTR) newState.labels.push({ label: stateLabel, language: 'tr-TR' });
+        }
       } else {
         // Fallback for plugins without createState
         newState = {
@@ -902,10 +995,8 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           xProfile: plugin.id, // Set xProfile to plugin ID
           versionStrategy: 'Minor',
           labels: [
-            {
-              label: stateLabel,
-              language: defaultLanguage
-            }
+            { label: stateLabel, language: 'en-US' },
+            { label: stateLabel, language: 'tr-TR' }
           ],
           transitions: []
         };
@@ -919,17 +1010,30 @@ ${documentation.split('\n').slice(1).join('\n')}`;
 
     // Override key to ensure uniqueness and update labels
     newState.key = stateKey;
-    if (newState.labels && newState.labels.length > 0) {
-      newState.labels[0].label = stateLabel;
-      newState.labels[0].language = defaultLanguage;
-    } else {
-      // Add labels if missing
+    // Ensure labels are always set for both required languages
+    if (!newState.labels || newState.labels.length === 0) {
       newState.labels = [
-        {
-          label: stateLabel,
-          language: defaultLanguage
-        }
+        { label: stateLabel, language: 'en-US' },
+        { label: stateLabel, language: 'tr-TR' }
       ];
+    } else {
+      // Update existing labels for both required languages
+      const hasEnUS = newState.labels.some(l => l.language === 'en-US');
+      const hasTrTR = newState.labels.some(l => l.language === 'tr-TR');
+
+      if (hasEnUS) {
+        const enLabel = newState.labels.find(l => l.language === 'en-US');
+        if (enLabel) enLabel.label = stateLabel;
+      } else {
+        newState.labels.push({ label: stateLabel, language: 'en-US' });
+      }
+
+      if (hasTrTR) {
+        const trLabel = newState.labels.find(l => l.language === 'tr-TR');
+        if (trLabel) trLabel.label = stateLabel;
+      } else {
+        newState.labels.push({ label: stateLabel, language: 'tr-TR' });
+      }
     }
 
     // Create design hints for this plugin state
@@ -1040,14 +1144,12 @@ ${documentation.split('\n').slice(1).join('\n')}`;
 
   const handlePaneClick = useCallback((_event: MouseEvent | React.MouseEvent) => {
     setContextMenu(null);
-    setSelection(null);
-    selectionRef.current = null;
   }, []);
 
   const handleEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
     event.preventDefault();
-    // Show context menu for local and shared transitions (not start/timeout)
-    if (edge.id.startsWith('t:local:') || edge.id.startsWith('t:shared:')) {
+    // Show context menu for local, shared, and start transitions
+    if (edge.id.startsWith('t:local:') || edge.id.startsWith('t:shared:') || edge.id.startsWith('t:start:')) {
       setContextMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id });
     }
   }, []);
@@ -1081,6 +1183,50 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     }
     setContextMenu(null);
   }, [postMessage]);
+
+  const handleConvertTransitionType = useCallback((edgeId: string, newTriggerType: 0 | 1 | 2 | 3) => {
+    if (!workflow) return;
+
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+    const sharedMatch = /^t:shared:([^:]+):/.exec(edgeId);
+    const startMatch = /^t:start:(.+)$/.exec(edgeId);
+
+    if (localMatch) {
+      const [, from, transitionKey] = localMatch;
+      const state = workflow.attributes?.states?.find(s => s.key === from);
+      const transition = state?.transitions?.find(t => t.key === transitionKey);
+      if (transition) {
+        const updatedTransition = { ...transition, triggerType: newTriggerType };
+        postMessage({
+          type: 'domain:updateTransition',
+          from,
+          transitionKey,
+          transition: updatedTransition,
+        });
+      }
+    } else if (sharedMatch) {
+      const [, transitionKey] = sharedMatch;
+      const transition = workflow.attributes?.sharedTransitions?.find(t => t.key === transitionKey);
+      if (transition) {
+        const updatedTransition = { ...transition, triggerType: newTriggerType };
+        postMessage({
+          type: 'domain:updateSharedTransition',
+          transitionKey,
+          sharedTransition: updatedTransition,
+        });
+      }
+    } else if (startMatch) {
+      const transition = workflow.attributes?.startTransition;
+      if (transition) {
+        const updatedTransition = { ...transition, triggerType: newTriggerType };
+        postMessage({
+          type: 'domain:updateStartTransition',
+          startTransition: updatedTransition,
+        });
+      }
+    }
+    setContextMenu(null);
+  }, [workflow, postMessage]);
 
   const handleAutoLayoutRequest = useCallback(() => {
     // Collect measured node sizes from React Flow v12
@@ -1118,6 +1264,733 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     setContextMenu(null);
   }, [postMessage]);
 
+  const handleOpenTransitionTaskPopup = useCallback((edgeId: string) => {
+    setTaskPopupState({ transitionId: edgeId });
+    setContextMenu(null);
+  }, []);
+
+  const handleOpenTransitionMappingPopup = useCallback((edgeId: string) => {
+    setTransitionMappingPopupState({ transitionId: edgeId });
+    setContextMenu(null);
+  }, []);
+
+  const handleCloseTaskPopup = useCallback(() => {
+    setTaskPopupState(null);
+  }, []);
+
+  const handleCloseTransitionMappingPopup = useCallback(() => {
+    setTransitionMappingPopupState(null);
+  }, []);
+
+  const handleApplyTaskChanges = useCallback((updates: { onEntries?: any[]; onExits?: any[]; onExecutionTasks?: any[] }) => {
+    if (!taskPopupState || !workflow) return;
+
+    // Handle state task updates
+    if (taskPopupState.stateKey) {
+      const state = workflow.attributes?.states?.find(s => s.key === taskPopupState.stateKey);
+      if (!state) return;
+
+      const updatedState = {
+        ...state,
+        onEntries: updates.onEntries,
+        onExits: updates.onExits,
+      };
+
+      postMessage({
+        type: 'domain:updateState',
+        stateKey: taskPopupState.stateKey,
+        state: updatedState,
+      });
+    }
+    // Handle transition task updates
+    else if (taskPopupState.transitionId) {
+      const edgeId = taskPopupState.transitionId;
+
+      // Parse edge ID to get transition info
+      const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+      const sharedMatch = /^t:shared:([^:]+):/.exec(edgeId);
+
+      if (localMatch) {
+        const [, from, transitionKey] = localMatch;
+        const state = workflow.attributes?.states?.find(s => s.key === from);
+        const transition = state?.transitions?.find(t => t.key === transitionKey);
+
+        if (transition) {
+          const updatedTransition = {
+            ...transition,
+            onExecutionTasks: updates.onExecutionTasks,
+          };
+
+          postMessage({
+            type: 'domain:updateTransition',
+            from,
+            transitionKey,
+            transition: updatedTransition,
+          });
+        }
+      } else if (sharedMatch) {
+        const [, transitionKey] = sharedMatch;
+        const sharedTransition = workflow.sharedTransitions?.find(t => t.key === transitionKey);
+
+        if (sharedTransition) {
+          const updatedSharedTransition = {
+            ...sharedTransition,
+            onExecutionTasks: updates.onExecutionTasks,
+          };
+
+          postMessage({
+            type: 'domain:updateSharedTransition',
+            transitionKey,
+            sharedTransition: updatedSharedTransition,
+          });
+        }
+      }
+    }
+  }, [taskPopupState, workflow, postMessage]);
+
+  const handleApplyTransitionMapping = useCallback((mapping: any) => {
+    if (!transitionMappingPopupState || !workflow) return;
+
+    const edgeId = transitionMappingPopupState.transitionId;
+
+    // Parse edge ID to get transition info
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+    const sharedMatch = /^t:shared:([^:]+):/.exec(edgeId);
+    const startMatch = /^t:start:(.+)$/.exec(edgeId);
+
+    if (localMatch) {
+      const [, from, transitionKey] = localMatch;
+      const state = workflow.attributes?.states?.find(s => s.key === from);
+      const transition = state?.transitions?.find(t => t.key === transitionKey);
+
+      if (transition) {
+        const updatedTransition = {
+          ...transition,
+          mapping,
+        };
+
+        postMessage({
+          type: 'domain:updateTransition',
+          from,
+          transitionKey,
+          transition: updatedTransition,
+        });
+      }
+    } else if (sharedMatch) {
+      const [, transitionKey] = sharedMatch;
+      const sharedTransition = workflow.sharedTransitions?.find(t => t.key === transitionKey);
+
+      if (sharedTransition) {
+        const updatedSharedTransition = {
+          ...sharedTransition,
+          mapping,
+        };
+
+        postMessage({
+          type: 'domain:updateSharedTransition',
+          transitionKey,
+          sharedTransition: updatedSharedTransition,
+        });
+      }
+    } else if (startMatch) {
+      const startTransition = workflow.attributes?.startTransition;
+
+      if (startTransition) {
+        const updatedStartTransition = {
+          ...startTransition,
+          mapping,
+        };
+
+        postMessage({
+          type: 'domain:updateStartTransition',
+          startTransition: updatedStartTransition,
+        });
+      }
+    }
+  }, [transitionMappingPopupState, workflow, postMessage]);
+
+  // State Edit Popup handlers
+  const handleEditStateKey = useCallback((stateKey: string) => {
+    setStateKeyEditPopup({ stateKey });
+    setContextMenu(null);
+  }, []);
+
+  const handleApplyKeyChange = useCallback((oldKey: string, newKey: string) => {
+    const state = workflow?.attributes?.states?.find(s => s.key === oldKey);
+    if (!state) return;
+
+    postMessage({
+      type: 'domain:updateState',
+      stateKey: oldKey,
+      state: { ...state, key: newKey }
+    });
+  }, [workflow, postMessage]);
+
+  const handleEditStateLabel = useCallback((stateKey: string) => {
+    setStateLabelEditPopup({ stateKey });
+    setContextMenu(null);
+  }, []);
+
+  const handleApplyLabelChanges = useCallback((stateKey: string, labels: any[]) => {
+    const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
+    if (!state) return;
+
+    postMessage({
+      type: 'domain:updateState',
+      stateKey,
+      state: { ...state, labels }
+    });
+  }, [workflow, postMessage]);
+
+  const handleEditView = useCallback((stateKey: string) => {
+    setStateViewEditPopup({ stateKey });
+    setContextMenu(null);
+  }, []);
+
+  const handleApplyViewChange = useCallback((stateKey: string, view: any) => {
+    const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
+    if (!state) return;
+
+    postMessage({
+      type: 'domain:updateState',
+      stateKey,
+      state: { ...state, view: view || undefined }
+    });
+  }, [workflow, postMessage]);
+
+  const handleConfigureSubFlow = useCallback((stateKey: string) => {
+    setStateSubFlowEditPopup({ stateKey });
+    setContextMenu(null);
+  }, []);
+
+  const handleApplySubFlowChange = useCallback((stateKey: string, subFlow: any) => {
+    const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
+    if (!state) return;
+
+    postMessage({
+      type: 'domain:updateState',
+      stateKey,
+      state: { ...state, subFlow: subFlow || undefined }
+    });
+  }, [workflow, postMessage]);
+
+  const handleEditTransitionSchema = useCallback((transitionId: string) => {
+    setTransitionSchemaEditPopup({ transitionId });
+    setContextMenu(null);
+  }, []);
+
+  const handleEditTransitionRule = useCallback((transitionId: string) => {
+    setTransitionRuleEditPopup({ transitionId });
+    setContextMenu(null);
+  }, []);
+
+  const handleApplyTransitionRule = useCallback((transitionId: string, rule?: TransitionRuleData) => {
+    if (!workflow) return;
+
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(transitionId);
+    const sharedMatch = /^t:shared:([^:]+):/.exec(transitionId);
+
+    if (localMatch) {
+      const [, from, tKey] = localMatch;
+      // Find state by key (states is an array)
+      const state = workflow.attributes.states.find(s => s.key === from);
+      if (!state?.transitions) return;
+
+      // Find transition by key (transitions is an array)
+      const transition = state.transitions.find(t => t.key === tKey);
+      if (!transition) return;
+
+      postMessage({
+        type: 'domain:updateTransition',
+        from,
+        transitionKey: tKey,
+        transition: {
+          ...transition,
+          rule
+        }
+      });
+    } else if (sharedMatch) {
+      const [, tKey] = sharedMatch;
+      // Find shared transition by key (sharedTransitions is an array)
+      const sharedTransition = workflow.attributes.sharedTransitions?.find(st => st.key === tKey);
+      if (!sharedTransition) return;
+
+      postMessage({
+        type: 'domain:updateSharedTransition',
+        transitionKey: tKey,
+        sharedTransition: {
+          ...sharedTransition,
+          rule
+        }
+      });
+    }
+
+    setTransitionRuleEditPopup(null);
+  }, [workflow, postMessage]);
+
+  const handleApplyTransitionKey = useCallback((transitionId: string, newKey: string) => {
+    if (!workflow) return;
+
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(transitionId);
+    const sharedMatch = /^t:shared:([^:]+):/.exec(transitionId);
+    const startMatch = /^t:start:(.+)$/.exec(transitionId);
+
+    if (localMatch) {
+      const [, from, oldKey] = localMatch;
+      const state = workflow.attributes?.states?.find(s => s.key === from);
+      const transition = state?.transitions?.find(t => t.key === oldKey);
+
+      if (transition) {
+        const updatedTransition = { ...transition, key: newKey };
+        postMessage({
+          type: 'domain:updateTransition',
+          from,
+          transitionKey: oldKey,
+          transition: updatedTransition,
+        });
+      }
+    } else if (sharedMatch) {
+      const [, oldKey] = sharedMatch;
+      const sharedTransition = workflow.attributes?.sharedTransitions?.find(t => t.key === oldKey);
+
+      if (sharedTransition) {
+        const updatedSharedTransition = { ...sharedTransition, key: newKey };
+        postMessage({
+          type: 'domain:updateSharedTransition',
+          transitionKey: oldKey,
+          sharedTransition: updatedSharedTransition,
+        });
+      }
+    } else if (startMatch) {
+      const startTransition = workflow.attributes?.startTransition;
+      if (startTransition) {
+        const updatedStartTransition = { ...startTransition, key: newKey };
+        postMessage({
+          type: 'domain:updateStartTransition',
+          startTransition: updatedStartTransition,
+        });
+      }
+    }
+
+    setTransitionKeyEditPopup(null);
+  }, [workflow, postMessage]);
+
+  const handleApplyTransitionLabels = useCallback((transitionId: string, labels: any[]) => {
+    if (!workflow) return;
+
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(transitionId);
+    const sharedMatch = /^t:shared:([^:]+):/.exec(transitionId);
+    const startMatch = /^t:start:(.+)$/.exec(transitionId);
+
+    if (localMatch) {
+      const [, from, transitionKey] = localMatch;
+      const state = workflow.attributes?.states?.find(s => s.key === from);
+      const transition = state?.transitions?.find(t => t.key === transitionKey);
+
+      if (transition) {
+        const updatedTransition = { ...transition, labels };
+        postMessage({
+          type: 'domain:updateTransition',
+          from,
+          transitionKey,
+          transition: updatedTransition,
+        });
+      }
+    } else if (sharedMatch) {
+      const [, transitionKey] = sharedMatch;
+      const sharedTransition = workflow.attributes?.sharedTransitions?.find(t => t.key === transitionKey);
+
+      if (sharedTransition) {
+        const updatedSharedTransition = { ...sharedTransition, labels };
+        postMessage({
+          type: 'domain:updateSharedTransition',
+          transitionKey,
+          sharedTransition: updatedSharedTransition,
+        });
+      }
+    } else if (startMatch) {
+      const startTransition = workflow.attributes?.startTransition;
+      if (startTransition) {
+        const updatedStartTransition = { ...startTransition, labels };
+        postMessage({
+          type: 'domain:updateStartTransition',
+          startTransition: updatedStartTransition,
+        });
+      }
+    }
+
+    setTransitionLabelEditPopup(null);
+  }, [workflow, postMessage]);
+
+  const handleApplyTimeoutConfig = useCallback((transitionId: string, timer: any) => {
+    if (!workflow) return;
+
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(transitionId);
+    const sharedMatch = /^t:shared:([^:]+):/.exec(transitionId);
+    const startMatch = /^t:start:(.+)$/.exec(transitionId);
+
+    if (localMatch) {
+      const [, from, transitionKey] = localMatch;
+      const state = workflow.attributes?.states?.find(s => s.key === from);
+      const transition = state?.transitions?.find(t => t.key === transitionKey);
+
+      if (transition) {
+        const updatedTransition = { ...transition, timer };
+        postMessage({
+          type: 'domain:updateTransition',
+          from,
+          transitionKey,
+          transition: updatedTransition,
+        });
+      }
+    } else if (sharedMatch) {
+      const [, transitionKey] = sharedMatch;
+      const sharedTransition = workflow.attributes?.sharedTransitions?.find(t => t.key === transitionKey);
+
+      if (sharedTransition) {
+        const updatedSharedTransition = { ...sharedTransition, timer };
+        postMessage({
+          type: 'domain:updateSharedTransition',
+          transitionKey,
+          sharedTransition: updatedSharedTransition,
+        });
+      }
+    } else if (startMatch) {
+      const startTransition = workflow.attributes?.startTransition;
+      if (startTransition) {
+        const updatedStartTransition = { ...startTransition, timer };
+        postMessage({
+          type: 'domain:updateStartTransition',
+          startTransition: updatedStartTransition,
+        });
+      }
+    }
+
+    setTimeoutConfigPopup(null);
+  }, [workflow, postMessage]);
+
+  const handleApplyTransitionSchema = useCallback((transitionId: string, schema: any) => {
+    if (!workflow) return;
+
+    // Check for local transition: t:local:from:key
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(transitionId);
+    if (localMatch) {
+      const [, from, transitionKey] = localMatch;
+      const state = workflow.attributes.states.find(s => s.key === from);
+      const transition = state?.transitions?.find(t => t.key === transitionKey);
+      if (transition) {
+        postMessage({
+          type: 'domain:updateTransition',
+          from,
+          transitionKey,
+          transition: { ...transition, schema: schema || null }
+        });
+        return;
+      }
+    }
+
+    // Check for shared transition: t:shared:key:...
+    const sharedMatch = /^t:shared:([^:]+):/.exec(transitionId);
+    if (sharedMatch) {
+      const [, transitionKey] = sharedMatch;
+      const transition = workflow.attributes.sharedTransitions?.find(t => t.key === transitionKey);
+      if (transition) {
+        postMessage({
+          type: 'domain:updateSharedTransition',
+          transitionKey,
+          sharedTransition: { ...transition, schema: schema || null }
+        });
+        return;
+      }
+    }
+
+    // Check for start transition: t:start:key
+    const startMatch = /^t:start:(.+)$/.exec(transitionId);
+    if (startMatch) {
+      const transition = workflow.attributes.startTransition;
+      if (transition) {
+        postMessage({
+          type: 'domain:updateStartTransition',
+          startTransition: { ...transition, schema: schema || null }
+        });
+        return;
+      }
+    }
+  }, [workflow, postMessage]);
+
+  // State type conversion handlers
+  const handleConvertToFinal = useCallback((stateKey: string, subType: any) => {
+    const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
+    if (!state) return;
+
+    postMessage({
+      type: 'domain:updateState',
+      stateKey,
+      state: { ...state, stateType: 3, stateSubType: subType, transitions: [] }
+    });
+    setContextMenu(null);
+  }, [workflow, postMessage]);
+
+  const handleConvertToIntermediate = useCallback((stateKey: string) => {
+    const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
+    if (!state) return;
+
+    postMessage({
+      type: 'domain:updateState',
+      stateKey,
+      state: { ...state, stateType: 2, stateSubType: undefined }
+    });
+    setContextMenu(null);
+  }, [workflow, postMessage]);
+
+  const handleConvertToSubFlow = useCallback((stateKey: string) => {
+    const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
+    if (!state) return;
+
+    postMessage({
+      type: 'domain:updateState',
+      stateKey,
+      state: { ...state, stateType: 4 }
+    });
+    setContextMenu(null);
+  }, [workflow, postMessage]);
+
+  const handleConvertToWizard = useCallback((stateKey: string) => {
+    const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
+    if (!state) return;
+
+    postMessage({
+      type: 'domain:updateState',
+      stateKey,
+      state: { ...state, stateType: 5 }
+    });
+    setContextMenu(null);
+  }, [workflow, postMessage]);
+
+  const handleSetFinalSubType = useCallback((stateKey: string, subType: any) => {
+    const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
+    if (!state) return;
+
+    postMessage({
+      type: 'domain:updateState',
+      stateKey,
+      state: { ...state, stateSubType: subType }
+    });
+    setContextMenu(null);
+  }, [workflow, postMessage]);
+
+  const handleDeleteState = useCallback((stateKey: string) => {
+    postMessage({
+      type: 'domain:removeState',
+      stateKey
+    });
+    setContextMenu(null);
+  }, [postMessage]);
+
+  const handleDeleteTransition = useCallback((edgeId: string) => {
+    // Parse edge ID to determine transition type
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+    const sharedMatch = /^t:shared:([^:]+):(.+)$/.exec(edgeId);
+
+    if (localMatch) {
+      // Delete local transition
+      const [, from, tKey] = localMatch;
+      postMessage({
+        type: 'domain:removeTransition',
+        from,
+        tKey
+      });
+    } else if (sharedMatch) {
+      // Remove this state from the shared transition's availableIn list
+      const [, transitionKey, stateKey] = sharedMatch;
+      postMessage({
+        type: 'domain:removeFromSharedTransition',
+        transitionKey,
+        stateKey
+      });
+    }
+    // Note: Start transitions cannot be deleted
+
+    setContextMenu(null);
+  }, [postMessage]);
+
+  const handleReconnectSource = useCallback((edgeId: string) => {
+    // Parse edge to get source and target
+    const edge = allEdges.find(e => e.id === edgeId);
+    if (!edge) return;
+
+    // Enter reconnection mode
+    setReconnectionMode({
+      edgeId,
+      end: 'source',
+      oldSource: edge.source,
+      oldTarget: edge.target
+    });
+    setIsConnecting(true); // Visual feedback
+    setContextMenu(null);
+  }, [allEdges]);
+
+  const handleReconnectTarget = useCallback((edgeId: string) => {
+    // Parse edge to get source and target
+    const edge = allEdges.find(e => e.id === edgeId);
+    if (!edge) return;
+
+    // Enter reconnection mode
+    setReconnectionMode({
+      edgeId,
+      end: 'target',
+      oldSource: edge.source,
+      oldTarget: edge.target
+    });
+    setIsConnecting(true); // Visual feedback
+    setContextMenu(null);
+  }, [allEdges]);
+
+  const handleToggleSharedTransition = useCallback((stateKey: string, transitionKey: string, enabled: boolean) => {
+    if (!workflow) return;
+
+    const sharedTransition = workflow.attributes?.sharedTransitions?.find(st => st.key === transitionKey);
+    if (!sharedTransition) return;
+
+    if (enabled) {
+      // Add state to shared transition's availableIn
+      const updatedAvailableIn = [...sharedTransition.availableIn, stateKey];
+      const updatedTransition = { ...sharedTransition, availableIn: updatedAvailableIn };
+      postMessage({
+        type: 'domain:updateSharedTransition',
+        transitionKey,
+        sharedTransition: updatedTransition
+      });
+    } else {
+      // Remove state from shared transition's availableIn
+      postMessage({
+        type: 'domain:removeFromSharedTransition',
+        transitionKey,
+        stateKey
+      });
+    }
+    setContextMenu(null);
+  }, [workflow, postMessage]);
+
+  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    // Handle reconnection mode
+    if (reconnectionMode) {
+      const { edgeId, end, oldSource, oldTarget } = reconnectionMode;
+      const newNodeId = node.id;
+
+      // Don't allow connecting to start node
+      if (newNodeId === '__start__' && end === 'target') {
+        setReconnectionMode(null);
+        setIsConnecting(false);
+        return;
+      }
+
+      // Determine new source and target based on reconnection mode
+      const newSource = end === 'source' ? newNodeId : oldSource;
+      const newTarget = end === 'target' ? newNodeId : oldTarget;
+
+      // Validate the new connection
+      const testConnection = {
+        source: newSource,
+        target: newTarget,
+        sourceHandle: null,
+        targetHandle: null
+      };
+
+      // Find the edge being reconnected to pass to isValidConnection
+      const currentEdge = allEdges.find(e => e.id === edgeId);
+      if (!isValidConnection({ ...testConnection, id: edgeId } as Edge)) {
+        // Connection is invalid, cancel reconnection mode
+        setReconnectionMode(null);
+        setIsConnecting(false);
+        return;
+      }
+
+      // Parse edge ID to determine transition type
+      const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+      const sharedMatch = /^t:shared:([^:]+):(.+)$/.exec(edgeId);
+      const startMatch = /^t:start:/.exec(edgeId);
+
+      if (localMatch) {
+        const [, from, tKey] = localMatch;
+        // Use domain:moveTransition to reconnect
+        postMessage({
+          type: 'domain:moveTransition',
+          oldFrom: from,
+          tKey,
+          newFrom: newSource,
+          newTarget
+        });
+      } else if (startMatch) {
+        // For start transitions, just update the target
+        postMessage({
+          type: 'domain:setStart',
+          target: newTarget
+        });
+      } else if (sharedMatch) {
+        // For shared transitions, we need to remove from old state and add to new
+        const [, transitionKey, oldFromState] = sharedMatch;
+        if (end === 'source' && newSource !== oldFromState) {
+          // Remove from old state
+          postMessage({
+            type: 'domain:removeFromSharedTransition',
+            transitionKey,
+            stateKey: oldFromState
+          });
+          // Add to new state (if not already there)
+          postMessage({
+            type: 'domain:toggleSharedTransition',
+            stateKey: newSource,
+            transitionKey,
+            enabled: true
+          });
+        }
+        // Target changes for shared transitions would require updating the transition itself
+        if (end === 'target' && newTarget !== oldTarget) {
+          // Update shared transition target
+          postMessage({
+            type: 'domain:updateSharedTransitionTarget',
+            transitionKey,
+            newTarget
+          });
+        }
+      }
+
+      // Clear reconnection mode
+      setReconnectionMode(null);
+      setIsConnecting(false);
+    }
+  }, [reconnectionMode, postMessage, allEdges, isValidConnection]);
+
+  const handleNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    // Open key edit popup on double-click
+    handleEditStateKey(node.id);
+  }, [handleEditStateKey]);
+
+  const handleEdgeDoubleClick = useCallback((_event: React.MouseEvent, edge: Edge) => {
+    // Open transition key edit popup on double-click
+    handleEditTransitionKey(edge.id);
+  }, [handleEditTransitionKey]);
+
+  // Handle escape key to cancel reconnection mode
+  useEffect(() => {
+    if (!reconnectionMode) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setReconnectionMode(null);
+        setIsConnecting(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [reconnectionMode]);
+
   useEffect(() => {
     if (!contextMenu) {
       return undefined;
@@ -1125,7 +1998,10 @@ ${documentation.split('\n').slice(1).join('\n')}`;
 
     const handleDismiss = (event: Event) => {
       const target = event.target as HTMLElement | null;
-      if (target?.closest('.flow-context-menu')) {
+      // Don't dismiss if clicking inside context menu, state toolbar, or transition toolbar
+      if (target?.closest('.flow-context-menu') ||
+          target?.closest('.state-toolbar') ||
+          target?.closest('.transition-toolbar')) {
         return;
       }
       setContextMenu(null);
@@ -1157,7 +2033,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
   return (
     <div className="canvas-shell">
       <div className="canvas-shell__flow">
-        <div className="flow-canvas" style={{ height: '100vh' }}>
+        <div className="flow-canvas" style={{ height: '100vh', cursor: reconnectionMode ? 'crosshair' : 'default' }}>
           {/* Vertical Icon Bar */}
           <div className="toolbar-icon-bar" role="toolbar" aria-label="Toolbar">
             <ToolbarIconButton
@@ -1192,6 +2068,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
                   'Intermediate': 'state-node--intermediate',
                   'Final': 'state-node--final',
                   'SubFlow': 'state-node--subflow',
+                  'Wizard': 'state-node--wizard',
                   'ServiceTask': 'state-node--service-task'
                 };
                 const pluginStateClass = pluginClassMap[plugin.id] || 'state-node--intermediate';
@@ -1296,106 +2173,126 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             onClose={() => setActivePanel(null)}
           >
             <div className="flyout-panel__deploy">
-              {!cliStatus ? (
+              {!deployStatus ? (
                 <div className="deploy-loading">
-                  <p>Checking CLI status...</p>
+                  <p>Checking deployment status...</p>
                 </div>
-              ) : !cliStatus.installed ? (
+              ) : !deployStatus.configured ? (
                 <div className="deploy-setup">
                   <div className="deploy-setup__header">
-                    <h3>CLI Not Installed</h3>
-                    <p>The vnext-workflow-cli is required to deploy workflows.</p>
+                    <h3>No Environment Configured</h3>
+                    <p>You need to configure a deployment environment to deploy workflows.</p>
                   </div>
                   <button
                     type="button"
                     className="deploy-btn deploy-btn--primary"
-                    onClick={() => postMessage({ type: 'deploy:install' })}
+                    onClick={() => postMessage({ type: 'deploy:selectEnvironment' })}
                   >
-                    Install CLI Now
+                    Configure Environment
                   </button>
                   <div className="deploy-info">
                     <p className="deploy-info__note">
-                      This will run: <code>npm install -g @burgan-tech/vnext-workflow-cli</code>
+                      ℹ️ You can configure environments in VS Code settings (Amorphie: Open Settings)
                     </p>
                   </div>
                 </div>
-              ) : !cliStatus.configured ? (
+              ) : deployStatus.error ? (
                 <div className="deploy-setup">
                   <div className="deploy-setup__header">
-                    <h3>CLI Not Configured</h3>
-                    <p>The CLI needs to be configured with your project root.</p>
+                    <h3>Deployment Error</h3>
+                    <p>{deployStatus.error}</p>
                   </div>
                   <button
                     type="button"
                     className="deploy-btn deploy-btn--primary"
-                    onClick={() => postMessage({ type: 'deploy:configure' })}
+                    onClick={() => postMessage({ type: 'deploy:selectEnvironment' })}
                   >
-                    Configure CLI Now
+                    Select Different Environment
                   </button>
-                  <div className="deploy-info">
-                    <p className="deploy-info__note">
-                      ℹ️ Version: <code>{cliStatus.version || 'Unknown'}</code>
-                    </p>
-                  </div>
                 </div>
               ) : (
                 <>
                   <div className="deploy-status">
                     <div className="deploy-status__item">
-                      <span className="deploy-status__label">CLI:</span>
-                      <span className="deploy-status__value deploy-status__value--success">Installed ({cliStatus.version})</span>
+                      <span className="deploy-status__label">Environment:</span>
+                      <span className="deploy-status__value">{deployStatus.environment?.name || deployStatus.environment?.id || 'None'}</span>
                     </div>
                     <div className="deploy-status__item">
                       <span className="deploy-status__label">API:</span>
-                      <span className={`deploy-status__value ${cliStatus.apiReachable ? 'deploy-status__value--success' : 'deploy-status__value--error'}`}>
-                        {cliStatus.apiReachable ? 'Connected' : 'Not reachable'}
+                      <span className={`deploy-status__value ${deployStatus.apiReachable ? 'deploy-status__value--success' : 'deploy-status__value--error'}`}>
+                        {deployStatus.apiReachable ? 'Connected' : 'Not reachable'}
                       </span>
                     </div>
-                    <div className="deploy-status__item">
-                      <span className="deploy-status__label">Database:</span>
-                      <span className={`deploy-status__value ${cliStatus.dbReachable ? 'deploy-status__value--success' : 'deploy-status__value--error'}`}>
-                        {cliStatus.dbReachable ? 'Connected' : 'Not reachable'}
-                      </span>
-                    </div>
-                    <div className="deploy-status__item">
-                      <span className="deploy-status__label">Project Root:</span>
-                      <span className="deploy-status__value">{cliStatus.projectRoot || 'Not set'}</span>
-                    </div>
+                    {deployStatus.environment && (
+                      <>
+                        <div className="deploy-status__item">
+                          <span className="deploy-status__label">Base URL:</span>
+                          <span className="deploy-status__value deploy-status__value--small">{deployStatus.environment.baseUrl}</span>
+                        </div>
+                        <div className="deploy-status__item">
+                          <span className="deploy-status__label">Domain:</span>
+                          <span className="deploy-status__value">{deployStatus.environment.domain}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div className="deploy-section">
-                    <button
-                      type="button"
-                      className="deploy-btn deploy-btn--secondary"
-                      onClick={() => postMessage({ type: 'deploy:changeProjectRoot' })}
-                    >
-                      Change Project Root
-                    </button>
-                  </div>
-
-                  <div className="deploy-section">
-                    <h3 className="deploy-section__title">Current File</h3>
+                    <h3 className="deploy-section__title">Deploy Workflow</h3>
                     <p className="deploy-section__desc">Deploy the currently open workflow file to the vNext API</p>
-                    <button
-                      type="button"
-                      className="deploy-btn deploy-btn--primary"
-                      onClick={() => postMessage({ type: 'deploy:current' })}
-                    >
-                      Deploy Current File
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="deploy-btn deploy-btn--primary"
+                        onClick={() => postMessage({ type: 'deploy:current' })}
+                        disabled={!!deployProgress}
+                        style={{ flex: 1 }}
+                      >
+                        Deploy Workflow
+                      </button>
+                      <button
+                        type="button"
+                        className="deploy-btn deploy-btn--secondary"
+                        onClick={() => postMessage({ type: 'deploy:current', force: true })}
+                        disabled={!!deployProgress}
+                        title="Force deploy without checking for changes"
+                        style={{ flex: 1 }}
+                      >
+                        Force Deploy
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="deploy-section">
-                    <h3 className="deploy-section__title">Changed Files</h3>
-                    <p className="deploy-section__desc">Deploy all Git-modified workflow files</p>
-                    <button
-                      type="button"
-                      className="deploy-btn deploy-btn--secondary"
-                      onClick={() => postMessage({ type: 'deploy:changed' })}
-                    >
-                      Deploy Changed Files
-                    </button>
-                  </div>
+                  {/* Deployment Progress */}
+                  {deployProgress && (
+                    <div className="deploy-section">
+                      <div className="deploy-progress">
+                        <div className="deploy-progress__header">
+                          <h4 className="deploy-progress__title">
+                            {deployProgress.step === 'normalizing' && '⚙️ Normalizing...'}
+                            {deployProgress.step === 'validating' && '🔍 Validating...'}
+                            {deployProgress.step === 'deploying' && '🚀 Deploying...'}
+                            {deployProgress.step === 'completed' && '✅ Completed'}
+                            {deployProgress.step === 'failed' && '❌ Failed'}
+                          </h4>
+                          <span className="deploy-progress__count">{deployProgress.current}/{deployProgress.total}</span>
+                        </div>
+                        <div className="deploy-progress__bar-container">
+                          <div
+                            className="deploy-progress__bar"
+                            style={{ width: `${deployProgress.percentage}%` }}
+                          />
+                        </div>
+                        <p className="deploy-progress__message">{deployProgress.message}</p>
+                        {deployProgress.workflow && (
+                          <div className="deploy-progress__workflow">
+                            <strong>{deployProgress.workflow.key}</strong>
+                            <span className="deploy-progress__domain">{deployProgress.workflow.domain}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="deploy-section">
                     <button
@@ -1419,13 +2316,18 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             onConnectStart={onConnectStart}
             onConnectEnd={onConnectEnd}
             onReconnect={onReconnect}
+            onEdgeUpdate={onEdgeUpdate}
             onEdgesDelete={onEdgesDelete}
             onNodesDelete={onNodesDelete}
-            onSelectionChange={onSelectionChange}
+            onNodeClick={handleNodeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            onEdgeDoubleClick={handleEdgeDoubleClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             isValidConnection={isValidConnection}
             edgesReconnectable={true}
+            reconnectRadius={20}
+            edgeUpdaterRadius={10}
             edgesFocusable={true}
             elementsSelectable={true}
             selectNodesOnDrag={false}
@@ -1456,16 +2358,139 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           </ReactFlow>
         </div>
       </div>
-      {workflow ? (
-        <PropertyPanel
-          workflow={workflow}
-          selection={selection}
-          collapsed={!selection}
-          availableTasks={taskCatalog}
-          catalogs={catalogs}
-        />
-      ) : null}
-      {contextMenu && (
+      {/* State Context Toolbar - appears on right-click */}
+      {contextMenu && contextMenu.nodeId && workflow && (() => {
+        const state = workflow.attributes?.states?.find(s => s.key === contextMenu.nodeId);
+        if (!state) return null;
+
+        const stateType = state.stateType || 2;
+
+        return (
+          <StateToolbar
+            state={state}
+            position={{ x: contextMenu.x, y: contextMenu.y }}
+            sharedTransitions={workflow.attributes?.sharedTransitions}
+            onEditTasks={() => handleOpenTaskPopup(contextMenu.nodeId!)}
+            onEditLabel={() => handleEditStateLabel(contextMenu.nodeId!)}
+            onEditView={() => handleEditView(contextMenu.nodeId!)}
+            onEditKey={() => handleEditStateKey(contextMenu.nodeId!)}
+            onStartFromHere={stateType === 1 || stateType === 2 || stateType === 5 ? () => handleSetStartNode(contextMenu.nodeId!) : undefined}
+            onConvertToFinal={stateType === 1 || stateType === 2 ? (subType) => handleConvertToFinal(contextMenu.nodeId!, subType) : undefined}
+            onConvertToIntermediate={stateType === 1 || stateType === 3 || stateType === 4 || stateType === 5 ? () => handleConvertToIntermediate(contextMenu.nodeId!) : undefined}
+            onConvertToSubFlow={stateType === 1 || stateType === 2 ? () => handleConvertToSubFlow(contextMenu.nodeId!) : undefined}
+            onConvertToWizard={stateType === 1 || stateType === 2 ? () => handleConvertToWizard(contextMenu.nodeId!) : undefined}
+            onConfigureSubFlow={stateType === 4 ? () => handleConfigureSubFlow(contextMenu.nodeId!) : undefined}
+            onSetSubType={stateType === 3 ? (subType) => handleSetFinalSubType(contextMenu.nodeId!, subType) : undefined}
+            onToggleSharedTransition={(transitionKey, enabled) => handleToggleSharedTransition(contextMenu.nodeId!, transitionKey, enabled)}
+            onDelete={() => handleDeleteState(contextMenu.nodeId!)}
+          />
+        );
+      })()}
+
+      {/* Transition Context Toolbar - appears on right-click */}
+      {contextMenu && contextMenu.edgeId && workflow && (() => {
+        const edgeId = contextMenu.edgeId;
+        const isLocal = edgeId.startsWith('t:local:');
+        const isShared = edgeId.startsWith('t:shared:');
+        const isStart = edgeId.startsWith('t:start:');
+
+        if (isLocal || isShared || isStart) {
+          let transitionLabel = '';
+          let triggerType: number | undefined;
+          let transition: any = null;
+
+          if (isLocal) {
+            const match = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+            if (match) {
+              const [, from, transitionKey] = match;
+              const state = workflow.attributes?.states?.find(s => s.key === from);
+              transition = state?.transitions?.find(t => t.key === transitionKey);
+              transitionLabel = `${from} → ${transition?.target || '?'}`;
+              triggerType = transition?.triggerType;
+            }
+          } else if (isShared) {
+            const match = /^t:shared:([^:]+):(.+)$/.exec(edgeId);
+            if (match) {
+              const [, transitionKey, fromState] = match;
+              transition = workflow.attributes?.sharedTransitions?.find(t => t.key === transitionKey);
+              // Resolve "$self" target to the actual from state
+              const resolvedTarget = transition?.target === '$self' ? fromState : transition?.target;
+              transitionLabel = `Shared: ${resolvedTarget || '?'}`;
+              triggerType = transition?.triggerType;
+            }
+          } else if (isStart) {
+            const match = /^t:start:(.+)$/.exec(edgeId);
+            if (match) {
+              const [, transitionKey] = match;
+              transition = workflow.attributes?.startTransition;
+              transitionLabel = `Start: ${transition?.target || '?'}`;
+              triggerType = transition?.triggerType;
+            }
+          }
+
+          const supportsSchema = triggerType === 0 || triggerType === 3;
+          const isAuto = triggerType === 1;
+          const isTimeout = triggerType === 2;
+
+          return (
+            <TransitionToolbar
+              transitionLabel={transitionLabel}
+              position={{ x: contextMenu.x, y: contextMenu.y }}
+              triggerType={triggerType}
+              onEditKey={() => handleEditTransitionKey(edgeId)}
+              onEditLabels={() => handleEditTransitionLabels(edgeId)}
+              onEditTasks={!isStart ? () => handleOpenTransitionTaskPopup(edgeId) : undefined}
+              onEditMapping={() => handleOpenTransitionMappingPopup(edgeId)}
+              onEditSchema={supportsSchema ? () => handleEditTransitionSchema(edgeId) : undefined}
+              onEditRule={isAuto ? () => handleEditTransitionRule(edgeId) : undefined}
+              onEditTimeout={isTimeout ? () => handleEditTransitionTimeout(edgeId) : undefined}
+              onMakeShared={isLocal ? () => handleMakeTransitionShared(edgeId) : undefined}
+              onConvertToRegular={isShared ? () => handleConvertToRegular(edgeId) : undefined}
+              onConvertToManual={!isStart ? () => handleConvertTransitionType(edgeId, 0) : undefined}
+              onConvertToAuto={!isStart ? () => handleConvertTransitionType(edgeId, 1) : undefined}
+              onConvertToTimeout={!isStart ? () => handleConvertTransitionType(edgeId, 2) : undefined}
+              onConvertToEvent={!isStart ? () => handleConvertTransitionType(edgeId, 3) : undefined}
+              onReconnectSource={() => handleReconnectSource(edgeId)}
+              onReconnectTarget={() => handleReconnectTarget(edgeId)}
+              onDelete={(isLocal || isShared) ? () => handleDeleteTransition(edgeId) : undefined}
+            />
+          );
+        }
+        return null;
+      })()}
+
+      {/* Reconnection Mode Indicator */}
+      {reconnectionMode && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000,
+            padding: '12px 20px',
+            background: '#2563eb',
+            color: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            fontSize: '14px',
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <span>
+            {reconnectionMode.end === 'source'
+              ? 'Click a node to set as new source'
+              : 'Click a node to set as new target'}
+          </span>
+          <span style={{ opacity: 0.7, fontSize: '12px' }}>(Press Esc to cancel)</span>
+        </div>
+      )}
+
+      {/* Canvas Context Menu - appears on right-click on canvas */}
+      {contextMenu && !contextMenu.nodeId && !contextMenu.edgeId && (
         <div
           className="flow-context-menu"
           style={{ top: contextMenu.y, left: contextMenu.x }}
@@ -1473,41 +2498,9 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           onClick={(event) => event.stopPropagation()}
           onContextMenu={(event) => event.preventDefault()}
         >
-          {contextMenu.nodeId ? (
-            <>
-              <button
-                type="button"
-                className="flow-context-menu__item"
-                onClick={() => handleSetStartNode(contextMenu.nodeId!)}
-              >
-                Start from here
-              </button>
-            </>
-          ) : contextMenu.edgeId ? (
-            <>
-              {contextMenu.edgeId.startsWith('t:local:') ? (
-                <button
-                  type="button"
-                  className="flow-context-menu__item"
-                  onClick={() => handleMakeTransitionShared(contextMenu.edgeId!)}
-                >
-                  Make Shared Transition
-                </button>
-              ) : contextMenu.edgeId.startsWith('t:shared:') ? (
-                <button
-                  type="button"
-                  className="flow-context-menu__item"
-                  onClick={() => handleConvertToRegular(contextMenu.edgeId!)}
-                >
-                  Convert to Regular Transition
-                </button>
-              ) : null}
-            </>
-          ) : (
-            <button type="button" className="flow-context-menu__item" onClick={handleAutoLayoutRequest}>
-              Auto layout
-            </button>
-          )}
+          <button type="button" className="flow-context-menu__item" onClick={handleAutoLayoutRequest}>
+            Auto layout
+          </button>
         </div>
       )}
 
@@ -1519,6 +2512,269 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           onExportWithDiagram={handleExportWithDiagram}
         />
       )}
+
+      {/* Deployment Result Modal */}
+      {deployResult && !deployProgress && (
+        <DeploymentResultModal
+          success={deployResult.success}
+          message={deployResult.message}
+          results={deployResult.results}
+          onClose={() => setDeployResult(null)}
+        />
+      )}
+
+      {/* Task Mapping Popup */}
+      {taskPopupState && workflow && (() => {
+        // Handle state task editing
+        if (taskPopupState.stateKey) {
+          const state = workflow.attributes?.states?.find(s => s.key === taskPopupState.stateKey);
+          return state ? (
+            <TaskMappingPopup
+              state={state}
+              workflowName={workflow.key}
+              onClose={handleCloseTaskPopup}
+              onApply={handleApplyTaskChanges}
+              initialLane={taskPopupState.lane}
+              catalogs={catalogs}
+            />
+          ) : null;
+        }
+        // Handle transition task editing
+        else if (taskPopupState.transitionId) {
+          const edgeId = taskPopupState.transitionId;
+          const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+          const sharedMatch = /^t:shared:([^:]+):/.exec(edgeId);
+
+          let transition: any = null;
+          let transitionLabel = '';
+
+          if (localMatch) {
+            const [, from, transitionKey] = localMatch;
+            const state = workflow.attributes?.states?.find(s => s.key === from);
+            transition = state?.transitions?.find(t => t.key === transitionKey);
+            transitionLabel = `${from} → ${transition?.target || '?'} (${transitionKey})`;
+          } else if (sharedMatch) {
+            const [, transitionKey] = sharedMatch;
+            transition = workflow.sharedTransitions?.find(t => t.key === transitionKey);
+            transitionLabel = `Shared: ${transition?.target || '?'} (${transitionKey})`;
+          }
+
+          if (!transition) return null;
+
+          // Create a pseudo-state object for the transition
+          const transitionAsState = {
+            key: transitionLabel,
+            onEntries: transition.onExecutionTasks || [],
+            onExits: [],
+          };
+
+          return (
+            <TaskMappingPopup
+              state={transitionAsState as any}
+              workflowName={workflow.key}
+              onClose={handleCloseTaskPopup}
+              onApply={(updates) => handleApplyTaskChanges({ onExecutionTasks: updates.onEntries })}
+              initialLane="onEntries"
+              catalogs={catalogs}
+              isTransition={true}
+            />
+          );
+        }
+        return null;
+      })()}
+
+      {/* Transition Mapping Popup - for editing transition input mapping */}
+      {transitionMappingPopupState && workflow && (() => {
+        const edgeId = transitionMappingPopupState.transitionId;
+        const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+        const sharedMatch = /^t:shared:([^:]+):/.exec(edgeId);
+        const startMatch = /^t:start:(.+)$/.exec(edgeId);
+
+        let transition: any = null;
+        let transitionLabel = '';
+        let stateKey: string | undefined;
+
+        if (localMatch) {
+          const [, from, transitionKey] = localMatch;
+          const state = workflow.attributes?.states?.find(s => s.key === from);
+          transition = state?.transitions?.find(t => t.key === transitionKey);
+          transitionLabel = `${from} → ${transition?.target || '?'} (${transitionKey})`;
+          stateKey = from;
+        } else if (sharedMatch) {
+          const [, transitionKey] = sharedMatch;
+          transition = workflow.sharedTransitions?.find(t => t.key === transitionKey);
+          transitionLabel = `Shared: ${transition?.target || '?'} (${transitionKey})`;
+        } else if (startMatch) {
+          transition = workflow.attributes?.startTransition;
+          transitionLabel = `Start → ${transition?.target || '?'}`;
+        }
+
+        if (!transition) return null;
+
+        return (
+          <TransitionMappingPopup
+            transitionLabel={transitionLabel}
+            mapping={transition.mapping}
+            onClose={handleCloseTransitionMappingPopup}
+            onApply={handleApplyTransitionMapping}
+            catalogs={catalogs}
+            stateKey={stateKey}
+            workflowName={workflow.key}
+          />
+        );
+      })()}
+
+      {/* State Key Edit Popup */}
+      {stateKeyEditPopup && workflow && (() => {
+        const state = workflow.attributes?.states?.find(s => s.key === stateKeyEditPopup.stateKey);
+        if (!state) return null;
+
+        return (
+          <StateKeyEditPopup
+            currentKey={stateKeyEditPopup.stateKey}
+            workflow={workflow}
+            onClose={() => setStateKeyEditPopup(null)}
+            onApply={handleApplyKeyChange}
+          />
+        );
+      })()}
+
+      {/* State Label Edit Popup */}
+      {stateLabelEditPopup && workflow && (() => {
+        const state = workflow.attributes?.states?.find(s => s.key === stateLabelEditPopup.stateKey);
+        if (!state) return null;
+
+        return (
+          <StateLabelEditPopup
+            stateKey={stateLabelEditPopup.stateKey}
+            currentLabels={state.labels || []}
+            onClose={() => setStateLabelEditPopup(null)}
+            onApply={(labels) => handleApplyLabelChanges(stateLabelEditPopup.stateKey, labels)}
+          />
+        );
+      })()}
+
+      {/* State View Edit Popup */}
+      {stateViewEditPopup && workflow && (() => {
+        const state = workflow.attributes?.states?.find(s => s.key === stateViewEditPopup.stateKey);
+        if (!state) return null;
+
+        return (
+          <StateViewEditPopup
+            stateKey={stateViewEditPopup.stateKey}
+            workflow={workflow}
+            availableViews={catalogs.view || []}
+            onClose={() => setStateViewEditPopup(null)}
+            onApply={handleApplyViewChange}
+          />
+        );
+      })()}
+
+      {/* SubFlow Configuration Popup */}
+      {stateSubFlowEditPopup && workflow && (() => {
+        const state = workflow.attributes?.states?.find(s => s.key === stateSubFlowEditPopup.stateKey);
+        if (!state) return null;
+
+        return (
+          <SubFlowConfigPopup
+            stateKey={stateSubFlowEditPopup.stateKey}
+            workflow={workflow}
+            availableWorkflows={catalogs.workflow || []}
+            availableMappers={catalogs.mapper || []}
+            onClose={() => setStateSubFlowEditPopup(null)}
+            onApply={handleApplySubFlowChange}
+          />
+        );
+      })()}
+
+      {/* Transition Schema Edit Popup */}
+      {transitionSchemaEditPopup && workflow && (
+        <TransitionSchemaEditPopup
+          transitionId={transitionSchemaEditPopup.transitionId}
+          workflow={workflow}
+          availableSchemas={catalogs.schema || []}
+          onClose={() => setTransitionSchemaEditPopup(null)}
+          onApply={handleApplyTransitionSchema}
+        />
+      )}
+
+      {/* Transition Rule Edit Popup */}
+      {transitionRuleEditPopup && workflow && (() => {
+        const transitionId = transitionRuleEditPopup.transitionId;
+        const localMatch = /^t:local:([^:]+):(.+)$/.exec(transitionId);
+        const sharedMatch = /^t:shared:([^:]+):/.exec(transitionId);
+
+        let transitionKey = '';
+        let fromState = '';
+        let rule: TransitionRuleData | undefined = undefined;
+
+        if (localMatch) {
+          const [, from, tKey] = localMatch;
+          fromState = from;
+          transitionKey = tKey;
+          // Find state by key (states is an array)
+          const state = workflow.attributes.states.find(s => s.key === from);
+          if (state?.transitions) {
+            // Find transition by key (transitions is an array)
+            const transition = state.transitions.find(t => t.key === tKey);
+            if (transition?.rule) {
+              rule = transition.rule;
+            }
+          }
+        } else if (sharedMatch) {
+          const [, tKey] = sharedMatch;
+          transitionKey = tKey;
+          fromState = 'shared';
+          // Find shared transition by key (sharedTransitions is an array)
+          const sharedTransition = workflow.attributes.sharedTransitions?.find(st => st.key === tKey);
+          if (sharedTransition?.rule) {
+            rule = sharedTransition.rule;
+          }
+        }
+
+        return (
+          <TransitionRuleEditPopup
+            transitionKey={transitionKey}
+            fromState={fromState}
+            rule={rule}
+            availableScripts={catalogs.rule || []}
+            workflowName={workflow.key}
+            onApply={(newRule) => handleApplyTransitionRule(transitionId, newRule)}
+            onCancel={() => setTransitionRuleEditPopup(null)}
+          />
+        );
+      })()}
+
+      {/* Transition Key Edit Popup */}
+      {transitionKeyEditPopup && workflow && (
+        <TransitionKeyEditPopup
+          transitionId={transitionKeyEditPopup.transitionId}
+          workflow={workflow}
+          onClose={() => setTransitionKeyEditPopup(null)}
+          onApply={handleApplyTransitionKey}
+        />
+      )}
+
+      {/* Transition Label Edit Popup */}
+      {transitionLabelEditPopup && workflow && (
+        <TransitionLabelEditPopup
+          transitionId={transitionLabelEditPopup.transitionId}
+          workflow={workflow}
+          onClose={() => setTransitionLabelEditPopup(null)}
+          onApply={handleApplyTransitionLabels}
+        />
+      )}
+
+      {/* Timeout Config Popup */}
+      {timeoutConfigPopup && workflow && (
+        <TimeoutConfigPopup
+          transitionId={timeoutConfigPopup.transitionId}
+          workflow={workflow}
+          onClose={() => setTimeoutConfigPopup(null)}
+          onApply={handleApplyTimeoutConfig}
+        />
+      )}
+
     </div>
   );
 }

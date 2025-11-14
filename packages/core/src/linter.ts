@@ -241,6 +241,15 @@ export function lint(
       });
     }
 
+    // E_WIZARD_MULTIPLE: Wizard states can only have one outgoing transition
+    if (state.stateType === 5 && state.transitions && state.transitions.length > 1) {
+      push(state.key, {
+        id: 'E_WIZARD_MULTIPLE',
+        severity: 'error',
+        message: 'Wizard states can only have one outgoing transition'
+      });
+    }
+
     // PATH checks for mappings and rules
     for (const task of (state.onEntries || [])) {
       if (!hasTaskReference(task.task)) {

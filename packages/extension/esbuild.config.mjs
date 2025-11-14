@@ -9,7 +9,7 @@ const buildOptions = {
   outfile: 'dist/extension.js',
   bundle: true,
   platform: 'node',
-  external: ['vscode'],
+  external: ['vscode', 'pg'],
   sourcemap: true
 };
 
@@ -48,10 +48,17 @@ try {
 }
 
 // Copy canonical schemas into extension package so jsonValidation can resolve them
-const workflowSchemaSrc = resolve(extDir, '../../schemas/schemas/workflow-definition.schema.json');
-const workflowSchemaDest = resolve(extDir, 'schemas/workflow-definition.schema.json');
-await safeCopy(workflowSchemaSrc, workflowSchemaDest);
+const schemaFiles = [
+  'workflow-definition.schema.json',
+  'task-definition.schema.json',
+  'schema-definition.schema.json',
+  'view-definition.schema.json',
+  'function-definition.schema.json',
+  'extension-definition.schema.json'
+];
 
-const taskSchemaSrc = resolve(extDir, '../../schemas/schemas/task-definition.schema.json');
-const taskSchemaDest = resolve(extDir, 'schemas/task-definition.schema.json');
-await safeCopy(taskSchemaSrc, taskSchemaDest);
+for (const schemaFile of schemaFiles) {
+  const schemaSrc = resolve(extDir, `../../schemas/schemas/${schemaFile}`);
+  const schemaDest = resolve(extDir, `schemas/${schemaFile}`);
+  await safeCopy(schemaSrc, schemaDest);
+}

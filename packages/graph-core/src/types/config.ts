@@ -1,0 +1,115 @@
+/**
+ * Configuration types for the graph system
+ */
+
+/**
+ * Authentication configuration
+ */
+export interface AuthConfig {
+  /** Auth type */
+  type: 'bearer' | 'basic' | 'none';
+
+  /** Bearer token or basic auth token */
+  token?: string;
+
+  /** Username for basic auth */
+  username?: string;
+
+  /** Password for basic auth */
+  password?: string;
+}
+
+/**
+ * Database configuration for direct cleanup operations
+ */
+export interface DatabaseConfig {
+  /** Database host (if not using Docker) */
+  host?: string;
+
+  /** Database port (if not using Docker) */
+  port?: number;
+
+  /** Database name */
+  database: string;
+
+  /** Database user */
+  user: string;
+
+  /** Database password */
+  password: string;
+
+  /** Whether to use Docker exec instead of direct connection */
+  useDocker?: boolean;
+
+  /** Docker container name (if useDocker is true) */
+  dockerContainer?: string;
+}
+
+/**
+ * Environment configuration
+ */
+export interface EnvironmentConfig {
+  /** Unique environment identifier */
+  id: string;
+
+  /** Display name */
+  name?: string;
+
+  /** Base URL for the runtime API */
+  baseUrl: string;
+
+  /** Default domain to query */
+  domain: string;
+
+  /** Authentication config */
+  auth?: AuthConfig;
+
+  /** Additional headers */
+  headers?: Record<string, string>;
+
+  /** Request timeout in milliseconds */
+  timeout?: number;
+
+  /** Whether to verify SSL certificates */
+  verifySsl?: boolean;
+
+  /** Database config for direct cleanup (optional) */
+  database?: DatabaseConfig;
+}
+
+/**
+ * Multi-source configuration with precedence
+ */
+export interface GraphConfig {
+  /** Environments (from all sources merged) */
+  environments: Record<string, EnvironmentConfig>;
+
+  /** Active environment ID */
+  activeEnvironment?: string;
+
+  /** Graph cache settings */
+  cache?: {
+    enabled: boolean;
+    ttlMs: number;
+  };
+
+  /** Source precedence configuration */
+  sources?: {
+    vscodeSettings: boolean;
+    envFiles: boolean;
+    cliIntegration: boolean;
+  };
+}
+
+/**
+ * Config source type
+ */
+export type ConfigSource = 'vscode-settings' | 'env-file' | 'cli-integration';
+
+/**
+ * Config with source information
+ */
+export interface ConfigWithSource<T = any> {
+  value: T;
+  source: ConfigSource;
+}

@@ -4,7 +4,9 @@ import { FlowDiagnosticsProvider, createCodeActionProvider } from './diagnostics
 import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';
 import { registerMapperEditor } from './mapper/MapperEditorProvider';
+import { registerGraphCommands } from './graph/graphCommands';
 import { TaskQuickEditorProvider } from './taskEditor/TaskQuickEditorProvider';
+import { SettingsEditorProvider } from './settings/SettingsEditorProvider';
 import {
   FLOW_AND_DIAGRAM_GLOBS,
   FLOW_FILE_GLOBS,
@@ -328,53 +330,88 @@ async function openFlowEditor(
  * Register JSON schemas for validation
  */
 function registerJsonSchemas(context: vscode.ExtensionContext) {
-  // Get the path to the extension's schema files
-  const workflowSchemaPath = vscode.Uri.joinPath(context.extensionUri, 'schemas', 'workflow-definition.schema.json').toString();
-  const taskSchemaPath = vscode.Uri.joinPath(context.extensionUri, 'schemas', 'task-definition.schema.json').toString();
-
   // Get current JSON schemas configuration
   const config = vscode.workspace.getConfiguration('json');
   const schemas = config.get<any[]>('schemas') || [];
 
-  // Add our schemas if not already present
-  const workflowSchemaEntry = {
-    fileMatch: [
-      '**/*.flow.json',
-      '**/*-subflow.json',
-      '**/*-workflow.json',
-      '**/workflows/**/*.json',
-      '**/Workflows/**/*.json'
-    ],
-    url: workflowSchemaPath
-  };
+  // Define all schema types with their file patterns
+  const schemaDefinitions = [
+    {
+      name: 'workflow-definition.schema.json',
+      fileMatch: [
+        '**/*.flow.json',
+        '**/*-subflow.json',
+        '**/*-workflow.json',
+        '**/workflows/**/*.json',
+        '**/Workflows/**/*.json'
+      ]
+    },
+    {
+      name: 'task-definition.schema.json',
+      fileMatch: [
+        '**/Tasks/*.json',
+        '**/Tasks/**/*.json',
+        '**/sys-tasks/**/*.json'
+      ]
+    },
+    {
+      name: 'schema-definition.schema.json',
+      fileMatch: [
+        '**/Schemas/*.json',
+        '**/Schemas/**/*.json',
+        '**/schemas/**/*.json',
+        '**/sys-schemas/**/*.json'
+      ]
+    },
+    {
+      name: 'view-definition.schema.json',
+      fileMatch: [
+        '**/Views/*.json',
+        '**/Views/**/*.json',
+        '**/views/**/*.json',
+        '**/sys-views/**/*.json'
+      ]
+    },
+    {
+      name: 'function-definition.schema.json',
+      fileMatch: [
+        '**/Functions/*.json',
+        '**/Functions/**/*.json',
+        '**/functions/**/*.json',
+        '**/sys-functions/**/*.json'
+      ]
+    },
+    {
+      name: 'extension-definition.schema.json',
+      fileMatch: [
+        '**/Extensions/*.json',
+        '**/Extensions/**/*.json',
+        '**/extensions/**/*.json',
+        '**/sys-extensions/**/*.json'
+      ]
+    }
+  ];
 
-  const taskSchemaEntry = {
-    fileMatch: [
-      '**/Tasks/*.json',
-      '**/Tasks/**/*.json'
-    ],
-    url: taskSchemaPath
-  };
-
-  // Check if our schemas are already registered
-  const hasWorkflowSchema = schemas.some(s => s.url === workflowSchemaPath);
-  const hasTaskSchema = schemas.some(s => s.url === taskSchemaPath);
-
-  // Add schemas if not present
   let updated = false;
-  if (!hasWorkflowSchema) {
-    schemas.push(workflowSchemaEntry);
-    updated = true;
-  }
-  if (!hasTaskSchema) {
-    schemas.push(taskSchemaEntry);
-    updated = true;
+
+  // Register each schema type
+  for (const schemaDef of schemaDefinitions) {
+    const schemaPath = vscode.Uri.joinPath(context.extensionUri, 'schemas', schemaDef.name).toString();
+    const hasSchema = schemas.some(s => s.url === schemaPath);
+
+    if (!hasSchema) {
+      schemas.push({
+        fileMatch: schemaDef.fileMatch,
+        url: schemaPath
+      });
+      updated = true;
+    }
   }
 
   // Update configuration if needed
   if (updated) {
     config.update('schemas', schemas, vscode.ConfigurationTarget.Global).then(
-      () => console.log('JSON schemas registered successfully'),
+      () => console.log('JSON schemas registered successfully for all component types'),
       (error) => console.error('Failed to register JSON schemas:', error)
     );
   }
@@ -659,12 +696,16 @@ export function activate(context: vscode.ExtensionContext) {
   // Register other commands
   registerCommands(context);
   registerQuickFixCommands(context);
+  registerGraphCommands(context);
 
   // Register mapper editor
   registerMapperEditor(context, modelBridge);
 
   // Register task quick editor
   context.subscriptions.push(TaskQuickEditorProvider.register(context));
+
+  // Register settings editor
+  context.subscriptions.push(SettingsEditorProvider.register(context));
 
   // Clean up on deactivation
   context.subscriptions.push({

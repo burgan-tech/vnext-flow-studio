@@ -1,0 +1,285 @@
+/* Mapping Section Styles */
+
+.mapping-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: #f8fafc;
+}
+
+.mapping-section__header {
+  margin-bottom: 12px;
+}
+
+.mapping-section__title {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.mapping-section__subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Mode Selector (Radio Buttons) */
+.mapping-section__mode-selector {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+
+.mapping-section__radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  transition: color 0.2s;
+}
+
+.mapping-section__radio:hover {
+  color: #1e293b;
+}
+
+.mapping-section__radio input[type="radio"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+}
+
+/* Content Area */
+.mapping-section__content {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 16px;
+  min-height: 100px;
+}
+
+/* Empty State (None mode) */
+.mapping-section__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.mapping-section__empty p {
+  margin: 0;
+}
+
+/* Mapper Mode */
+.mapping-section__mapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mapping-section__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.mapping-section__mapper-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.mapping-section__select {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  transition: all 0.2s;
+}
+
+.mapping-section__select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mapping-section__open-mapper-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #ffffff;
+  background: #3b82f6;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.mapping-section__open-mapper-btn:hover {
+  background: #2563eb;
+}
+
+.mapping-section__hint {
+  margin: 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.mapping-section__hint--warning {
+  color: #f59e0b;
+}
+
+/* Code Mode */
+.mapping-section__code {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mapping-section__code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mapping-section__template-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mapping-section__template-btn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mapping-section__template-btn:hover {
+  background: #e2e8f0;
+  border-color: #3b82f6;
+  color: #1e293b;
+}
+
+.mapping-section__input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  transition: all 0.2s;
+}
+
+.mapping-section__input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mapping-section__monaco-wrapper {
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  min-height: 300px;
+}
+
+/* Scrollbars - Apply to ALL scrollable elements in mapping section */
+.mapping-section ::-webkit-scrollbar,
+.mapping-section *::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.mapping-section ::-webkit-scrollbar-track,
+.mapping-section *::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+
+.mapping-section ::-webkit-scrollbar-thumb,
+.mapping-section *::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 5px !important;
+  border: 2px solid #f1f5f9 !important;
+}
+
+.mapping-section ::-webkit-scrollbar-thumb:hover,
+.mapping-section *::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+/* Override Monaco's native scrollbar styling */
+.mapping-section .monaco-scrollable-element > .scrollbar > .slider {
+  background: #cbd5e1 !important;
+}
+
+.mapping-section .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: #94a3b8 !important;
+}
+
+.mapping-section .monaco-scrollable-element > .scrollbar {
+  background: #f1f5f9 !important;
+}
+
+/* Target invisible scrollbar variant */
+.mapping-section .monaco-scrollable-element > .scrollbar.invisible > .slider,
+.mapping-section .monaco-scrollable-element > .scrollbar.fade > .slider,
+.mapping-section .monaco-scrollable-element > .scrollbar.vertical.fade > .slider,
+.mapping-section .monaco-scrollable-element > .scrollbar.horizontal > .slider {
+  background: #cbd5e1 !important;
+}
+
+.mapping-section .monaco-scrollable-element > .scrollbar.invisible > .slider:hover,
+.mapping-section .monaco-scrollable-element > .scrollbar.fade > .slider:hover,
+.mapping-section .monaco-scrollable-element > .scrollbar.vertical.fade > .slider:hover,
+.mapping-section .monaco-scrollable-element > .scrollbar.horizontal > .slider:hover {
+  background: #94a3b8 !important;
+}
+
+.mapping-section .monaco-scrollable-element > .scrollbar.invisible,
+.mapping-section .monaco-scrollable-element > .scrollbar.fade,
+.mapping-section .monaco-scrollable-element > .scrollbar.vertical.fade,
+.mapping-section .monaco-scrollable-element > .scrollbar.horizontal {
+  background: #f1f5f9 !important;
+}
+
+/* Ultra-specific targeting for Monaco's inline-styled scrollbars */
+.mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] {
+  background: #f1f5f9 !important;
+}
+
+.mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"] {
+  background: #cbd5e1 !important;
+}
+
+.mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"]:hover {
+  background: #94a3b8 !important;
+}

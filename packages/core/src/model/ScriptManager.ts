@@ -333,8 +333,8 @@ export class ScriptManager implements IScriptManager {
       return false;
     }
 
-    // Must end with .csx
-    if (!location.endsWith('.csx')) {
+    // Must end with .csx or .mapper.json
+    if (!location.endsWith('.csx') && !location.endsWith('.mapper.json')) {
       return false;
     }
 
@@ -380,16 +380,20 @@ export class ScriptManager implements IScriptManager {
   async discoverScripts(basePath: string): Promise<{ mappers: ResolvedScript[]; rules: ResolvedScript[] }> {
     const maxDepth = 10;
 
-    console.log('[ScriptManager] Discovering all .csx scripts in workspace:', basePath);
+    console.log('='.repeat(80));
+    console.log('[ScriptManager] ==================== DISCOVERY STARTED ====================');
+    console.log('[ScriptManager] Discovering scripts and mappers in workspace:', basePath);
+    console.log('='.repeat(80));
 
     const mappers: ResolvedScript[] = [];
     const rules: ResolvedScript[] = [];
 
     try {
-      const files = await this.findCsxFiles(basePath, maxDepth);
-      console.log(`[ScriptManager] Found ${files.length} .csx files in workspace`);
+      // Find .csx script files
+      const csxFiles = await this.findCsxFiles(basePath, maxDepth);
+      console.log(`[ScriptManager] Found ${csxFiles.length} .csx files in workspace`);
 
-      for (const absolutePath of files) {
+      for (const absolutePath of csxFiles) {
         try {
           // Calculate relative path from basePath
           let relativePath = path.relative(basePath, absolutePath);
@@ -418,6 +422,45 @@ export class ScriptManager implements IScriptManager {
           continue;
         }
       }
+
+      console.log('[ScriptManager] ===== FINISHED CSX DISCOVERY, STARTING MAPPER.JSON DISCOVERY =====');
+
+      // Also find .mapper.json files (visual mapper editor files)
+      try {
+        console.log(`[ScriptManager] Starting search for .mapper.json files in: ${basePath}`);
+        const mapperJsonFiles = await this.findMapperJsonFiles(basePath, maxDepth);
+        console.log(`[ScriptManager] Found ${mapperJsonFiles.length} .mapper.json files in workspace`);
+
+        if (mapperJsonFiles.length > 0) {
+          console.log(`[ScriptManager] Mapper.json files found:`, mapperJsonFiles);
+        }
+
+        for (const absolutePath of mapperJsonFiles) {
+          try {
+            // Calculate relative path from basePath
+            let relativePath = path.relative(basePath, absolutePath);
+            if (!relativePath.startsWith('./') && !relativePath.startsWith('../')) {
+              relativePath = `./${relativePath}`;
+            }
+
+            console.log(`[ScriptManager] Processing mapper.json: ${relativePath}`);
+
+            // Load the mapper.json file as a script entry
+            const script = await this.loadScript(relativePath, basePath);
+            if (script && script.exists) {
+              mappers.push(script);
+              console.log(`[ScriptManager] ✓ Loaded visual mapper: ${relativePath}`);
+            } else {
+              console.log(`[ScriptManager] ✗ Script load failed or doesn't exist: ${relativePath}`);
+            }
+          } catch (err) {
+            console.log(`[ScriptManager] ✗ Failed to load ${absolutePath}:`, err);
+            continue;
+          }
+        }
+      } catch (err) {
+        console.log(`[ScriptManager] ✗✗✗ FATAL ERROR during mapper.json discovery:`, err);
+      }
     } catch (err) {
       console.log(`[ScriptManager] ✗ Failed to scan workspace:`, err);
     }
@@ -430,11 +473,19 @@ export class ScriptManager implements IScriptManager {
    * Analyze script content to determine if it implements IMapping (mappers) or IConditionMapping/ICondition/IRule (rules)
    */
   private analyzeScriptType(content: string): 'mapping' | 'rule' | 'unknown' {
-    // Check for IMapping interface (these are mappers)
+    // Check for IMapping, ITransitionMapping, or ISubFlowMapping interfaces (these are mappers)
     if (content.includes(': IMapping') ||
         content.includes(':IMapping') ||
         content.includes(', IMapping') ||
-        content.includes(',IMapping')) {
+        content.includes(',IMapping') ||
+        content.includes(': ITransitionMapping') ||
+        content.includes(':ITransitionMapping') ||
+        content.includes(', ITransitionMapping') ||
+        content.includes(',ITransitionMapping') ||
+        content.includes(': ISubFlowMapping') ||
+        content.includes(':ISubFlowMapping') ||
+        content.includes(', ISubFlowMapping') ||
+        content.includes(',ISubFlowMapping')) {
       return 'mapping';
     }
 
@@ -493,6 +544,47 @@ export class ScriptManager implements IScriptManager {
     };
 
     await walk(dir, 0);
+    return results;
+  }
+
+  /**
+   * Find all .mapper.json files in a directory recursively
+   */
+  private async findMapperJsonFiles(dir: string, maxDepth: number = 5): Promise<string[]> {
+    const results: string[] = [];
+
+    const walk = async (currentDir: string, depth: number) => {
+      if (depth > maxDepth) return;
+
+      try {
+        const entries = await fs.readdir(currentDir, { withFileTypes: true });
+
+        // Debug: Log all files in the directory
+        console.log(`[ScriptManager] Scanning directory (depth ${depth}): ${currentDir}`);
+        const jsonFiles = entries.filter(e => e.isFile() && e.name.endsWith('.json'));
+        if (jsonFiles.length > 0) {
+          console.log(`[ScriptManager] JSON files in directory:`, jsonFiles.map(e => e.name));
+        }
+
+        for (const entry of entries) {
+          const fullPath = path.join(currentDir, entry.name);
+
+          if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+            await walk(fullPath, depth + 1);
+          } else if (entry.isFile() && entry.name.endsWith('.mapper.json')) {
+            console.log(`[ScriptManager] ✓ Found mapper.json file: ${fullPath}, isFile: ${entry.isFile()}, isDirectory: ${entry.isDirectory()}`);
+            results.push(fullPath);
+          } else if (entry.name.endsWith('.mapper.json')) {
+            console.log(`[ScriptManager] ⚠ Found .mapper.json but NOT a file: ${fullPath}, isFile: ${entry.isFile()}, isDirectory: ${entry.isDirectory()}`);
+          }
+        }
+      } catch (err) {
+        console.log(`[ScriptManager] ✗ Error reading ${currentDir}:`, err);
+      }
+    };
+
+    await walk(dir, 0);
+    console.log(`[ScriptManager] findMapperJsonFiles - Total found: ${results.length}`);
     return results;
   }
 }

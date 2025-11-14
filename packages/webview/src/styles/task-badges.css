@@ -1,0 +1,80 @@
+/* Task Badges - Display under state nodes on canvas */
+
+.task-badges {
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  z-index: 10;
+  pointer-events: all;
+}
+
+.task-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.task-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.task-badge__icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.task-badge__label {
+  color: #1e293b;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+}
+
+/* Status-based colors */
+.task-badge--valid {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.task-badge--valid:hover {
+  border-color: #059669;
+  background: #dcfce7;
+}
+
+.task-badge--warning {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.task-badge--warning:hover {
+  border-color: #d97706;
+  background: #fef3c7;
+}
+
+.task-badge--error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.task-badge--error:hover {
+  border-color: #dc2626;
+  background: #fee2e2;
+}
+
+/* Ensure badges don't interfere with node selection */
+.task-badge:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}

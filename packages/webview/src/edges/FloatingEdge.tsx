@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BaseEdge,
@@ -7,13 +7,16 @@ import {
   getSmoothStepPath,
   Position,
   useNodes,
-  useEdges
+  useEdges,
+  useStore,
+  useReactFlow
 } from '@xyflow/react';
 
-import type { Node as RFNode } from '@xyflow/react';
+import type { Node as RFNode, EdgeProps, Edge, Connection } from '@xyflow/react';
 import { useHighlight } from '../mapper/contexts/HighlightContext';
 import { CommentIcon } from '../components/CommentIcon';
 import { CommentModal } from '../components/CommentModal';
+import { TransitionTaskBadge } from '../components/badges/TransitionTaskBadge';
 import { useBridge } from '../hooks/useBridge';
 
 type FloatingEdgeProps = {
@@ -149,9 +152,12 @@ export function FloatingEdge(props: FloatingEdgeProps) {
   const sourceNode = useMemo(() => nodes.find((n) => n.id === source), [nodes, source]);
   const targetNode = useMemo(() => nodes.find((n) => n.id === target), [nodes, target]);
 
-  // Get edge data for comment
+  // Get edge data for comment and tasks
   const edgeData = useMemo(() => edges.find((e) => e.id === id)?.data, [edges, id]);
   const hasComment = !!edgeData?._comment;
+  // Tasks can be at top level or inside transition object
+  const onExecutionTasks = edgeData?.onExecutionTasks || edgeData?.transition?.onExecutionTasks || [];
+  const onTaskBadgeClick = edgeData?.onTaskBadgeClick;
 
   // Check if this edge is highlighted
   const isHighlighted = highlightedEdges.has(id);
@@ -376,7 +382,57 @@ export function FloatingEdge(props: FloatingEdgeProps) {
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={edgeStyle} className={edgeClassName} />
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={edgeStyle}
+        className={edgeClassName}
+        interactionWidth={30}
+      />
+      <EdgeLabelRenderer>
+        {/* Custom edge updater handles at our calculated positions */}
+        {(selected || isHighlighted) && (
+          <>
+            <div
+              className="custom-edge-updater custom-edge-updater-source"
+              style={{
+                position: 'absolute',
+                transform: `translate(-50%, -50%) translate(${sourceX}px, ${sourceY}px)`,
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                border: '2px solid white',
+                background: '#2563eb',
+                cursor: 'grab',
+                pointerEvents: 'all',
+                zIndex: 1000,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+              data-nodeid={source}
+              data-handletype="source"
+            />
+            <div
+              className="custom-edge-updater custom-edge-updater-target"
+              style={{
+                position: 'absolute',
+                transform: `translate(-50%, -50%) translate(${targetX}px, ${targetY}px)`,
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                border: '2px solid white',
+                background: '#2563eb',
+                cursor: 'grab',
+                pointerEvents: 'all',
+                zIndex: 1000,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+              data-nodeid={target}
+              data-handletype="target"
+            />
+          </>
+        )}
+      </EdgeLabelRenderer>
       {label ? (
         <EdgeLabelRenderer>
           <div
@@ -384,23 +440,42 @@ export function FloatingEdge(props: FloatingEdgeProps) {
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               pointerEvents: 'all',
-              padding: `${labelBgPadding[1]}px ${labelBgPadding[0]}px`,
-              borderRadius: `${labelBgBorderRadius}px`,
-              zIndex: labelZIndex,
-              ...finalLabelBgStyle,
-              ...labelStyle,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              gap: '6px'
+              gap: '4px',
+              zIndex: labelZIndex
             }}
-            className="react-flow__edge-text"
           >
-            <CommentIcon
-              hasComment={hasComment}
-              onClick={() => setShowCommentModal(true)}
-              title={hasComment ? 'View transition documentation' : 'Add transition documentation'}
+            {/* Label with comment icon */}
+            <div
+              style={{
+                padding: `${labelBgPadding[1]}px ${labelBgPadding[0]}px`,
+                borderRadius: `${labelBgBorderRadius}px`,
+                ...finalLabelBgStyle,
+                ...labelStyle,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer'
+              }}
+              className="react-flow__edge-text"
+            >
+              <CommentIcon
+                hasComment={hasComment}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCommentModal(true);
+                }}
+                title={hasComment ? 'View transition documentation' : 'Add transition documentation'}
+              />
+              <span>{label}</span>
+            </div>
+            {/* Task badge below label */}
+            <TransitionTaskBadge
+              tasks={onExecutionTasks}
+              onDoubleClick={onTaskBadgeClick}
             />
-            <span>{label}</span>
           </div>
         </EdgeLabelRenderer>
       ) : null}

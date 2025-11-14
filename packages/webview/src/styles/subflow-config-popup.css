@@ -1,0 +1,322 @@
+/* SubFlow Configuration Popup - Light Mode */
+
+/* Overlay */
+.subflow-config-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  backdrop-filter: blur(2px);
+}
+
+/* Main Modal Container */
+.subflow-config-popup {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  width: 900px;
+  max-width: 90vw;
+  height: 700px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  color: #1e293b;
+  position: relative;
+  z-index: 100000;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.subflow-config-popup *,
+.subflow-config-popup *::before,
+.subflow-config-popup *::after {
+  box-sizing: border-box;
+}
+
+/* Header */
+.subflow-config-popup__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.subflow-config-popup__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.subflow-config-popup__dirty-indicator {
+  color: #ef4444;
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.subflow-config-popup__close-btn {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.subflow-config-popup__close-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* Tabs */
+.subflow-config-popup__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.subflow-config-popup__tab {
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.subflow-config-popup__tab:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.subflow-config-popup__tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+/* Content */
+.subflow-config-popup__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background: #ffffff;
+  min-height: 0;
+}
+
+/* Settings Tab */
+.subflow-settings {
+  max-width: 700px;
+}
+
+.subflow-settings__section {
+  margin-bottom: 24px;
+}
+
+.subflow-settings__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.subflow-settings__required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.subflow-settings__select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.subflow-settings__select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.subflow-settings__help {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.subflow-settings__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.subflow-settings__empty p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+/* Footer */
+.subflow-config-popup__footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.subflow-config-popup__hint {
+  font-size: 11px;
+  color: #64748b;
+  margin-right: auto;
+  white-space: nowrap;
+}
+
+.subflow-config-popup__btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.subflow-config-popup__btn--primary {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.subflow-config-popup__btn--primary:hover {
+  background: #2563eb;
+}
+
+.subflow-config-popup__btn--primary:disabled {
+  background: #cbd5e1;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.subflow-config-popup__btn--secondary {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.subflow-config-popup__btn--secondary:hover {
+  background: #cbd5e1;
+  color: #1e293b;
+}
+
+/* Scrollbars - Apply to ALL scrollable elements in popup INCLUDING the popup itself */
+.subflow-config-popup::-webkit-scrollbar,
+.subflow-config-popup ::-webkit-scrollbar,
+.subflow-config-popup *::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.subflow-config-popup::-webkit-scrollbar-track,
+.subflow-config-popup ::-webkit-scrollbar-track,
+.subflow-config-popup *::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+
+.subflow-config-popup::-webkit-scrollbar-thumb,
+.subflow-config-popup ::-webkit-scrollbar-thumb,
+.subflow-config-popup *::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 5px !important;
+  border: 2px solid #f1f5f9 !important;
+}
+
+.subflow-config-popup::-webkit-scrollbar-thumb:hover,
+.subflow-config-popup ::-webkit-scrollbar-thumb:hover,
+.subflow-config-popup *::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+/* Override Monaco's native scrollbar styling */
+.subflow-config-popup .monaco-scrollable-element > .scrollbar > .slider {
+  background: #cbd5e1 !important;
+}
+
+.subflow-config-popup .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: #94a3b8 !important;
+}
+
+.subflow-config-popup .monaco-scrollable-element > .scrollbar {
+  background: #f1f5f9 !important;
+}
+
+/* Target invisible scrollbar variant */
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.invisible > .slider,
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.fade > .slider,
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.vertical.fade > .slider,
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.horizontal > .slider {
+  background: #cbd5e1 !important;
+}
+
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.invisible > .slider:hover,
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.fade > .slider:hover,
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.vertical.fade > .slider:hover,
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.horizontal > .slider:hover {
+  background: #94a3b8 !important;
+}
+
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.invisible,
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.fade,
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.vertical.fade,
+.subflow-config-popup .monaco-scrollable-element > .scrollbar.horizontal {
+  background: #f1f5f9 !important;
+}
+
+/* Ultra-specific targeting for Monaco's inline-styled scrollbars */
+.subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] {
+  background: #f1f5f9 !important;
+}
+
+.subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"] {
+  background: #cbd5e1 !important;
+}
+
+.subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"]:hover {
+  background: #94a3b8 !important;
+}

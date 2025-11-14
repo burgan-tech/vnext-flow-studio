@@ -46,17 +46,8 @@
     "*.diagram.json": "json"
   },
 
-  // JSON schema validation
-  "json.schemas": [
-    {
-      "fileMatch": [
-        "**/*.flow.json",
-        "**/workflows/**/*.json",
-        "**/Workflows/**/*.json"
-      ],
-      "url": "./schemas/workflow-definition.schema.json"
-    }
-  ],
+  // JSON schema validation - handled by extension
+  // Schemas are registered programmatically by the extension from bundled files
 
   // Disable spell check for large text blocks in JSON
   "cSpell.maxNumberOfProblems": 10,
@@ -148,5 +139,19 @@
     "**/dist": true,
     "**/dist-web": true,
     "**/*.log": true
-  }
+  },
+
+  // Amorphie runtime environment configurations
+  "amorphie.environments": {
+    "local": {
+      "id": "local",
+      "name": "Local Development",
+      "baseUrl": "http://localhost:4201",
+      "domain": "core"
+    }
+  },
+  "amorphie.activeEnvironment": "local",
+  "amorphie.basePath": "/Users/U05366/Documents/GitHub/vnext-sys-flow/core",
+  "amorphie.cache.enabled": true,
+  "amorphie.cache.ttlMs": 300000
 }

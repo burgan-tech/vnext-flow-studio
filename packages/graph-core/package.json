@@ -1,0 +1,29 @@
+{
+  "name": "@amorphie-flow-studio/graph-core",
+  "version": "0.1.0",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./graph": "./dist/graph/index.js",
+    "./builders": "./dist/builders/index.js",
+    "./adapters": "./dist/adapters/index.js",
+    "./diff": "./dist/diff/index.js",
+    "./impact": "./dist/impact/index.js",
+    "./config": "./dist/config/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -w -p tsconfig.json"
+  },
+  "dependencies": {
+    "@amorphie-flow-studio/core": "*",
+    "semver": "^7.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/semver": "^7.5.0",
+    "typescript": "^5.4.0"
+  }
+}

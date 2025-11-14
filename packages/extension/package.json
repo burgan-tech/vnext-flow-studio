@@ -39,33 +39,57 @@
     "commands": [
       {
         "command": "flowEditor.open",
-        "title": "Open in Amorphie Flow Studio"
+        "title": "Amorphie: Open Workflow"
       },
       {
         "command": "flowEditor.createWorkflow",
-        "title": "Create New Workflow"
+        "title": "Amorphie: Create Workflow"
       },
       {
         "command": "flowEditor.freezeVersions",
-        "title": "Freeze Versions (Lock)"
+        "title": "Amorphie: Freeze Versions"
       },
       {
         "command": "flowEditor.createMapper",
-        "title": "New Amorphie Mapper"
+        "title": "Amorphie: Create Mapper"
       },
       {
         "command": "mapperEditor.open",
-        "title": "Open in Amorphie Mapper"
+        "title": "Amorphie: Open Mapper"
       },
       {
         "command": "taskEditor.openAsJson",
-        "title": "Open Task as JSON",
+        "title": "Amorphie: Open Task as JSON",
         "icon": "$(json)"
       },
       {
         "command": "taskEditor.newTask",
-        "title": "New Task Definition",
+        "title": "Amorphie: Create Task",
         "icon": "$(add)"
+      },
+      {
+        "command": "graphAnalysis.buildLocalGraph",
+        "title": "Amorphie: Build Local Graph"
+      },
+      {
+        "command": "graphAnalysis.fetchRuntimeGraph",
+        "title": "Amorphie: Fetch Runtime Graph"
+      },
+      {
+        "command": "graphAnalysis.diffGraphs",
+        "title": "Amorphie: Compare Graphs"
+      },
+      {
+        "command": "graphAnalysis.impactAnalysis",
+        "title": "Amorphie: Analyze Impact"
+      },
+      {
+        "command": "graphAnalysis.deployChanges",
+        "title": "Amorphie: Deploy Changes"
+      },
+      {
+        "command": "amorphie.openSettings",
+        "title": "Amorphie: Open Settings"
       }
     ],
     "menus": {
@@ -165,7 +189,92 @@
         ],
         "priority": "default"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Amorphie",
+      "properties": {
+        "amorphie.environments": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Runtime environment configurations. Each key is an environment ID (e.g., `dev`, `test`, `prod`).\n\nExample:\n```json\n{\n  \"dev\": {\n    \"id\": \"dev\",\n    \"name\": \"Development\",\n    \"baseUrl\": \"http://localhost:4201\",\n    \"domain\": \"core\"\n  },\n  \"test\": {\n    \"id\": \"test\",\n    \"name\": \"Test\",\n    \"baseUrl\": \"https://test.example.com\",\n    \"domain\": \"core\",\n    \"auth\": {\n      \"type\": \"bearer\",\n      \"token\": \"your-token\"\n    }\n  }\n}\n```",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["id", "baseUrl", "domain"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Unique identifier for the environment"
+              },
+              "name": {
+                "type": "string",
+                "description": "Display name for the environment"
+              },
+              "baseUrl": {
+                "type": "string",
+                "description": "Base URL of the runtime environment (e.g., http://localhost:4201)"
+              },
+              "domain": {
+                "type": "string",
+                "description": "Domain name for workflows (e.g., core)"
+              },
+              "auth": {
+                "type": "object",
+                "description": "Authentication configuration",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["bearer", "basic"],
+                    "description": "Authentication type"
+                  },
+                  "token": {
+                    "type": "string",
+                    "description": "Bearer token (when type is 'bearer')"
+                  },
+                  "username": {
+                    "type": "string",
+                    "description": "Username (when type is 'basic')"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Password (when type is 'basic')"
+                  }
+                }
+              },
+              "timeout": {
+                "type": "number",
+                "description": "Request timeout in milliseconds",
+                "default": 30000
+              },
+              "verifySsl": {
+                "type": "boolean",
+                "description": "Whether to verify SSL certificates",
+                "default": true
+              }
+            }
+          }
+        },
+        "amorphie.activeEnvironment": {
+          "type": "string",
+          "default": null,
+          "description": "ID of the active environment"
+        },
+        "amorphie.basePath": {
+          "type": "string",
+          "default": null,
+          "description": "Base path to scan for workflow components. Can be absolute or relative to workspace root (e.g., 'core' or '/absolute/path'). If not set, uses workspace folder."
+        },
+        "amorphie.cache.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable caching for runtime graph fetches"
+        },
+        "amorphie.cache.ttlMs": {
+          "type": "number",
+          "default": 300000,
+          "description": "Cache time-to-live in milliseconds (default: 5 minutes)"
+        }
+      }
+    }
   },
   "scripts": {
     "build": "node esbuild.config.mjs",
@@ -173,7 +282,9 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
-    "@amorphie-flow-studio/core": "*"
+    "@amorphie-flow-studio/core": "*",
+    "@amorphie-flow-studio/graph-core": "*",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
     "esbuild": "^0.23.0",

@@ -1,0 +1,692 @@
+/* Task Mapping Popup - Light Mode */
+
+/* Overlay */
+.task-mapping-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  backdrop-filter: blur(2px);
+}
+
+/* Main Modal Container */
+.task-mapping-popup {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  width: 80vw;
+  height: 80vh;
+  max-width: 1600px;
+  min-width: 1000px;
+  max-height: 90vh;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+  color: #1e293b;
+  position: relative;
+  z-index: 100000;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.task-mapping-popup *,
+.task-mapping-popup *::before,
+.task-mapping-popup *::after {
+  box-sizing: border-box;
+}
+
+/* Header */
+.task-mapping-popup__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.task-mapping-popup__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.task-mapping-popup__dirty-indicator {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.task-mapping-popup__close-btn {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.task-mapping-popup__close-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* Tabs */
+.task-mapping-popup__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.task-mapping-popup__tab {
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-mapping-popup__tab:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.task-mapping-popup__tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.task-mapping-popup__tab-count {
+  background: #cbd5e1;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.task-mapping-popup__tab.active .task-mapping-popup__tab-count {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+/* Transition label - replaces tabs for transition editing */
+.task-mapping-popup__transition-label {
+  padding: 12px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.task-mapping-popup__transition-label-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Content - Split Panel */
+.task-mapping-popup__content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Footer */
+.task-mapping-popup__footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.task-mapping-popup__btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.task-mapping-popup__btn--primary {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.task-mapping-popup__btn--primary:hover {
+  background: #2563eb;
+}
+
+.task-mapping-popup__btn--secondary {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.task-mapping-popup__btn--secondary:hover {
+  background: #cbd5e1;
+  color: #1e293b;
+}
+
+/* Task List Panel (Left) */
+.task-list-panel {
+  width: 30%;
+  min-width: 300px;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+}
+
+.task-list-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.task-list-panel__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.task-list-panel__count {
+  background: #cbd5e1;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.task-list-panel__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* Explicit scrollbar styling for task list panel */
+.task-list-panel__list::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.task-list-panel__list::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+
+.task-list-panel__list::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 5px !important;
+  border: 2px solid #f1f5f9 !important;
+}
+
+.task-list-panel__list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+.task-list-panel__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #94a3b8;
+  text-align: center;
+  padding: 20px;
+}
+
+.task-list-panel__empty p {
+  margin: 4px 0;
+  font-size: 13px;
+}
+
+.task-list-panel__item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.task-list-panel__item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.task-list-panel__item.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.task-list-panel__item.dragging {
+  opacity: 0.4;
+}
+
+.task-list-panel__item.drag-over {
+  border-color: #3b82f6;
+  border-style: dashed;
+}
+
+.task-list-panel__item-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.task-list-panel__item-order {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.task-list-panel__item.selected .task-list-panel__item-order {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.task-list-panel__item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-list-panel__item-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-list-panel__item-meta {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.task-list-panel__item-mapping-hint {
+  font-family: 'Monaco', 'Menlo', monospace;
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.task-list-panel__item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.task-list-panel__item-status {
+  font-size: 12px;
+}
+
+.task-list-panel__item-delete {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.task-list-panel__item-delete:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.task-list-panel__footer {
+  padding: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.task-list-panel__add-btn {
+  width: 100%;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.task-list-panel__add-btn:hover {
+  background: #2563eb;
+}
+
+.task-list-panel__add-icon {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Task Details Panel (Right) */
+.task-details-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.task-details-panel__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #94a3b8;
+  text-align: center;
+  padding: 40px;
+}
+
+.task-details-panel__empty p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.task-details-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.task-details-panel__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.task-details-panel__order-badge {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.task-details-panel__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* Explicit scrollbar styling for task details panel content */
+.task-details-panel__content::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.task-details-panel__content::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+
+.task-details-panel__content::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 5px !important;
+  border: 2px solid #f1f5f9 !important;
+}
+
+.task-details-panel__content::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+.task-details-panel__section {
+  margin-bottom: 20px;
+}
+
+.task-details-panel__section--editor {
+  margin-bottom: 0;
+}
+
+.task-details-panel__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.task-details-panel__required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.task-details-panel__input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  transition: all 0.2s;
+}
+
+.task-details-panel__input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.task-details-panel__help {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.task-details-panel__template-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.task-details-panel__template-btn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.task-details-panel__template-btn:hover {
+  background: #e2e8f0;
+  border-color: #3b82f6;
+  color: #1e293b;
+}
+
+.task-details-panel__monaco-wrapper {
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  min-height: 400px;
+}
+
+/* Scrollbars - Apply to ALL scrollable elements in popup INCLUDING the popup itself */
+.task-mapping-popup::-webkit-scrollbar,
+.task-mapping-popup ::-webkit-scrollbar,
+.task-mapping-popup *::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.task-mapping-popup::-webkit-scrollbar-track,
+.task-mapping-popup ::-webkit-scrollbar-track,
+.task-mapping-popup *::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+
+.task-mapping-popup::-webkit-scrollbar-thumb,
+.task-mapping-popup ::-webkit-scrollbar-thumb,
+.task-mapping-popup *::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 5px !important;
+  border: 2px solid #f1f5f9 !important;
+}
+
+.task-mapping-popup::-webkit-scrollbar-thumb:hover,
+.task-mapping-popup ::-webkit-scrollbar-thumb:hover,
+.task-mapping-popup *::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+/* Override Monaco's native scrollbar styling */
+.task-mapping-popup .monaco-scrollable-element > .scrollbar > .slider {
+  background: #cbd5e1 !important;
+}
+
+.task-mapping-popup .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: #94a3b8 !important;
+}
+
+.task-mapping-popup .monaco-scrollable-element > .scrollbar {
+  background: #f1f5f9 !important;
+}
+
+/* Target invisible scrollbar variant */
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.invisible > .slider,
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.fade > .slider,
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.vertical.fade > .slider,
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.horizontal > .slider {
+  background: #cbd5e1 !important;
+}
+
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.invisible > .slider:hover,
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.fade > .slider:hover,
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.vertical.fade > .slider:hover,
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.horizontal > .slider:hover {
+  background: #94a3b8 !important;
+}
+
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.invisible,
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.fade,
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.vertical.fade,
+.task-mapping-popup .monaco-scrollable-element > .scrollbar.horizontal {
+  background: #f1f5f9 !important;
+}
+
+/* Ultra-specific targeting for Monaco's inline-styled scrollbars */
+.task-mapping-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] {
+  background: #f1f5f9 !important;
+}
+
+.task-mapping-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"] {
+  background: #cbd5e1 !important;
+}
+
+.task-mapping-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"]:hover {
+  background: #94a3b8 !important;
+}
+
+/* Mapping Tabs */
+.task-details-panel__mapping-tabs {
+  margin-top: 20px;
+}
+
+.task-details-panel__tabs-header {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 0;
+}
+
+.task-details-panel__tab {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.task-details-panel__tab:hover {
+  color: #1e293b;
+  background: #f8fafc;
+}
+
+.task-details-panel__tab--active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+  font-weight: 600;
+}
+
+.task-details-panel__tab-content {
+  padding-top: 0;
+}

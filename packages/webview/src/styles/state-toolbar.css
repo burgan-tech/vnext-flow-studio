@@ -1,0 +1,131 @@
+/* State Toolbar - Floating toolbar for selected state nodes */
+
+.state-toolbar {
+  pointer-events: all;
+  animation: state-toolbar-fade-in 0.15s ease-out;
+}
+
+@keyframes state-toolbar-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.state-toolbar__container {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.state-toolbar__button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  font-size: 12px;
+  color: #1e293b;
+  position: relative;
+}
+
+.state-toolbar__button:hover {
+  background: #f1f5f9;
+  transform: translateX(2px);
+}
+
+.state-toolbar__button:active {
+  transform: translateX(0);
+}
+
+.state-toolbar__button--danger {
+  color: #ef4444;
+}
+
+.state-toolbar__button--danger:hover {
+  background: #fef2f2;
+}
+
+.state-toolbar__icon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.state-toolbar__label {
+  flex: 1;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.state-toolbar__badge {
+  background: #3b82f6;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 8px;
+  line-height: 1.3;
+  min-width: 16px;
+  text-align: center;
+}
+
+.state-toolbar__divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 2px 0;
+}
+
+/* Submenu support */
+.state-toolbar__button--has-submenu {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.state-toolbar__arrow {
+  margin-left: auto;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.state-toolbar__button--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .state-toolbar__container {
+    min-width: 160px;
+  }
+
+  .state-toolbar__button {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .state-toolbar__icon {
+    font-size: 14px;
+  }
+}

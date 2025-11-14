@@ -27,3 +27,6 @@ export * from './utils.js';
 
 // Plugin System
 export * from './plugins/index.js';
+
+// Deployment
+export * from './deployment/index.js';

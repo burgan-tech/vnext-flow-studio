@@ -35,6 +35,10 @@ export function generateWorkflowTemplate(options: WorkflowTemplateOptions): Work
     attributes: {
       type,
       labels,
+      functions: [],
+      features: [],
+      extensions: [],
+      sharedTransitions: [],
       startTransition: {
         key: 'start',
         target: 'initial-state',

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://vnext.io/schemas/view-definition.schema.json",
+  "key": "user-profile-view",
+  "version": "1.0.0",
+  "domain": "idm",
+  "flow": "sys-views",
+  "flowVersion": "1.2.0",
+  "tags": [
+    "profile",
+    "user-management",
+    "identity"
+  ],
+  "attributes": {
+    "type": 2,
+    "content": "<div class=\"profile-container\">\n  <h1>User Profile</h1>\n  <div class=\"profile-details\">\n    <p><strong>Name:</strong> {{user.name}}</p>\n    <p><strong>Email:</strong> {{user.email}}</p>\n    <p><strong>Role:</strong> {{user.role}}</p>\n  </div>\n  <button class=\"btn-primary\">Edit Profile</button>\n</div>",
+    "labels": [
+      {
+        "label": "User Profile",
+        "language": "en-US"
+      },
+      {
+        "label": "Kullanıcı Profili",
+        "language": "tr-TR"
+      },
+      {
+        "label": "Benutzerprofil",
+        "language": "de-DE"
+      }
+    ],
+    "display": "full-page",
+    "platformOverrides": {
+      "android": {
+        "type": 1,
+        "content": "{ \"widget\": \"MaterialCard\", \"title\": \"User Profile\", \"fields\": [\"name\", \"email\", \"role\"], \"actions\": [\"edit\", \"save\"] }",
+        "display": "full-page"
+      },
+      "ios": {
+        "type": 1,
+        "content": "{ \"widget\": \"SwiftUICard\", \"title\": \"User Profile\", \"fields\": [\"name\", \"email\", \"role\"], \"actions\": [\"edit\", \"save\"] }",
+        "display": "full-page"
+      },
+      "web": {
+        "type": 2,
+        "content": "<div class=\"web-profile\">\n  <div class=\"profile-header\">\n    <img src=\"{{user.avatar}}\" alt=\"Avatar\" />\n    <h1>{{user.name}}</h1>\n  </div>\n  <div class=\"profile-content\">\n    <section class=\"info-section\">\n      <h2>Contact Information</h2>\n      <p>Email: {{user.email}}</p>\n      <p>Phone: {{user.phone}}</p>\n    </section>\n  </div>\n</div>",
+        "display": "full-page"
+      }
+    }
+  }
+}
