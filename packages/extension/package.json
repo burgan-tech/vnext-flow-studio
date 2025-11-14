@@ -2,7 +2,7 @@
   "name": "amorphie-flow-studio",
   "displayName": "Amorphie Flow Studio",
   "publisher": "your-org",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Visual editor for Amorphie Workflow Projects",
   "license": "MIT",
   "author": "Amorphie Flow Studio",
@@ -199,7 +199,11 @@
           "markdownDescription": "Runtime environment configurations. Each key is an environment ID (e.g., `dev`, `test`, `prod`).\n\nExample:\n```json\n{\n  \"dev\": {\n    \"id\": \"dev\",\n    \"name\": \"Development\",\n    \"baseUrl\": \"http://localhost:4201\",\n    \"domain\": \"core\"\n  },\n  \"test\": {\n    \"id\": \"test\",\n    \"name\": \"Test\",\n    \"baseUrl\": \"https://test.example.com\",\n    \"domain\": \"core\",\n    \"auth\": {\n      \"type\": \"bearer\",\n      \"token\": \"your-token\"\n    }\n  }\n}\n```",
           "additionalProperties": {
             "type": "object",
-            "required": ["id", "baseUrl", "domain"],
+            "required": [
+              "id",
+              "baseUrl",
+              "domain"
+            ],
             "properties": {
               "id": {
                 "type": "string",
@@ -223,7 +227,10 @@
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": ["bearer", "basic"],
+                    "enum": [
+                      "bearer",
+                      "basic"
+                    ],
                     "description": "Authentication type"
                   },
                   "token": {
