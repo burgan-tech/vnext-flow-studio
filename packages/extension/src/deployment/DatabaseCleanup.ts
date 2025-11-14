@@ -32,6 +32,13 @@ export async function getInstanceInfo(
     const cmd = `docker exec ${dbConfig.dockerContainer} psql -U ${dbConfig.user} -d ${dbConfig.database} -t -c "SELECT \\"Id\\", \\"Status\\" FROM \\"${dbSchema}\\".\\"Instances\\" WHERE \\"Key\\" = '${key}' ORDER BY \\"CreatedAt\\" DESC LIMIT 1"`;
 
     try {
+      console.log('[DatabaseCleanup] Executing Docker exec...');
+      console.log('[DatabaseCleanup]   Container:', dbConfig.dockerContainer);
+      console.log('[DatabaseCleanup]   User:', dbConfig.user);
+      console.log('[DatabaseCleanup]   Database:', dbConfig.database);
+      console.log('[DatabaseCleanup]   Schema:', dbSchema);
+      console.log('[DatabaseCleanup]   Key:', key);
+
       const { stdout } = await execAsync(cmd);
       const line = stdout.trim();
       if (!line) return null;
@@ -46,7 +53,10 @@ export async function getInstanceInfo(
       return null;
     } catch (error) {
       console.error('[DatabaseCleanup] Error getting instance info:', error);
-      console.error('[DatabaseCleanup] Query: SELECT "Id", "Status" FROM ' + dbSchema + '."Instances" WHERE "Key" = ' + key);
+      console.error('[DatabaseCleanup] ❌ Docker container not found: "' + dbConfig.dockerContainer + '"');
+      console.error('[DatabaseCleanup] ⚠️  This should be the actual Docker container name (e.g. "vnext-postgres")');
+      console.error('[DatabaseCleanup] ⚠️  It is NOT the database name (e.g. "vNext_WorkflowDb")');
+      console.error('[DatabaseCleanup] ℹ️  Check your database configuration in Amorphie Settings');
       return null;
     }
   } else {

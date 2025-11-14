@@ -508,6 +508,7 @@ export class SettingsEditorProvider {
           <div class="form-group">
             <label for="envDbContainer">Docker Container Name*</label>
             <input type="text" id="envDbContainer" placeholder="vnext-postgres" value="vnext-postgres">
+            <p class="help-text">The name of the Docker container running PostgreSQL (e.g. "vnext-postgres"), NOT the database name</p>
           </div>
           <div class="form-group">
             <label for="envDbName">Database Name*</label>
