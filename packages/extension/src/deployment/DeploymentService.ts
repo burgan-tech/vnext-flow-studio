@@ -235,7 +235,8 @@ export class DeploymentService {
     let filteredDeploymentRequests = deploymentRequests;
 
     if (isForceDeployment) {
-      this.log('🔴 FORCE DEPLOYMENT - Skipping change detection, deploying all components');
+      this.log('🔴 FORCE DEPLOYMENT - Deploying entire dependency tree');
+      this.log(`  Skipping change detection, deploying all ${deploymentRequests.length} components (${dependencies.length} dependencies + main workflow)`);
       // Deploy all components regardless of changes
       filteredDeploymentRequests = deploymentRequests;
     } else {
