@@ -429,10 +429,30 @@ html::-webkit-scrollbar-corner,
   --state-muted: #1e40af;
 }
 
+/* Final states - default (no sub-status): neutral dark gray */
 .state-node--final {
+  --state-color: #475569;
+  --state-surface: #f8fafc;
+  --state-muted: #334155;
+}
+
+/* Final state sub-status variants */
+.state-node--final-success {
+  --state-color: #16a34a;
+  --state-surface: #f0fdf4;
+  --state-muted: #15803d;
+}
+
+.state-node--final-failed {
   --state-color: #dc2626;
   --state-surface: #fef2f2;
   --state-muted: #b91c1c;
+}
+
+.state-node--final-cancelled {
+  --state-color: #f59e0b;
+  --state-surface: #fffbeb;
+  --state-muted: #d97706;
 }
 
 .state-node--subflow {
@@ -469,9 +489,27 @@ html::-webkit-scrollbar-corner,
 }
 
 .flow-canvas__palette-preview.state-node--final {
+  --state-color: #475569;
+  --state-surface: #f8fafc;
+  --state-muted: #334155;
+}
+
+.flow-canvas__palette-preview.state-node--final-success {
+  --state-color: #16a34a;
+  --state-surface: #f0fdf4;
+  --state-muted: #15803d;
+}
+
+.flow-canvas__palette-preview.state-node--final-failed {
   --state-color: #dc2626;
   --state-surface: #fef2f2;
   --state-muted: #b91c1c;
+}
+
+.flow-canvas__palette-preview.state-node--final-cancelled {
+  --state-color: #f59e0b;
+  --state-surface: #fffbeb;
+  --state-muted: #d97706;
 }
 
 .flow-canvas__palette-preview.state-node--subflow {

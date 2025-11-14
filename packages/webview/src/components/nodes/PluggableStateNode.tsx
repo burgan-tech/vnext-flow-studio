@@ -28,11 +28,19 @@ interface PluggableStateNodeProps {
   isConnectable?: boolean;
 }
 
-const getStateTypeClass = (stateType: StateType): string => {
+const getStateTypeClass = (stateType: StateType, stateSubType?: number): string => {
   switch (stateType) {
     case 1: return 'state-node--initial';
     case 2: return 'state-node--intermediate';
-    case 3: return 'state-node--final';
+    case 3: {
+      // Final states with sub-status specific colors
+      switch (stateSubType) {
+        case 1: return 'state-node--final-success';
+        case 2: return 'state-node--final-failed';
+        case 3: return 'state-node--final-cancelled';
+        default: return 'state-node--final'; // neutral gray
+      }
+    }
     case 4: return 'state-node--subflow';
     case 5: return 'state-node--wizard';
     default: return '';
@@ -158,7 +166,7 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
 
   const { postMessage } = useBridge();
   const [showCommentModal, setShowCommentModal] = useState(false);
-  const stateTypeClass = getStateTypeClass(stateType);
+  const stateTypeClass = getStateTypeClass(stateType, stateSubType);
   const stateTypeName = getStateTypeName(stateType);
   const stateSubTypeName = getStateSubTypeName(stateSubType);
   const stateSubTypeIcon = getStateSubTypeIcon(stateSubType);
