@@ -119,7 +119,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [diagram, setDiagram] = useState<Diagram>(initialDiagram || { nodePos: {} });
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string; edgeId?: string } | null>(null);
-  const [_taskCatalog, _setTaskCatalog] = useState<TaskComponentDefinition[]>([]);
+  const [, setTaskCatalog] = useState<TaskComponentDefinition[]>([]);
   const [catalogs, setCatalogs] = useState<Record<string, any[]>>({});
   const [plugins, setPlugins] = useState<StatePlugin[]>([]);
   const [pluginVariants, setPluginVariants] = useState<Map<string, StateVariant[]>>(new Map());
