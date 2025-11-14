@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Mapping } from '@amorphie-workflow/core';
-import { MappingSection, MappingData, MappingMode } from './MappingSection';
+import { MappingSection, MappingData } from './MappingSection';
 
 interface TransitionMappingPopupProps {
   transitionLabel: string;

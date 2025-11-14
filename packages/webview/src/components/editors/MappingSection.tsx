@@ -514,18 +514,18 @@ export function MappingSection({
     onChange({ ...value, mapperRef: ref });
   };
 
-  const handleCodeChange = (code: string | undefined) => {
+  const _handleCodeChange = (code: string | undefined) => {
     const newCode = code || '';
     // If original was base64, keep it base64
     const finalCode = isCodeBase64 ? encodeBase64(newCode) : newCode;
     onChange({ ...value, code: finalCode });
   };
 
-  const handleLocationChange = (location: string) => {
+  const _handleLocationChange = (location: string) => {
     onChange({ ...value, location });
   };
 
-  const handleInsertTemplate = (templateCode: string) => {
+  const _handleInsertTemplate = (templateCode: string) => {
     onChange({ ...value, code: templateCode });
   };
 
@@ -667,12 +667,12 @@ export function MappingSection({
             </div>
             {!value.mapperRef && visualMappers.length === 0 && (
               <p className="mapping-section__hint mapping-section__hint--warning">
-                No visual mappers found. Click "Open Mapper" to create one.
+                No visual mappers found. Click &quot;Open Mapper&quot; to create one.
               </p>
             )}
             {!value.mapperRef && visualMappers.length > 0 && (
               <p className="mapping-section__hint mapping-section__hint--warning">
-                Please select a mapper or click "Open Mapper" to create one
+                Please select a mapper or click &quot;Open Mapper&quot; to create one
               </p>
             )}
           </div>

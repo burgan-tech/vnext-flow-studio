@@ -2,12 +2,12 @@
 
 import type {
   Workflow,
-  TaskRef,
-  FunctionRef,
-  ExtensionRef,
-  ViewRef,
-  SchemaRef,
-  ProcessRef,
+  TaskRef as _TaskRef,
+  FunctionRef as _FunctionRef,
+  ExtensionRef as _ExtensionRef,
+  ViewRef as _ViewRef,
+  SchemaRef as _SchemaRef,
+  ProcessRef as _ProcessRef,
   ExecutionTask,
   Transition,
   State,
@@ -15,8 +15,8 @@ import type {
 } from '../types/workflow.js';
 import type {
   NormalizationContext,
-  NormalizationError,
-  NormalizationWarning
+  NormalizationError as _NormalizationError,
+  NormalizationWarning as _NormalizationWarning
 } from './types.js';
 
 /**

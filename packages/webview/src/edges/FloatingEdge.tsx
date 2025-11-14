@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BaseEdge,
@@ -7,12 +7,10 @@ import {
   getSmoothStepPath,
   Position,
   useNodes,
-  useEdges,
-  useStore,
-  useReactFlow
+  useEdges
 } from '@xyflow/react';
 
-import type { Node as RFNode, EdgeProps, Edge, Connection } from '@xyflow/react';
+import type { Node as RFNode } from '@xyflow/react';
 import { useHighlight } from '../mapper/contexts/HighlightContext';
 import { CommentIcon } from '../components/CommentIcon';
 import { CommentModal } from '../components/CommentModal';

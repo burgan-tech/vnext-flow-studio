@@ -9,7 +9,7 @@ import type {
   ComponentId,
   ComponentRef
 } from '../types/index.js';
-import { toComponentId } from '../types/index.js';
+import { toComponentId as _toComponentId } from '../types/index.js';
 
 /**
  * Create a new empty graph

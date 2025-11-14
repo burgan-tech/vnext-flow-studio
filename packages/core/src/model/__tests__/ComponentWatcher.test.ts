@@ -49,7 +49,7 @@ describe('ComponentWatcher', () => {
     // Clean up temp directory
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
-    } catch (error) {
+    } catch {
       // Ignore cleanup errors
     }
   });
@@ -401,7 +401,7 @@ describe('ComponentWatcher', () => {
     it('should emit error event on watcher error', async () => {
       await watcher.start();
 
-      const errorPromise = new Promise<any>((resolve) => {
+      const _errorPromise = new Promise<any>((resolve) => {
         watcher.once('error', (error) => resolve(error));
       });
 

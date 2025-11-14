@@ -9,7 +9,7 @@ import type {
   GraphConfig,
   EnvironmentConfig,
   ConfigSource,
-  ConfigWithSource
+  ConfigWithSource as _ConfigWithSource
 } from '../types/config.js';
 
 /**

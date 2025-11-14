@@ -14,7 +14,7 @@ export function TimeoutConfigPopup({ transitionId, workflow, onClose, onApply }:
   const [error, setError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [transitionKey, setTransitionKey] = useState('');
-  const [transitionType, setTransitionType] = useState<'local' | 'shared' | 'start'>('local');
+  const [, setTransitionType] = useState<'local' | 'shared' | 'start'>('local');
   const [initialTimer, setInitialTimer] = useState<TimerConfig | null>(null);
 
   // Load current timer config based on transition ID
@@ -58,7 +58,6 @@ export function TimeoutConfigPopup({ transitionId, workflow, onClose, onApply }:
 
   // Mark as dirty when values change
   useEffect(() => {
-    const currentConfig = { duration, reset };
     const hasChanges =
       !initialTimer ||
       initialTimer.duration !== duration ||
@@ -120,8 +119,6 @@ export function TimeoutConfigPopup({ transitionId, workflow, onClose, onApply }:
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose, handleApply, error]);
-
-  const transitionTypeLabel = transitionType === 'local' ? 'Local' : transitionType === 'shared' ? 'Shared' : 'Start';
 
   // Helper function to set common duration presets
   const setPreset = (preset: string) => {

@@ -188,7 +188,7 @@ export async function buildLocalGraph(options: LocalGraphBuilderOptions): Promis
                 }
               }
             }
-          } catch (error) {
+          } catch {
             // Skip invalid files
           }
         });
@@ -254,7 +254,7 @@ async function scanDirectory(dir: string, handler: (filePath: string) => Promise
         await handler(fullPath);
       }
     }
-  } catch (error) {
+  } catch {
     // Ignore errors
   }
 }

@@ -125,7 +125,7 @@ export function ViewSearchPanel({
               </div>
             ) : (
               <div className="task-search-panel__empty">
-                <p>No views found matching "{searchQuery}"</p>
+                <p>No views found matching &quot;{searchQuery}&quot;</p>
               </div>
             )}
           </div>

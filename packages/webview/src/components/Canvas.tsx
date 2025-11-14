@@ -1897,7 +1897,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       };
 
       // Find the edge being reconnected to pass to isValidConnection
-      const currentEdge = allEdges.find(e => e.id === edgeId);
+      const _currentEdge = allEdges.find(e => e.id === edgeId);
       if (!isValidConnection({ ...testConnection, id: edgeId } as Edge)) {
         // Connection is invalid, cancel reconnection mode
         setReconnectionMode(null);
@@ -2436,7 +2436,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           } else if (isStart) {
             const match = /^t:start:(.+)$/.exec(edgeId);
             if (match) {
-              const [, transitionKey] = match;
+              const [, _transitionKey] = match;
               transition = workflow.attributes?.startTransition;
               transitionLabel = `Start: ${transition?.target || '?'}`;
               triggerType = transition?.triggerType;

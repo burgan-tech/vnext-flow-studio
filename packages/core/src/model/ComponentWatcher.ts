@@ -124,7 +124,7 @@ export class ComponentWatcher extends EventEmitter {
             await findComponentDirs(fullPath, depth + 1);
           }
         }
-      } catch (error) {
+      } catch {
         // Ignore permission errors, etc.
       }
     };
@@ -412,7 +412,7 @@ export class ComponentWatcher extends EventEmitter {
   /**
    * Load a single component file
    */
-  private async loadSingleComponent(filePath: string, componentType: string): Promise<void> {
+  private async loadSingleComponent(filePath: string, _componentType: string): Promise<void> {
     try {
       const fs = await import('fs/promises');
       const content = await fs.readFile(filePath, 'utf-8');

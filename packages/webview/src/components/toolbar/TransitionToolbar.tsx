@@ -40,7 +40,7 @@ interface TransitionToolbarProps {
 }
 
 export function TransitionToolbar({
-  transitionLabel,
+  transitionLabel: _transitionLabel,
   position,
   triggerType,
   onEditKey,

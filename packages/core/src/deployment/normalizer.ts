@@ -7,7 +7,7 @@ import type {
   NormalizationOptions,
   NormalizationResult,
   NormalizationContext,
-  NormalizationStats
+  NormalizationStats as _NormalizationStats
 } from './types.js';
 import { ReferenceResolver } from './reference-resolver.js';
 import { ScriptInliner } from './script-inliner.js';

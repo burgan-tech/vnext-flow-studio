@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Workflow, State, ExecutionTask, TaskRef } from '@amorphie-workflow/core';
+import type { Workflow, State, ExecutionTask as _ExecutionTask, TaskRef } from '@amorphie-workflow/core';
 
 interface StateReferencesPopupProps {
   state: State;

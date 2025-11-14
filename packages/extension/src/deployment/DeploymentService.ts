@@ -10,7 +10,7 @@ import {
   buildLocalGraph,
   getNode,
   getTransitiveDependencies,
-  getDeploymentOrder,
+  getDeploymentOrder as _getDeploymentOrder,
   toComponentId
 } from '@amorphie-flow-studio/graph-core';
 import type { GraphNode, ComponentRef, ComponentType } from '@amorphie-flow-studio/graph-core';
@@ -23,12 +23,12 @@ import type {
   BatchDeploymentRequest,
   DeploymentResult,
   BatchDeploymentResult,
-  DeploymentProgress,
+  DeploymentProgress as _DeploymentProgress,
   DeploymentProgressCallback,
   ChangeDetectionResult,
   ComponentChangeStatus
 } from './types.js';
-import { getInstanceInfo, getInstanceId, deleteWorkflowInstance } from './DatabaseCleanup.js';
+import { getInstanceInfo, getInstanceId as _getInstanceId, deleteWorkflowInstance } from './DatabaseCleanup.js';
 import { getComponentDataBatch } from './DatabaseQuery.js';
 import { compareContent, extractAttributes } from './ContentComparison.js';
 import { filterDesignTimeAttributes } from './DesignTimeFilter.js';
@@ -130,8 +130,7 @@ export class DeploymentService {
     // Determine the correct base path by finding where the Workflows directory is
     // The workflow file path might be like: /workspace/domain/Workflows/file.json
     // We need to find the parent directory that contains Workflows/
-    const fs = await import('fs/promises');
-    const path = await import('path');
+    const pathModule = await import('path');
 
     let basePath = workspaceRoot;
 
@@ -150,9 +149,9 @@ export class DeploymentService {
     }
 
     // Verify that the base path has component directories
-    const hasWorkflowsDir = await this.directoryExists(path.join(basePath, 'Workflows')) ||
-                            await this.directoryExists(path.join(basePath, 'workflows')) ||
-                            await this.directoryExists(path.join(basePath, 'flows'));
+    const hasWorkflowsDir = await this.directoryExists(pathModule.join(basePath, 'Workflows')) ||
+                            await this.directoryExists(pathModule.join(basePath, 'workflows')) ||
+                            await this.directoryExists(pathModule.join(basePath, 'flows'));
 
     if (!hasWorkflowsDir) {
       this.log(`Warning: No Workflows directory found at ${basePath}, using workspace root ${workspaceRoot}`);
@@ -616,7 +615,7 @@ export class DeploymentService {
       });
 
       // Deploy single component (with its own progress callback)
-      const result = await this.deploySingle(componentRequest, (subProgress) => {
+      const result = await this.deploySingle(componentRequest, (_subProgress) => {
         // Don't propagate sub-progress, we're handling overall progress
       });
 

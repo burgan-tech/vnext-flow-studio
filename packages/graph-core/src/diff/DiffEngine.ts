@@ -3,11 +3,11 @@
  */
 
 import * as semver from 'semver';
-import type { Graph, ComponentId, GraphNode, GraphEdge } from '../types/index.js';
+import type { Graph, ComponentId, GraphNode, GraphEdge as _GraphEdge } from '../types/index.js';
 import type {
   GraphDelta,
   AnyViolation,
-  ViolationSeverity,
+  ViolationSeverity as _ViolationSeverity,
   NodeAddedViolation,
   NodeRemovedViolation,
   NodeChangedViolation,

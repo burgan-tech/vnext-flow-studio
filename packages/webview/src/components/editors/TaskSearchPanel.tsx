@@ -144,7 +144,7 @@ export function TaskSearchPanel({
               </div>
             ) : (
               <div className="task-search-panel__empty">
-                <p>No tasks found matching "{searchQuery}"</p>
+                <p>No tasks found matching &quot;{searchQuery}&quot;</p>
               </div>
             )}
           </div>

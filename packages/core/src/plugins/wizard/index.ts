@@ -96,7 +96,7 @@ const wizardStateHooks: PluginHooks = {
     return transition;
   },
 
-  onValidate: (state: State, hints: DesignHints, workflow?: any): PluginProblem[] => {
+  onValidate: (state: State, _hints: DesignHints, _workflow?: any): PluginProblem[] => {
     const problems: PluginProblem[] = [];
 
     // Wizard states can only have ONE outgoing transition

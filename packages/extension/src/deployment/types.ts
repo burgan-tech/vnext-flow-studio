@@ -3,7 +3,7 @@
  */
 
 import type { EnvironmentConfig } from '@amorphie-flow-studio/graph-core';
-import type { Workflow } from '@amorphie-flow-studio/core';
+import type { Workflow as _Workflow } from '@amorphie-flow-studio/core';
 
 /**
  * Deployment request for a single component (workflow, task, schema, view, function, extension)

@@ -126,7 +126,7 @@ export function WorkflowSearchPanel({
               </div>
             ) : (
               <div className="task-search-panel__empty">
-                <p>No workflows found matching "{searchQuery}"</p>
+                <p>No workflows found matching &quot;{searchQuery}&quot;</p>
               </div>
             )}
           </div>

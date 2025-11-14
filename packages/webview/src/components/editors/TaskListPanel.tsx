@@ -93,7 +93,7 @@ export function TaskListPanel({
         {tasks.length === 0 ? (
           <div className="task-list-panel__empty">
             <p>No tasks yet.</p>
-            <p>Click "+ Add Task" to begin.</p>
+            <p>Click &quot;+ Add Task&quot; to begin.</p>
           </div>
         ) : (
           tasks.map((task, index) => {

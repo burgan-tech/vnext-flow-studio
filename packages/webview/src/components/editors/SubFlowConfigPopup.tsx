@@ -123,7 +123,7 @@ export function SubFlowConfigPopup({
   const [inputMapping, setInputMapping] = useState<MappingData>(
     () => mappingToData(state?.subFlow?.inputMapping)
   );
-  const [outputMapping, setOutputMapping] = useState<MappingData>(
+  const [_outputMapping, _setOutputMapping] = useState<MappingData>(
     () => mappingToData(state?.subFlow?.outputMapping)
   );
 

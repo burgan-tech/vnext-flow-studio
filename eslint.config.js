@@ -15,7 +15,18 @@ module.exports = tseslint.config(
       '**/coverage/**',
       'flows/*.lock.json',
       'sys-tasks/**/*.json',
-      'schemas/**'
+      'schemas/**',
+      // Root-level test and development scripts
+      'check-*.js',
+      'fetch-*.js',
+      'show-*.js',
+      'test-*.js',
+      'compare-*.js',
+      'summary-*.js',
+      'proposed-*.json',
+      'sample-*.json',
+      // Config files that cause parsing issues
+      'vitest.config.ts'
     ]
   },
   js.configs.recommended,

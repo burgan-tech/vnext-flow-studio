@@ -125,7 +125,7 @@ export function SchemaSearchPanel({
               </div>
             ) : (
               <div className="task-search-panel__empty">
-                <p>No schemas found matching "{searchQuery}"</p>
+                <p>No schemas found matching &quot;{searchQuery}&quot;</p>
               </div>
             )}
           </div>
