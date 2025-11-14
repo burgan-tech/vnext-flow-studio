@@ -469,6 +469,7 @@ export class ModelBridge {
       const tasks = this.getTasksFromModel(model);
 
       // Get design hints for this model
+      console.log('[ModelBridge] Getting design hints...');
       const modelKey = this.getModelKey(model);
       let hintsManager = this.hintsManagers.get(modelKey);
       if (!hintsManager) {
@@ -476,24 +477,55 @@ export class ModelBridge {
         this.hintsManagers.set(modelKey, hintsManager);
       }
       const allDesignHints = hintsManager.getAllHints();
+      console.log('[ModelBridge] Design hints retrieved');
 
       // Convert to React Flow format
       console.log('[ModelBridge] Converting to React Flow format...');
+      const flowStartTime = Date.now();
       const derived = toReactFlow(workflow, diagram, 'en', allDesignHints.states);
+      console.log(`[ModelBridge] Converted to React Flow in ${Date.now() - flowStartTime}ms`);
 
-      // Get problems
+      // Get problems (with timeout to prevent hanging)
       console.log('[ModelBridge] Getting lint problems...');
-      const problemsById = await this.getLintProblems(model);
+      const lintStartTime = Date.now();
+      let problemsById: Record<string, any> = {};
+      try {
+        const lintPromise = this.getLintProblems(model);
+        const lintTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Lint timeout after 5s')), 5000)
+        );
+        problemsById = await Promise.race([lintPromise, lintTimeout]) as Record<string, any>;
+        console.log(`[ModelBridge] Lint problems retrieved in ${Date.now() - lintStartTime}ms`);
+      } catch (lintError) {
+        console.warn('[ModelBridge] Lint problems skipped:', lintError instanceof Error ? lintError.message : 'unknown error');
+        console.log(`[ModelBridge] Lint skipped after ${Date.now() - lintStartTime}ms, continuing with empty problems`);
+      }
 
       // Get catalogs from model
       console.log('[ModelBridge] Getting catalogs from model...');
+      const catalogStartTime = Date.now();
       const catalogs = this.getCatalogsFromModel(model);
+      console.log(`[ModelBridge] Catalogs retrieved in ${Date.now() - catalogStartTime}ms`);
 
-      // Refresh plugin variants with discovered tasks
+      // Refresh plugin variants with discovered tasks (with timeout)
       console.log('[ModelBridge] Refreshing plugin variants...');
       const pluginStartTime = Date.now();
-      await this.refreshPluginVariants(model);
-      console.log(`[ModelBridge] Plugin variants refreshed in ${Date.now() - pluginStartTime}ms`);
+      try {
+        const pluginPromise = this.refreshPluginVariants(model);
+        const pluginTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Plugin variant refresh timeout after 10s')), 10000)
+        );
+        await Promise.race([pluginPromise, pluginTimeout]);
+        console.log(`[ModelBridge] Plugin variants refreshed in ${Date.now() - pluginStartTime}ms`);
+      } catch (pluginError) {
+        const isTimeout = pluginError instanceof Error && pluginError.message.includes('timeout');
+        if (isTimeout) {
+          console.warn('[ModelBridge] Plugin variant refresh timeout - skipping to unblock UI');
+        } else {
+          console.error('[ModelBridge] Error refreshing plugin variants:', pluginError);
+        }
+        console.log(`[ModelBridge] Plugin refresh completed/skipped after ${Date.now() - pluginStartTime}ms, continuing`);
+      }
 
       // Get active plugins and their variants
       const activePlugins = pluginManager.getActivePlugins();
