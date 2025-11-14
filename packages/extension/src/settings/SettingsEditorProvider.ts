@@ -630,8 +630,17 @@ export class SettingsEditorProvider {
     // Toggle add environment form
     document.getElementById('toggleAddEnv').addEventListener('click', () => {
       const form = document.getElementById('addEnvForm');
-      form.style.display = form.style.display === 'none' ? 'block' : 'none';
-      clearAddEnvForm();
+      const isHidden = form.style.display === 'none' || form.style.display === '';
+
+      if (isHidden) {
+        // Show form and pre-fill defaults
+        form.style.display = 'block';
+        clearAddEnvForm();
+        console.log('[Settings] Form opened and cleared, envId:', document.getElementById('envId').value);
+      } else {
+        // Hide form
+        form.style.display = 'none';
+      }
     });
 
     document.getElementById('cancelEnv').addEventListener('click', () => {
@@ -654,11 +663,13 @@ export class SettingsEditorProvider {
     });
 
     function clearAddEnvForm() {
+      console.log('[clearAddEnvForm] Starting to pre-fill form with defaults...');
       // Pre-fill with sensible defaults
       document.getElementById('envId').value = 'local';
       document.getElementById('envName').value = 'local';
       document.getElementById('envUrl').value = 'http://localhost:4201';
       document.getElementById('envDomain').value = 'core';
+      console.log('[clearAddEnvForm] Basic fields filled');
       document.getElementById('envAuthType').value = '';
       document.getElementById('envAuthToken').value = '';
       document.getElementById('envAuthUsername').value = '';
@@ -679,6 +690,7 @@ export class SettingsEditorProvider {
       document.getElementById('envDbNameDirect').value = 'vNext_WorkflowDb';
       document.getElementById('envDbUserDirect').value = 'postgres';
       document.getElementById('envDbPasswordDirect').value = 'postgres';
+      console.log('[clearAddEnvForm] Database fields filled - Docker:', document.getElementById('envDbUseDocker').checked, 'Container:', document.getElementById('envDbContainer').value);
     }
 
     // Save environment
