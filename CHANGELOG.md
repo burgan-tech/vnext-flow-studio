@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Dependencies Panel**: New panel showing all workflow dependencies with validation
+  - Tree view organized by state showing tasks, schemas, views, scripts, functions, and extensions
+  - Visual validation indicators - red X icon for broken/missing dependencies
+  - Click to open dependencies in VS Code
+  - Compact monospace design matching schema editor
+  - Automatic validation on panel load
+  - Flexible width based on content
+  - Enhanced ComponentResolver with dynamic directory discovery and dot-separated version support
+
+- **Auto Layout Improvements**: Enhanced automatic layout algorithm
+  - Direction options: RIGHT (default), DOWN, LEFT, UP
+  - Accounts for edge label widths in layout calculations
+  - Optimized spacing and node positioning
+  - Better handling of complex workflow structures
+
+- **Task Creation Modal** ([#22](https://github.com/burgan-tech/vnext-flow-studio/pull/22)): Webview-based task creation with direct Quick Editor opening
+  - Create new tasks directly from task detail panel
+  - Auto-populate task reference after creation
+  - Auto-select newly created task in task reference field
+  - Workflow domain and configurable version support
+  - Tasks created with version in filename: `task-name.1.0.0.json`
+  - Tasks created in closest sibling Tasks folder relative to workflow
+  - Normalized task reference format: `{key, domain, version, flow}` instead of `{ref: "..."}`
+
+- **Visual Diff Command**: New "Amorphie: Open Visual Diff" command for side-by-side visual comparison
+  - Opens git HEAD and working tree in separate visual editor panels
+  - Left panel shows committed version (read-only), right panel shows working tree (editable)
+  - Accessible via command palette, context menu, and editor toolbar
+  - Provides visual workflow comparison for users who prefer graphical diff
+
+- **Clickable Task References**: Task references in task detail panel now clickable to open in Quick Editor
+
 ### Fixed
 - **Git Diff Support** ([#18](https://github.com/burgan-tech/vnext-flow-studio/issues/18)): Fixed git "Open Changes" to show text diff by default
   - Changed custom editor priority from "default" to "option" - text editor is now the default for workflow files
@@ -15,12 +48,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed read-only enforcement for git URIs (prevents editing committed versions)
   - Separate model instances for git vs. working tree (enables future visual diff overlays)
 
-### Added
-- **Visual Diff Command**: New "Amorphie: Open Visual Diff" command for side-by-side visual comparison
-  - Opens git HEAD and working tree in separate visual editor panels
-  - Left panel shows committed version (read-only), right panel shows working tree (editable)
-  - Accessible via command palette, context menu, and editor toolbar
-  - Provides visual workflow comparison for users who prefer graphical diff
+- **Task Creation Improvements**: Fixed task creation location and format
+  - Tasks now correctly created in sibling Tasks folder relative to workflow
+  - Uses workflow path from model instead of activeEditor (fixes webview context issue)
+  - Task references saved in normalized format with key, domain, version, flow fields
+
+- **Task Editor Fixes** ([#22](https://github.com/burgan-tech/vnext-flow-studio/pull/22)):
+  - Keep flow editor open when creating new task
+  - Use correct Quick Task Editor view type when opening tasks
+  - Parse task reference correctly when opening tasks
+  - Improve task resolution by passing complete task info
+  - Clear task reference field when adding new empty task
+  - Prevent duplicate task display in search panel
+  - Set flowVersion to 1.0.0 for sys-tasks model
+
+- **Edge Label Comment Icons**: Fixed clickability and visibility
+  - Comment icons now properly clickable
+  - Improved icon visibility on edge labels
+  - Prevent edge label clicks from triggering edit key popup
+  - Disable pointer events on SVG to ensure button receives clicks
+
+- **Code Quality**: Linting fixes across codebase
+  - Fixed React Hook dependencies in DependenciesPanel and TaskDetailsPanel
+  - Replaced require() with ES6 imports
+  - Removed unused parameters and variables
+  - Escaped special characters in JSX
+
+- **Component Resolution**: Eliminated redundant component loading
+  - Share global ComponentResolver across all models
+  - Improved performance by reducing duplicate file system operations
 
 ### Changed
 - **Default Editor Behavior**: Text editor is now the default for workflow files
