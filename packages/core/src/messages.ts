@@ -27,7 +27,7 @@ export type MsgToWebview =
   | { type: 'mapper:saved'; mapperRef: string; mapperId: string }
   | { type: 'editor:scriptCreated'; success: boolean; location?: string; error?: string }
   | { type: 'editor:fileOpened'; success: boolean; error?: string }
-  | { type: 'task:created'; success: boolean; filePath?: string; error?: string };
+  | { type: 'task:created'; success: boolean; filePath?: string; taskRef?: string; domain?: string; flow?: string; key?: string; version?: string; error?: string };
 
 export type MsgFromWebview =
   | { type: 'ready' }

@@ -1731,11 +1731,21 @@ export class ModelBridge {
         });
       }
 
-      // Send success message
+      // Create task reference for the newly created task
+      const taskRef = domain && version
+        ? `${domain}/sys-tasks/${taskName}@${version}`
+        : taskName;
+
+      // Send success message with task reference info
       panel.webview.postMessage({
         type: 'task:created',
         success: true,
-        filePath: filePath.fsPath
+        filePath: filePath.fsPath,
+        taskRef: taskRef,
+        domain: domain,
+        flow: 'sys-tasks',
+        key: taskName,
+        version: version
       });
 
       vscode.window.showInformationMessage(`Task "${taskName}" created successfully`);

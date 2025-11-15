@@ -26,7 +26,7 @@ export function TaskDetailsPanel({
   catalogs,
   onUpdateTask,
 }: TaskDetailsPanelProps) {
-  const { postMessage } = useBridge();
+  const { postMessage, onMessage } = useBridge();
 
   // Debug: Log catalogs
   console.log('[TaskDetailsPanel] Catalogs received:', {
@@ -41,6 +41,23 @@ export function TaskDetailsPanel({
     location: '',
   });
   const [showTaskCreationModal, setShowTaskCreationModal] = useState(false);
+
+  // Listen for task:created messages to auto-populate task reference
+  useEffect(() => {
+    const unsubscribe = onMessage((message) => {
+      if (message.type === 'task:created' && message.success && task && taskIndex !== null) {
+        // Format the task reference
+        const newTaskRef = message.taskRef || message.key || '';
+
+        // Update the task with the new reference
+        if (newTaskRef) {
+          handleTaskRefChange(newTaskRef);
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [onMessage, task, taskIndex]);
 
   // Update local state when task or taskIndex changes
   useEffect(() => {
