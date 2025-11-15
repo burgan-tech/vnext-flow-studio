@@ -40,9 +40,9 @@ export function TaskDetailsPanel({
   });
   const [showTaskCreationModal, setShowTaskCreationModal] = useState(false);
 
-  // Update local state when task changes
+  // Update local state when task or taskIndex changes
   useEffect(() => {
-    if (!task) {
+    if (!task || taskIndex === null) {
       setTaskRefInput('');
       setInputMapping({ mode: 'code', code: '', location: '' });
       return;
@@ -70,7 +70,7 @@ export function TaskDetailsPanel({
       // Clear mapping if task doesn't have one
       setInputMapping({ mode: 'code', code: '', location: '' });
     }
-  }, [task]);
+  }, [task, taskIndex]);
 
   if (!task || taskIndex === null) {
     return (
