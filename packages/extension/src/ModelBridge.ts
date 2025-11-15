@@ -1758,8 +1758,11 @@ export class ModelBridge {
     const { taskRef } = message;
 
     try {
+      // Parse task reference (format: domain/flow/key@version or just key)
+      const componentRef = this.parseTaskReference(taskRef);
+
       // Use the global component resolver to find the task
-      const task = await this.globalResolver.resolveTask({ ref: taskRef });
+      const task = await this.globalResolver.resolveTask(componentRef);
 
       if (!task) {
         vscode.window.showErrorMessage(`Task not found: ${taskRef}`);
@@ -1780,6 +1783,47 @@ export class ModelBridge {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       vscode.window.showErrorMessage(`Failed to open task: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Parse task reference string into ComponentRef
+   * Supports formats:
+   * - domain/flow/key@version
+   * - key
+   */
+  private parseTaskReference(refString: string): any {
+    // Check if it includes @ for version
+    const versionMatch = refString.match(/^(.+)@(.+)$/);
+    const [mainPart, version] = versionMatch ? [versionMatch[1], versionMatch[2]] : [refString, '1.0.0'];
+
+    // Check if it includes / for domain/flow/key format
+    const parts = mainPart.split('/');
+
+    if (parts.length === 3) {
+      // Full format: domain/flow/key@version
+      return {
+        domain: parts[0],
+        flow: parts[1],
+        key: parts[2],
+        version: version
+      };
+    } else if (parts.length === 1) {
+      // Just key, assume defaults
+      return {
+        domain: 'my-domain',
+        flow: 'sys-tasks',
+        key: parts[0],
+        version: version
+      };
+    } else {
+      // Fallback: treat entire string as key
+      return {
+        domain: 'my-domain',
+        flow: 'sys-tasks',
+        key: refString,
+        version: '1.0.0'
+      };
     }
   }
 
