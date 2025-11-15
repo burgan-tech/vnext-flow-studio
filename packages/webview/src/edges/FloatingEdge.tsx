@@ -459,9 +459,13 @@ export function FloatingEdge(props: FloatingEdgeProps) {
               }}
               className="react-flow__edge-text"
               onClick={(e) => {
-                e.stopPropagation();
-                // Clicking the label itself (not the icon) does nothing
-                // This prevents edge selection/editing when clicking the label background
+                // Only stop propagation if clicking the label background or text
+                // This allows the comment icon to handle its own clicks
+                const target = e.target as HTMLElement;
+                const isIconClick = target.closest('.comment-icon');
+                if (!isIconClick) {
+                  e.stopPropagation();
+                }
               }}
             >
               <CommentIcon
