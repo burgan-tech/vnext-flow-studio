@@ -1727,11 +1727,15 @@ export class ModelBridge {
         });
       }
 
-      // Send success message
+      // Construct task reference for auto-selection
+      const taskRef = `${taskContent.domain}/${taskContent.flow}/${taskContent.key}@${taskContent.version}`;
+
+      // Send success message with task reference
       panel.webview.postMessage({
         type: 'task:created',
         success: true,
-        filePath: filePath.fsPath
+        filePath: filePath.fsPath,
+        taskRef: taskRef
       });
 
       vscode.window.showInformationMessage(`Task "${taskName}" created successfully`);
