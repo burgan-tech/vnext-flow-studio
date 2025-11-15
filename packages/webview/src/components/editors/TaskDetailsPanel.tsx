@@ -10,7 +10,6 @@ interface TaskDetailsPanelProps {
   taskIndex: number | null;
   stateKey: string;
   workflowName?: string;
-  workflowDomain?: string;
   lane: 'onEntries' | 'onExits';
   catalogs: Record<string, any[]>;
   onUpdateTask: (updatedTask: ExecutionTask) => void;
@@ -21,12 +20,11 @@ export function TaskDetailsPanel({
   taskIndex,
   stateKey,
   workflowName,
-  workflowDomain,
   lane,
   catalogs,
   onUpdateTask,
 }: TaskDetailsPanelProps) {
-  const { postMessage, onMessage } = useBridge();
+  const { postMessage } = useBridge();
 
   // Debug: Log catalogs
   console.log('[TaskDetailsPanel] Catalogs received:', {
@@ -42,23 +40,6 @@ export function TaskDetailsPanel({
   });
   const [showTaskCreationModal, setShowTaskCreationModal] = useState(false);
 
-  // Listen for task creation success and auto-select the task
-  useEffect(() => {
-    const unsubscribe = onMessage((message) => {
-      if (message.type === 'task:created' && message.success && message.taskRef && task) {
-        // Auto-select the newly created task
-        setTaskRefInput(message.taskRef);
-        // Update the task reference immediately
-        const updatedTask: ExecutionTask = {
-          ...task,
-          task: { ref: message.taskRef } as TaskRef,
-        };
-        onUpdateTask(updatedTask);
-      }
-    });
-    return unsubscribe;
-  }, [onMessage, task, onUpdateTask]);
-
   // Update local state when task changes
   useEffect(() => {
     if (!task) {
@@ -67,14 +48,16 @@ export function TaskDetailsPanel({
       return;
     }
 
-    // Extract task reference
+    // Extract task reference (always set, even if empty)
+    let taskRef = '';
     if (typeof task.task === 'object' && task.task !== null) {
-      if ('ref' in task.task && task.task.ref) {
-        setTaskRefInput(task.task.ref);
-      } else if ('key' in task.task && task.task.key) {
-        setTaskRefInput(task.task.key);
+      if ('ref' in task.task) {
+        taskRef = task.task.ref || '';
+      } else if ('key' in task.task) {
+        taskRef = task.task.key || '';
       }
     }
+    setTaskRefInput(taskRef);
 
     // Extract mapping info
     if (task.mapping) {
@@ -83,6 +66,9 @@ export function TaskDetailsPanel({
         code: task.mapping.code || '',
         location: task.mapping.location || '',
       });
+    } else {
+      // Clear mapping if task doesn't have one
+      setInputMapping({ mode: 'code', code: '', location: '' });
     }
   }, [task]);
 
@@ -152,15 +138,12 @@ export function TaskDetailsPanel({
       {/* Task Creation Modal */}
       {showTaskCreationModal && (
         <TaskCreationModal
-          workflowDomain={workflowDomain}
           onClose={() => setShowTaskCreationModal(false)}
-          onCreate={(taskName, taskType, version) => {
+          onCreate={(taskName, taskType) => {
             postMessage({
               type: 'task:create',
               taskName,
               taskType,
-              version,
-              workflowDomain: workflowDomain || 'my-domain',
               openInQuickEditor: true
             });
             setShowTaskCreationModal(false);
