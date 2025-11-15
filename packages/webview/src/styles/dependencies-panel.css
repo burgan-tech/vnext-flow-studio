@@ -1,0 +1,110 @@
+.dependencies-panel {
+  padding: 12px;
+  overflow-y: auto;
+  max-height: calc(100vh - 120px);
+  width: fit-content;
+  font-family: "JetBrains Mono", "IBM Plex Mono", "Roboto Mono", monospace;
+}
+
+.dependencies-panel__header {
+  margin-bottom: 12px;
+  color: #6b7280;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.dependencies-panel__empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 24px 12px;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.dependencies-panel__empty-subtitle {
+  font-size: 12.5px;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.dependencies-panel__state-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1e1e1e;
+  padding: 3px 6px;
+  white-space: nowrap;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.dependencies-panel__dep-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+}
+
+.dependencies-panel__dep-item:hover {
+  background-color: #f3f4f6;
+}
+
+.dependencies-panel__dep-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.dependencies-panel__dep-text {
+  font-weight: 500;
+  color: #111827;
+  flex-shrink: 0;
+}
+
+.dependencies-panel__dep-context {
+  font-size: 0.6875rem;
+  color: #9ca3af;
+  font-style: italic;
+  margin-left: auto;
+  padding-left: 12px;
+}
+
+/* MUI TreeView overrides */
+.dependencies-panel .MuiTreeItem-content {
+  padding: 2px 4px;
+  border-radius: 3px;
+  min-height: 24px;
+}
+
+.dependencies-panel .MuiTreeItem-content:hover {
+  background-color: #f3f4f6;
+}
+
+.dependencies-panel .MuiTreeItem-content.Mui-selected {
+  background-color: #eff6ff;
+}
+
+.dependencies-panel .MuiTreeItem-content.Mui-selected:hover {
+  background-color: #dbeafe;
+}
+
+.dependencies-panel .MuiTreeItem-label {
+  padding-left: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.dependencies-panel .MuiTreeItem-iconContainer {
+  width: 18px;
+  margin-right: 3px;
+}
+
+.dependencies-panel .MuiTreeItem-iconContainer svg {
+  font-size: 16px;
+}

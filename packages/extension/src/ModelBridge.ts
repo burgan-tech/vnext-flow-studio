@@ -202,10 +202,44 @@ export class ModelBridge {
       // Import ComponentResolver dynamically to avoid circular dependencies
       const { ComponentResolver } = await import('@amorphie-flow-studio/core');
 
-      // Create a global component resolver
+      // Dynamically find all component directories in the workspace
+      const findComponentDirs = async (dirName: string): Promise<string[]> => {
+        const fg = require('fast-glob');
+        const paths = await fg(`**/${dirName}`, {
+          cwd: workspaceRoot,
+          onlyDirectories: true,
+          ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'],
+          deep: 3 // Limit depth to avoid performance issues
+        });
+        return paths;
+      };
+
+      const [tasksDirs, schemasDirs, viewsDirs, functionsDirs, extensionsDirs] = await Promise.all([
+        findComponentDirs('Tasks'),
+        findComponentDirs('Schemas'),
+        findComponentDirs('Views'),
+        findComponentDirs('Functions'),
+        findComponentDirs('Extensions')
+      ]);
+
+      this.componentWatcherLogger.info(`Found component directories:`);
+      this.componentWatcherLogger.info(`  Tasks: ${tasksDirs.join(', ')}`);
+      this.componentWatcherLogger.info(`  Schemas: ${schemasDirs.join(', ')}`);
+      this.componentWatcherLogger.info(`  Views: ${viewsDirs.join(', ')}`);
+      this.componentWatcherLogger.info(`  Functions: ${functionsDirs.join(', ')}`);
+      this.componentWatcherLogger.info(`  Extensions: ${extensionsDirs.join(', ')}`);
+
+      // Create a global component resolver with dynamically found search paths
       this.globalResolver = new ComponentResolver({
         basePath: workspaceRoot,
-        useCache: true
+        useCache: true,
+        searchPaths: {
+          tasks: ['Tasks', 'tasks', 'sys-tasks', ...tasksDirs],
+          schemas: ['Schemas', 'schemas', 'sys-schemas', ...schemasDirs],
+          views: ['Views', 'views', 'sys-views', ...viewsDirs],
+          functions: ['Functions', 'functions', 'sys-functions', ...functionsDirs],
+          extensions: ['Extensions', 'extensions', 'sys-extensions', ...extensionsDirs]
+        }
       });
 
       this.componentWatcherLogger.info('ComponentResolver created, enabling file watching...');
@@ -821,6 +855,14 @@ export class ModelBridge {
 
         case 'editor:createScript':
           await this.createScriptFile(model, message.content, message.location, message.scriptType, panel);
+          break;
+
+        case 'dependency:open':
+          await this.openDependency(model, message.dependency);
+          break;
+
+        case 'dependency:validate':
+          await this.validateDependencies(model, message.dependencies, panel);
           break;
 
         case 'request:lint':
@@ -1506,6 +1548,156 @@ export class ModelBridge {
     }
 
     await this.saveModel(model);
+  }
+
+  /**
+   * Validate dependencies and send results back to webview
+   */
+  private async validateDependencies(
+    model: WorkflowModel,
+    dependencies: Array<{ type: string; key: string; domain?: string; flow?: string; version?: string; location?: string; ref?: string }>,
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    console.log('[ModelBridge] Validating', dependencies.length, 'dependencies');
+    const basePath = path.dirname(model.getModelState().metadata.workflowPath);
+    const results: Array<{ index: number; exists: boolean }> = [];
+
+    for (let i = 0; i < dependencies.length; i++) {
+      const dep = dependencies[i];
+      let exists = false;
+
+      try {
+        // For scripts with location, check file directly
+        if (dep.type === 'Script' && dep.location) {
+          const absolutePath = path.resolve(basePath, dep.location);
+          console.log(`[ModelBridge] Validating script [${i}]:`, dep.location, '→', absolutePath);
+          try {
+            await vscode.workspace.fs.stat(vscode.Uri.file(absolutePath));
+            exists = true;
+            console.log(`[ModelBridge] Script [${i}] exists: true`);
+          } catch {
+            exists = false;
+            console.log(`[ModelBridge] Script [${i}] exists: false`);
+          }
+        } else if (this.globalResolver) {
+          // For other components, use ComponentResolver
+          const componentType = dep.type.toLowerCase() + 's' as 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions';
+
+          let componentRef: any;
+          if (dep.ref) {
+            componentRef = { ref: dep.ref };
+          } else if (dep.key) {
+            componentRef = {
+              key: dep.key,
+              domain: dep.domain,
+              flow: dep.flow,
+              version: dep.version
+            };
+          }
+
+          if (componentRef) {
+            console.log(`[ModelBridge] Validating ${dep.type} [${i}]:`, componentRef);
+            const foundPath = await this.globalResolver.resolveComponentPath(componentRef, componentType);
+            exists = foundPath !== null;
+            console.log(`[ModelBridge] ${dep.type} [${i}] exists:`, exists, 'path:', foundPath);
+          }
+        }
+      } catch (error) {
+        console.error('[ModelBridge] Error validating dependency:', error);
+        exists = false;
+      }
+
+      results.push({ index: i, exists });
+    }
+
+    console.log('[ModelBridge] Validation complete, sending results:', results);
+    // Send results back to webview
+    panel.webview.postMessage({
+      type: 'dependency:validation',
+      results
+    });
+  }
+
+  /**
+   * Open a dependency file in VS Code (script, task, schema, etc.)
+   */
+  private async openDependency(model: WorkflowModel, dependency: { type: string; key: string; domain?: string; flow?: string; version?: string; location?: string; ref?: string }): Promise<void> {
+    try {
+      const basePath = path.dirname(model.getModelState().metadata.workflowPath);
+
+      // For scripts with location, open the file directly
+      if (dependency.type === 'Script' && dependency.location) {
+        const absolutePath = path.resolve(basePath, dependency.location);
+
+        // Check if file exists
+        try {
+          await vscode.workspace.fs.stat(vscode.Uri.file(absolutePath));
+        } catch {
+          vscode.window.showErrorMessage(`File not found: ${dependency.location}`);
+          return;
+        }
+
+        // Open the file to the right
+        const document = await vscode.workspace.openTextDocument(absolutePath);
+        await vscode.window.showTextDocument(document, {
+          viewColumn: vscode.ViewColumn.Beside,
+          preserveFocus: false
+        });
+        return;
+      }
+
+      // For all other components (tasks, schemas, views, functions, extensions), use ComponentResolver
+      if (!this.globalResolver) {
+        vscode.window.showErrorMessage('Component resolver not initialized');
+        return;
+      }
+
+      const componentType = dependency.type.toLowerCase() + 's' as 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions';
+
+      // Build the component reference - handle both ref-style and normalized
+      let componentRef: any;
+      if (dependency.ref) {
+        // File-based reference
+        componentRef = { ref: dependency.ref };
+      } else if (dependency.key) {
+        // Normalized reference
+        componentRef = {
+          key: dependency.key,
+          domain: dependency.domain,
+          flow: dependency.flow,
+          version: dependency.version
+        };
+      } else {
+        vscode.window.showErrorMessage(`Invalid dependency reference`);
+        return;
+      }
+
+      // Use ComponentResolver to find the file
+      console.log('[ModelBridge] Resolving component:', componentRef, 'type:', componentType);
+      console.log('[ModelBridge] Resolver basePath:', this.globalResolver['options'].basePath);
+      const foundPath = await this.globalResolver.resolveComponentPath(componentRef, componentType);
+      console.log('[ModelBridge] Found path:', foundPath);
+
+      if (foundPath) {
+        const document = await vscode.workspace.openTextDocument(foundPath);
+        await vscode.window.showTextDocument(document, {
+          viewColumn: vscode.ViewColumn.Beside,
+          preserveFocus: false
+        });
+      } else {
+        const refInfo = dependency.ref || (dependency.domain ? `${dependency.domain}/${dependency.key}` : dependency.key);
+        console.error('[ModelBridge] Could not resolve component. Resolver config:', {
+          basePath: this.globalResolver['options'].basePath,
+          searchPaths: this.globalResolver['options'].searchPaths,
+          componentRef,
+          componentType
+        });
+        vscode.window.showErrorMessage(`Could not find ${dependency.type}: ${refInfo}`);
+      }
+    } catch (error) {
+      console.error('Error opening dependency:', error);
+      vscode.window.showErrorMessage(`Failed to open dependency: ${error}`);
+    }
   }
 
   /**

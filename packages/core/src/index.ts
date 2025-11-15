@@ -30,3 +30,6 @@ export * from './plugins/index.js';
 
 // Deployment
 export * from './deployment/index.js';
+
+// Dependencies
+export * from './dependencies/index.js';

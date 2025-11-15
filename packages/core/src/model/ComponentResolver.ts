@@ -17,6 +17,7 @@ import type {
 } from '../types/index.js';
 import { ScriptManager } from './ScriptManager.js';
 import { ComponentWatcher, type ComponentWatcherOptions } from './ComponentWatcher.js';
+import { extractWorkflowDependencies, type DependencyTree } from '../dependencies/workflow-dependencies.js';
 
 /**
  * Options for the component resolver
@@ -243,6 +244,86 @@ export class ComponentResolver implements IComponentResolver {
   }
 
   /**
+   * Resolve a component reference to its file path
+   */
+  async resolveComponentPath(
+    ref: ComponentRef | { ref: string },
+    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions'
+  ): Promise<string | null> {
+    // Handle ref-style reference
+    if ('ref' in ref) {
+      const basePath = this.options.basePath || process.cwd();
+      const fullPath = path.resolve(basePath, ref.ref);
+
+      console.log('[ComponentResolver] Trying ref-style path:', fullPath);
+      try {
+        await fs.access(fullPath);
+        console.log('[ComponentResolver] Found ref-style file:', fullPath);
+        return fullPath;
+      } catch {
+        console.log('[ComponentResolver] Ref-style file not found');
+        return null;
+      }
+    }
+
+    // Handle explicit reference - use same logic as resolveExplicitRef
+    const basePath = this.options.basePath || process.cwd();
+    const searchPaths = this.options.searchPaths![type] || [];
+
+    console.log('[ComponentResolver] Resolving normalized ref:', ref, 'basePath:', basePath, 'searchPaths:', searchPaths);
+
+    // Try different naming patterns for each search path
+    const patterns = [
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}.json`,
+      (sp: string) => `${sp}/${ref.key}.json`,
+      (sp: string) => `${sp}/${ref.domain}-${ref.key}.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.domain}-${ref.key}-${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}.${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.domain}-${ref.key}.${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.key}.${ref.version}.json`
+    ];
+
+    // Try each search path with each pattern
+    for (const searchPath of searchPaths) {
+      for (const pattern of patterns) {
+        const filePath = pattern(searchPath);
+        const fullPath = path.resolve(basePath, filePath);
+
+        console.log('[ComponentResolver] Trying path:', fullPath);
+        try {
+          const content = await fs.readFile(fullPath, 'utf-8');
+          const component = JSON.parse(content) as any;
+
+          // Validate that the component matches the reference
+          if (component.key === ref.key && component.domain === ref.domain) {
+            // Check version if specified
+            if (ref.version && component.version && component.version !== ref.version) {
+              console.log('[ComponentResolver] Version mismatch:', component.version, '!==', ref.version);
+              continue; // Version mismatch, try next file
+            }
+            // Check flow if specified and component has flow
+            if (ref.flow && component.flow && component.flow !== ref.flow) {
+              console.log('[ComponentResolver] Flow mismatch:', component.flow, '!==', ref.flow);
+              continue; // Flow mismatch, try next file
+            }
+            console.log('[ComponentResolver] Found matching file:', fullPath);
+            return fullPath;
+          } else {
+            console.log('[ComponentResolver] Component mismatch: key=', component.key, 'vs', ref.key, 'domain=', component.domain, 'vs', ref.domain);
+          }
+        } catch (err) {
+          // File doesn't exist or can't be read, try next path
+          continue;
+        }
+      }
+    }
+
+    console.log('[ComponentResolver] No matching file found');
+    return null;
+  }
+
+  /**
    * Get cache key for a reference
    */
   private getCacheKey(ref: ComponentRef | { ref: string }): string {
@@ -300,7 +381,10 @@ export class ComponentResolver implements IComponentResolver {
       (sp: string) => `${sp}/${ref.key}.json`,
       (sp: string) => `${sp}/${ref.domain}-${ref.key}.json`,
       (sp: string) => `${sp}/${ref.domain}/${ref.key}-${ref.version}.json`,
-      (sp: string) => `${sp}/${ref.domain}-${ref.key}-${ref.version}.json`
+      (sp: string) => `${sp}/${ref.domain}-${ref.key}-${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}.${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.domain}-${ref.key}.${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.key}.${ref.version}.json`
     ];
 
     // Try each search path with each pattern
@@ -664,5 +748,13 @@ export class ComponentResolver implements IComponentResolver {
    */
   getWatcher(): ComponentWatcher | undefined {
     return this.watcher;
+  }
+
+  /**
+   * Extract all dependencies from a workflow
+   * Returns a tree structure organized by state
+   */
+  extractWorkflowDependencies(workflow: Workflow): DependencyTree {
+    return extractWorkflowDependencies(workflow);
   }
 }

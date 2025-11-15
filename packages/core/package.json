@@ -7,7 +7,8 @@
   "exports": {
     ".": "./dist/index.js",
     "./model": "./dist/model/index.js",
-    "./mapper": "./dist/mapper/index.js"
+    "./mapper": "./dist/mapper/index.js",
+    "./dependencies": "./dist/dependencies/workflow-dependencies.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

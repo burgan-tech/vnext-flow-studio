@@ -27,7 +27,8 @@ export type MsgToWebview =
   | { type: 'mapper:saved'; mapperRef: string; mapperId: string }
   | { type: 'editor:scriptCreated'; success: boolean; location?: string; error?: string }
   | { type: 'editor:fileOpened'; success: boolean; error?: string }
-  | { type: 'task:created'; success: boolean; filePath?: string; taskRef?: string; domain?: string; flow?: string; key?: string; version?: string; error?: string };
+  | { type: 'task:created'; success: boolean; filePath?: string; taskRef?: string; domain?: string; flow?: string; key?: string; version?: string; error?: string }
+  | { type: 'dependency:validation'; results: Array<{ index: number; exists: boolean }> };
 
 export type MsgFromWebview =
   | { type: 'ready' }
@@ -108,4 +109,6 @@ export type MsgFromWebview =
   | { type: 'task:open'; taskRef: string; domain?: string; flow?: string; key?: string; version?: string }
   | { type: 'transition:editKey'; transitionId: string }
   | { type: 'editor:openInVSCode'; location: string }
-  | { type: 'editor:createScript'; content: string; location: string; scriptType: 'mapping' | 'rule' };
+  | { type: 'editor:createScript'; content: string; location: string; scriptType: 'mapping' | 'rule' }
+  | { type: 'dependency:open'; dependency: { type: string; key: string; domain?: string; flow?: string; version?: string; location?: string; ref?: string } }
+  | { type: 'dependency:validate'; dependencies: Array<{ type: string; key: string; domain?: string; flow?: string; version?: string; location?: string; ref?: string }> };
