@@ -470,8 +470,7 @@ export function FloatingEdge(props: FloatingEdgeProps) {
             >
               <CommentIcon
                 hasComment={hasComment}
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   setShowCommentModal(true);
                 }}
                 title={hasComment ? 'View transition documentation' : 'Add transition documentation'}
