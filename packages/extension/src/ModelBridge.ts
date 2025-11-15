@@ -1755,24 +1755,36 @@ export class ModelBridge {
    * Open a task file in the Quick Task Editor
    */
   private async handleOpenTask(message: any, panel: vscode.WebviewPanel): Promise<void> {
-    const { taskRef } = message;
+    const { taskRef, domain, flow, key, version } = message;
 
     try {
-      // Parse task reference (format: domain/flow/key@version or just key)
-      const componentRef = this.parseTaskReference(taskRef);
+      let componentRef: any;
+
+      // If domain, flow, key, version are provided, use them directly
+      if (domain && key) {
+        componentRef = {
+          domain: domain,
+          flow: flow || 'sys-tasks',
+          key: key,
+          version: version || '1.0.0'
+        };
+      } else {
+        // Otherwise, parse the task reference string
+        componentRef = this.parseTaskReference(taskRef);
+      }
 
       // Use the global component resolver to find the task
       const task = await this.globalResolver.resolveTask(componentRef);
 
       if (!task) {
-        vscode.window.showErrorMessage(`Task not found: ${taskRef}`);
+        vscode.window.showErrorMessage(`Task not found: ${key || taskRef}`);
         return;
       }
 
       // Check if the task has a file path
       const filePath = (task as any).__filePath;
       if (!filePath) {
-        vscode.window.showErrorMessage(`No file path found for task: ${taskRef}`);
+        vscode.window.showErrorMessage(`No file path found for task: ${key || taskRef}`);
         return;
       }
 

@@ -75,7 +75,26 @@ export function TaskSearchPanel({
   };
 
   const handleOpenTask = () => {
-    if (selectedTaskRef) {
+    if (!selectedTaskRef) return;
+
+    // Find the task in available tasks to get complete info
+    const task = availableTasks.find(t => {
+      const fullRef = formatTaskRef(t);
+      return fullRef === selectedTaskRef || t.key === selectedTaskRef;
+    });
+
+    if (task) {
+      // Send complete task reference info
+      postMessage({
+        type: 'task:open',
+        taskRef: selectedTaskRef,
+        domain: task.domain,
+        flow: task.flow || 'sys-tasks',
+        key: task.key,
+        version: task.version || '1.0.0'
+      });
+    } else {
+      // Fallback: send just the ref string
       postMessage({
         type: 'task:open',
         taskRef: selectedTaskRef
