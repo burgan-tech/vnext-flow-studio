@@ -23,6 +23,8 @@ module.exports = tseslint.config(
       'test-*.js',
       'compare-*.js',
       'summary-*.js',
+      'extract-*.js',
+      'debug-*.js',
       'proposed-*.json',
       'sample-*.json',
       // Config files that cause parsing issues
