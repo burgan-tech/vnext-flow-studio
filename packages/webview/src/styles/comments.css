@@ -13,6 +13,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto;
 }
 
 .comment-icon:hover {
@@ -27,11 +28,11 @@
 
 .comment-icon--outline {
   color: var(--vscode-foreground, #cccccc);
-  opacity: 0.4;
+  opacity: 0.6;
 }
 
 .comment-icon--outline:hover {
-  opacity: 0.7;
+  opacity: 1;
 }
 
 /* Comment Modal - Light Mode */
