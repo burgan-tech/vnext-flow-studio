@@ -52,6 +52,7 @@ export type MsgFromWebview =
       type: 'request:autoLayout';
       nodeSizes?: Record<string, { width: number; height: number }>;
       edgeLabelSizes?: Record<string, { width: number; height: number }>;
+      direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP';
     }
   | { type: 'request:exportDocumentation'; content: string; filename: string; svgContent?: string; svgFilename?: string }
   | {

@@ -1227,7 +1227,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     setContextMenu(null);
   }, [workflow, postMessage]);
 
-  const handleAutoLayoutRequest = useCallback(() => {
+  const handleAutoLayoutRequest = useCallback((direction: 'RIGHT' | 'DOWN' = 'RIGHT') => {
     // Collect measured node sizes from React Flow v12
     const sizeMap: Record<string, { width: number; height: number }> = {};
     for (const n of nodes) {
@@ -1270,7 +1270,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       }
     }
 
-    postMessage({ type: 'request:autoLayout', nodeSizes: sizeMap, edgeLabelSizes });
+    postMessage({ type: 'request:autoLayout', nodeSizes: sizeMap, edgeLabelSizes, direction });
     setContextMenu(null);
   }, [postMessage, nodes, edges]);
 
@@ -2543,8 +2543,11 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           onClick={(event) => event.stopPropagation()}
           onContextMenu={(event) => event.preventDefault()}
         >
-          <button type="button" className="flow-context-menu__item" onClick={handleAutoLayoutRequest}>
-            Auto layout
+          <button type="button" className="flow-context-menu__item" onClick={() => handleAutoLayoutRequest('RIGHT')}>
+            Auto Layout (Left to Right)
+          </button>
+          <button type="button" className="flow-context-menu__item" onClick={() => handleAutoLayoutRequest('DOWN')}>
+            Auto Layout (Top to Bottom)
           </button>
         </div>
       )}

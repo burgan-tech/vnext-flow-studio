@@ -832,7 +832,7 @@ export class ModelBridge {
           break;
 
         case 'request:autoLayout':
-          await this.performAutoLayout(model, message.nodeSizes, message.edgeLabelSizes);
+          await this.performAutoLayout(model, message.nodeSizes, message.edgeLabelSizes, message.direction);
           break;
 
         case 'navigate:subflow':
@@ -2021,11 +2021,12 @@ export class ModelBridge {
   private async performAutoLayout(
     model: WorkflowModel,
     nodeSizes?: Record<string, { width: number; height: number }>,
-    edgeLabelSizes?: Record<string, { width: number; height: number }>
+    edgeLabelSizes?: Record<string, { width: number; height: number }>,
+    direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP'
   ): Promise<void> {
     const workflow = model.getWorkflow();
     const currentDiagram = model.getDiagram();
-    const newDiagram = await autoLayout(workflow, currentDiagram, { nodeSizes, edgeLabelSizes });
+    const newDiagram = await autoLayout(workflow, currentDiagram, { nodeSizes, edgeLabelSizes, direction });
     model.setDiagram(newDiagram);
     await this.saveModel(model);
   }

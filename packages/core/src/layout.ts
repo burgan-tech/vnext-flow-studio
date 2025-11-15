@@ -10,6 +10,7 @@ export interface AutoLayoutOptions {
   // Optional measured sizes from the webview (React Flow v12)
   nodeSizes?: Record<string, { width: number; height: number }>;
   edgeLabelSizes?: Record<string, { width: number; height: number }>;
+  direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP';
 }
 
 const DEFAULT_START_X = 100;
@@ -27,14 +28,24 @@ const elk = new ELK({
 
 const BASE_LAYOUT_OPTIONS: Record<string, string> = {
   'elk.algorithm': 'layered',
-  'elk.direction': 'RIGHT',
+  // Direction is set dynamically based on user choice
   'elk.edgeRouting': 'ORTHOGONAL',
+  'elk.layered.layering.strategy': 'LONGEST_PATH', // Better placement for convergence nodes
+  'elk.layered.layering.wideNodesOnMultipleLayers': 'NONE', // Don't split wide nodes
   'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-  'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+  'elk.layered.crossingMinimization.greedySwitch.type': 'TWO_SIDED', // Better crossing minimization
+  'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF', // Reduces edge bends, better for hubs
+  'elk.layered.nodePlacement.favorStraightEdges': 'true', // Prefer straight edges
+  'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED', // Balanced alignment
+  'elk.layered.cycleBreaking.strategy': 'GREEDY', // Better cycle handling
+  'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES', // Respect graph structure
+  'elk.layered.compaction.postCompaction.strategy': 'EDGE_LENGTH', // Minimize edge length after layout
+  'elk.layered.compaction.postCompaction.constraints': 'SEQUENCE', // Respect sequence constraints
   'elk.layered.spacing.baseValue': '60', // Reduced base spacing for compactness
   'elk.layered.spacing.edgeNodeBetweenLayers': '30', // Reduced space between edges and nodes
   'elk.layered.compaction.connectedComponents': 'true', // Enable compaction for tighter layout
-  'elk.layered.mergeEdges': 'false' // Keep edges separate to avoid overlap
+  'elk.layered.mergeEdges': 'false', // Keep edges separate to avoid overlap
+  'elk.layered.thoroughness': '100' // Maximum optimization thoroughness
 };
 
 interface ElkPort {
@@ -213,6 +224,7 @@ export async function autoLayout(
 
   const layoutOptions: Record<string, string> = {
     ...BASE_LAYOUT_OPTIONS,
+    'elk.direction': options.direction ?? 'RIGHT', // Direction can be RIGHT, DOWN, LEFT, or UP
     // Correct ELK property names for layered algorithm spacing
     'elk.layered.spacing.nodeNodeBetweenLayers': String(options.columnSpacing ?? DEFAULT_COLUMN_SPACING),
     'elk.spacing.nodeNode': String(options.rowSpacing ?? DEFAULT_ROW_SPACING),
@@ -220,7 +232,6 @@ export async function autoLayout(
     'elk.spacing.edgeNode': '40', // More space between edges and nodes for labels
     'elk.spacing.edgeEdge': '25', // More spacing between parallel edges for labels
     'elk.spacing.portPort': '20',
-    'elk.layered.thoroughness': '100', // Maximum thoroughness for better layout
     'elk.layered.spacing.edgeSpacingFactor': '2.0', // More space between parallel edges for labels
     'elk.layered.edgeRouting.selfLoopSpacing': '30', // Space for self-loops if any
     'elk.edgeLabels.inline': 'false', // Keep labels separate from edge path
