@@ -668,9 +668,12 @@ async function createNewTask(contextUri?: vscode.Uri) {
       Buffer.from(JSON.stringify(taskContent, null, 2), 'utf8')
     );
 
-    // Open in editor
+    // Open in editor beside the flow editor to keep context
     const document = await vscode.workspace.openTextDocument(filePath);
-    await vscode.window.showTextDocument(document);
+    await vscode.window.showTextDocument(document, {
+      viewColumn: vscode.ViewColumn.Beside,
+      preserveFocus: false
+    });
 
     // Optionally open in Quick Editor
     const openInQuickEditor = await vscode.window.showInformationMessage(
@@ -680,7 +683,11 @@ async function createNewTask(contextUri?: vscode.Uri) {
     );
 
     if (openInQuickEditor === 'Open in Quick Editor') {
-      await vscode.commands.executeCommand('vscode.openWith', filePath, TaskQuickEditorProvider.viewType);
+      // Close the JSON editor first
+      await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+      // Open Quick Editor beside the flow editor
+      const uri = vscode.Uri.file(filePath.fsPath);
+      await vscode.commands.executeCommand('vscode.openWith', uri, TaskQuickEditorProvider.viewType, vscode.ViewColumn.Beside);
     }
 
   } catch (error) {
