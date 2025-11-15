@@ -1240,9 +1240,39 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       }
     }
 
-    postMessage({ type: 'request:autoLayout', nodeSizes: sizeMap });
+    // Measure edge label dimensions
+    const edgeLabelSizes: Record<string, { width: number; height: number }> = {};
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // Match the font used in edge labels (FloatingEdge.tsx labelStyle)
+      ctx.font = '13px system-ui, -apple-system, sans-serif';
+
+      for (const edge of edges) {
+        const label = edge.label;
+        if (label && typeof label === 'string') {
+          // Measure text width
+          const metrics = ctx.measureText(label);
+          const textWidth = metrics.width;
+
+          // Add padding and icon space
+          // Icon: 20px (16px icon + 4px spacing)
+          // Padding: 10px left + 10px right (from labelBgPadding in FloatingEdge.tsx)
+          // Gap: 6px between icon and text
+          const totalWidth = 20 + 6 + textWidth + 20; // icon + gap + text + padding
+          const totalHeight = 32; // Approximate height based on padding and font size
+
+          edgeLabelSizes[edge.id] = {
+            width: Math.ceil(totalWidth),
+            height: totalHeight
+          };
+        }
+      }
+    }
+
+    postMessage({ type: 'request:autoLayout', nodeSizes: sizeMap, edgeLabelSizes });
     setContextMenu(null);
-  }, [postMessage, nodes]);
+  }, [postMessage, nodes, edges]);
 
   // After mount and once nodes are measured, run a one-time measured auto layout
   useEffect(() => {

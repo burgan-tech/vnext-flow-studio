@@ -51,6 +51,7 @@ export type MsgFromWebview =
   | {
       type: 'request:autoLayout';
       nodeSizes?: Record<string, { width: number; height: number }>;
+      edgeLabelSizes?: Record<string, { width: number; height: number }>;
     }
   | { type: 'request:exportDocumentation'; content: string; filename: string; svgContent?: string; svgFilename?: string }
   | {

@@ -9,6 +9,7 @@ export interface AutoLayoutOptions {
   rowSpacing?: number;
   // Optional measured sizes from the webview (React Flow v12)
   nodeSizes?: Record<string, { width: number; height: number }>;
+  edgeLabelSizes?: Record<string, { width: number; height: number }>;
 }
 
 const DEFAULT_START_X = 100;
@@ -131,6 +132,7 @@ export async function autoLayout(
     target: string;
     sourcePort?: string;
     targetPort?: string;
+    labels?: Array<{ width: number; height: number; text?: string }>;
   }> = [];
 
   for (const state of states) {
@@ -139,12 +141,16 @@ export async function autoLayout(
         continue;
       }
 
+      const edgeId = `t:local:${state.key}:${transition.key}`;
+      const labelSize = options.edgeLabelSizes?.[edgeId];
+
       edges.push({
-        id: `transition:${state.key}:${transition.key}`,
+        id: edgeId,
         source: state.key,
         target: transition.target,
         sourcePort: `${state.key}.out`,
-        targetPort: `${transition.target}.in`
+        targetPort: `${transition.target}.in`,
+        labels: labelSize ? [{ width: labelSize.width, height: labelSize.height }] : undefined
       });
     }
   }
@@ -163,35 +169,45 @@ export async function autoLayout(
       // Resolve "$self" target to the actual source state
       const targetNode = sharedTransition.target === '$self' ? from : sharedTransition.target;
 
+      const edgeId = `t:shared:${sharedTransition.key}:${from}`;
+      const labelSize = options.edgeLabelSizes?.[edgeId];
+
       edges.push({
-        id: `shared:${sharedTransition.key}:${from}`,
+        id: edgeId,
         source: from,
         target: targetNode,
         sourcePort: `${from}.out`,
-        targetPort: `${targetNode}.in`
+        targetPort: `${targetNode}.in`,
+        labels: labelSize ? [{ width: labelSize.width, height: labelSize.height }] : undefined
       });
     }
   }
 
   if (workflow.attributes.startTransition && stateKeys.has(workflow.attributes.startTransition.target)) {
     children.push(createEventChild(START_NODE_ID, options.nodeSizes?.[START_NODE_ID]));
+    const edgeId = `t:start:${workflow.attributes.startTransition.target}`;
+    const labelSize = options.edgeLabelSizes?.[edgeId];
     edges.push({
-      id: 'start',
+      id: edgeId,
       source: START_NODE_ID,
       target: workflow.attributes.startTransition.target,
       sourcePort: `${START_NODE_ID}.out`,
-      targetPort: `${workflow.attributes.startTransition.target}.in`
+      targetPort: `${workflow.attributes.startTransition.target}.in`,
+      labels: labelSize ? [{ width: labelSize.width, height: labelSize.height }] : undefined
     });
   }
 
   if (workflow.attributes.timeout && stateKeys.has(workflow.attributes.timeout.target)) {
     children.push(createEventChild(TIMEOUT_NODE_ID, options.nodeSizes?.[TIMEOUT_NODE_ID]));
+    const edgeId = `t:timeout:${workflow.attributes.timeout.key}`;
+    const labelSize = options.edgeLabelSizes?.[edgeId];
     edges.push({
-      id: `timeout:${workflow.attributes.timeout.key}`,
+      id: edgeId,
       source: TIMEOUT_NODE_ID,
       target: workflow.attributes.timeout.target,
       sourcePort: `${TIMEOUT_NODE_ID}.out`,
-      targetPort: `${workflow.attributes.timeout.target}.in`
+      targetPort: `${workflow.attributes.timeout.target}.in`,
+      labels: labelSize ? [{ width: labelSize.width, height: labelSize.height }] : undefined
     });
   }
 
