@@ -1790,7 +1790,7 @@ export class ModelBridge {
 
       // Open the task file in the Quick Task Editor
       const uri = vscode.Uri.file(filePath);
-      await vscode.commands.executeCommand('vscode.openWith', uri, 'taskEditor.canvas', vscode.ViewColumn.Beside);
+      await vscode.commands.executeCommand('vscode.openWith', uri, 'vnext.taskQuickEditor', vscode.ViewColumn.Beside);
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
