@@ -19,10 +19,13 @@
 
 .task-search-panel__input-container {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .task-search-panel__input {
-  width: 100%;
+  flex: 1;
   padding: 8px 12px;
   font-size: 13px;
   color: #1e293b;
@@ -37,6 +40,29 @@
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.task-search-panel__view-btn {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #3b82f6;
+  background: #eff6ff;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.task-search-panel__view-btn:hover {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.task-search-panel__view-btn:active {
+  transform: scale(0.95);
 }
 
 .task-search-panel__dropdown {

@@ -807,6 +807,10 @@ export class ModelBridge {
           await this.handleTaskCreation(message, panel);
           break;
 
+        case 'task:open':
+          await this.handleOpenTask(message, panel);
+          break;
+
         case 'rule:loadFromFile':
           await this.loadRuleFromFile(model, message);
           break;
@@ -1744,6 +1748,38 @@ export class ModelBridge {
         error: errorMessage
       });
       vscode.window.showErrorMessage(`Failed to create task: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Open a task file in the Quick Task Editor
+   */
+  private async handleOpenTask(message: any, panel: vscode.WebviewPanel): Promise<void> {
+    const { taskRef } = message;
+
+    try {
+      // Use the global component resolver to find the task
+      const task = await this.globalResolver.resolveTask({ ref: taskRef });
+
+      if (!task) {
+        vscode.window.showErrorMessage(`Task not found: ${taskRef}`);
+        return;
+      }
+
+      // Check if the task has a file path
+      const filePath = (task as any).__filePath;
+      if (!filePath) {
+        vscode.window.showErrorMessage(`No file path found for task: ${taskRef}`);
+        return;
+      }
+
+      // Open the task file in the Quick Task Editor
+      const uri = vscode.Uri.file(filePath);
+      await vscode.commands.executeCommand('vscode.openWith', uri, 'taskEditor.canvas', vscode.ViewColumn.Beside);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`Failed to open task: ${errorMessage}`);
     }
   }
 

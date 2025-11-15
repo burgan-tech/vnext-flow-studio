@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { TaskComponentDefinition } from '@amorphie-workflow/core';
+import { useBridge } from '../../hooks/useBridge';
 
 interface TaskSearchPanelProps {
   availableTasks: TaskComponentDefinition[];
@@ -14,6 +15,7 @@ export function TaskSearchPanel({
   onSelectTask,
   onCreateNewTask,
 }: TaskSearchPanelProps) {
+  const { postMessage } = useBridge();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -72,6 +74,15 @@ export function TaskSearchPanel({
     setSearchQuery('');
   };
 
+  const handleOpenTask = () => {
+    if (selectedTaskRef) {
+      postMessage({
+        type: 'task:open',
+        taskRef: selectedTaskRef
+      });
+    }
+  };
+
   return (
     <div className="task-search-panel">
       <label className="task-search-panel__label">
@@ -92,6 +103,16 @@ export function TaskSearchPanel({
           }}
           placeholder="Search tasks..."
         />
+        {selectedTaskRef && !isDropdownOpen && (
+          <button
+            type="button"
+            className="task-search-panel__view-btn"
+            onClick={handleOpenTask}
+            title="View task definition"
+          >
+            →
+          </button>
+        )}
 
         {isDropdownOpen && (
           <div className="task-search-panel__dropdown">
