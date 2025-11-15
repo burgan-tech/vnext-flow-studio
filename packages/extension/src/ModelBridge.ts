@@ -1760,7 +1760,7 @@ export class ModelBridge {
       domain: domain,
       version: version,
       flow: 'sys-tasks',
-      flowVersion: version,
+      flowVersion: '1.0.0',  // sys-tasks model version is always 1.0.0
       tags: ['task'],
       attributes: {
         type: type,
