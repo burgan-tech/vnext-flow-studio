@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { ExecutionTask, TaskRef, Mapping } from '@amorphie-workflow/core';
 import { MappingSection, type MappingData } from './MappingSection';
 import { TaskSearchPanel } from './TaskSearchPanel';
+import { TaskCreationModal } from './TaskCreationModal';
 import { useBridge } from '../../hooks/useBridge';
 
 interface TaskDetailsPanelProps {
@@ -37,6 +38,7 @@ export function TaskDetailsPanel({
     code: '',
     location: '',
   });
+  const [showTaskCreationModal, setShowTaskCreationModal] = useState(false);
 
   // Update local state when task changes
   useEffect(() => {
@@ -111,7 +113,7 @@ export function TaskDetailsPanel({
           selectedTaskRef={taskRefInput}
           onSelectTask={handleTaskRefChange}
           onCreateNewTask={() => {
-            postMessage({ type: 'task:createNew' });
+            setShowTaskCreationModal(true);
           }}
         />
 
@@ -127,6 +129,22 @@ export function TaskDetailsPanel({
           taskIndex={taskIndex}
         />
       </div>
+
+      {/* Task Creation Modal */}
+      {showTaskCreationModal && (
+        <TaskCreationModal
+          onClose={() => setShowTaskCreationModal(false)}
+          onCreate={(taskName, taskType) => {
+            postMessage({
+              type: 'task:create',
+              taskName,
+              taskType,
+              openInQuickEditor: true
+            });
+            setShowTaskCreationModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

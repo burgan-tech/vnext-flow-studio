@@ -803,6 +803,10 @@ export class ModelBridge {
           await vscode.commands.executeCommand('taskEditor.newTask');
           break;
 
+        case 'task:create':
+          await this.handleTaskCreation(message, panel);
+          break;
+
         case 'rule:loadFromFile':
           await this.loadRuleFromFile(model, message);
           break;
@@ -1635,6 +1639,195 @@ export class ModelBridge {
       });
       vscode.window.showErrorMessage(`Failed to create script file: ${errorMessage}`);
     }
+  }
+
+  /**
+   * Handle task creation from webview
+   */
+  private async handleTaskCreation(message: any, panel: vscode.WebviewPanel): Promise<void> {
+    const { taskName, taskType, folderPath, openInQuickEditor } = message;
+
+    try {
+      // Find Tasks folder in workspace
+      const folders = vscode.workspace.workspaceFolders;
+      if (!folders || folders.length === 0) {
+        panel.webview.postMessage({
+          type: 'task:created',
+          success: false,
+          error: 'No workspace folder open'
+        });
+        return;
+      }
+
+      let targetFolder: vscode.Uri | undefined;
+
+      // Use provided folder path or find Tasks folder
+      if (folderPath) {
+        targetFolder = vscode.Uri.file(folderPath);
+      } else {
+        // Try to find Tasks folder in workspace
+        for (const folder of folders) {
+          const tasksFolder = vscode.Uri.joinPath(folder.uri, 'Tasks');
+          try {
+            await vscode.workspace.fs.stat(tasksFolder);
+            targetFolder = tasksFolder;
+            break;
+          } catch {
+            // Tasks folder doesn't exist, continue
+          }
+        }
+
+        if (!targetFolder) {
+          // Create Tasks folder in first workspace folder
+          targetFolder = vscode.Uri.joinPath(folders[0].uri, 'Tasks');
+          await vscode.workspace.fs.createDirectory(targetFolder);
+        }
+      }
+
+      // Create task template
+      const taskContent = this.createTaskTemplate(taskName, taskType);
+
+      // Create file path
+      const fileName = `${taskName}.json`;
+      const filePath = vscode.Uri.joinPath(targetFolder, fileName);
+
+      // Check if file already exists
+      try {
+        await vscode.workspace.fs.stat(filePath);
+        panel.webview.postMessage({
+          type: 'task:created',
+          success: false,
+          error: `File ${fileName} already exists`
+        });
+        return;
+      } catch {
+        // File doesn't exist, continue
+      }
+
+      // Write file
+      await vscode.workspace.fs.writeFile(
+        filePath,
+        Buffer.from(JSON.stringify(taskContent, null, 2), 'utf8')
+      );
+
+      // Open in Quick Editor directly
+      if (openInQuickEditor) {
+        await vscode.commands.executeCommand(
+          'vscode.openWith',
+          filePath,
+          'vnext.taskQuickEditor',
+          vscode.ViewColumn.Beside
+        );
+      } else {
+        // Open in JSON editor
+        const document = await vscode.workspace.openTextDocument(filePath);
+        await vscode.window.showTextDocument(document, {
+          viewColumn: vscode.ViewColumn.Beside,
+          preserveFocus: false
+        });
+      }
+
+      // Send success message
+      panel.webview.postMessage({
+        type: 'task:created',
+        success: true,
+        filePath: filePath.fsPath
+      });
+
+      vscode.window.showInformationMessage(`Task "${taskName}" created successfully`);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      panel.webview.postMessage({
+        type: 'task:created',
+        success: false,
+        error: errorMessage
+      });
+      vscode.window.showErrorMessage(`Failed to create task: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Create task template based on type
+   */
+  private createTaskTemplate(name: string, type: string): any {
+    const base = {
+      key: name,
+      domain: 'my-domain',
+      version: '1.0.0',
+      flow: 'sys-tasks',
+      flowVersion: '1.0.0',
+      tags: ['task'],
+      attributes: {
+        type: type,
+        config: {}
+      }
+    };
+
+    // Add type-specific default config
+    switch (type) {
+      case 'http':
+        base.attributes.config = {
+          url: 'https://api.example.com/endpoint',
+          method: 'GET',
+          headers: {},
+          timeout: 30000
+        };
+        break;
+      case 'service':
+        base.attributes.config = {
+          appId: '',
+          methodName: '',
+          protocol: 'http'
+        };
+        break;
+      case 'script':
+        base.attributes.config = {
+          language: 'csharp',
+          script: ''
+        };
+        break;
+      case 'subprocess':
+        base.attributes.config = {
+          workflowKey: '',
+          workflowDomain: '',
+          workflowVersion: ''
+        };
+        break;
+      case 'user':
+        base.attributes.config = {
+          title: 'User Task',
+          instructions: '',
+          assignedTo: ''
+        };
+        break;
+      case 'manual':
+        base.attributes.config = {
+          title: 'Manual Task',
+          description: ''
+        };
+        break;
+      case 'business-rule':
+        base.attributes.config = {
+          ruleKey: '',
+          ruleDomain: ''
+        };
+        break;
+      case 'send':
+        base.attributes.config = {
+          destination: '',
+          messageType: ''
+        };
+        break;
+      case 'receive':
+        base.attributes.config = {
+          source: '',
+          messageType: ''
+        };
+        break;
+    }
+
+    return base;
   }
 
   /**

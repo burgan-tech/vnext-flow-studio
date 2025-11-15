@@ -26,7 +26,8 @@ export type MsgToWebview =
   | { type: 'deploy:result'; success: boolean; message: string; results?: Array<{ success: boolean; key: string; domain: string; error?: string }> }
   | { type: 'mapper:saved'; mapperRef: string; mapperId: string }
   | { type: 'editor:scriptCreated'; success: boolean; location?: string; error?: string }
-  | { type: 'editor:fileOpened'; success: boolean; error?: string };
+  | { type: 'editor:fileOpened'; success: boolean; error?: string }
+  | { type: 'task:created'; success: boolean; filePath?: string; error?: string };
 
 export type MsgFromWebview =
   | { type: 'ready' }
@@ -101,6 +102,7 @@ export type MsgFromWebview =
   | { type: 'deploy:openSettings' }
   | { type: 'task:openPopupEditor'; stateKey: string; lane?: 'onEntries' | 'onExits' }
   | { type: 'task:createNew' }
+  | { type: 'task:create'; taskName: string; taskType: string; folderPath?: string; openInQuickEditor?: boolean }
   | { type: 'transition:editKey'; transitionId: string }
   | { type: 'editor:openInVSCode'; location: string }
   | { type: 'editor:createScript'; content: string; location: string; scriptType: 'mapping' | 'rule' };
