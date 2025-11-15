@@ -6,6 +6,7 @@ import { TaskDetailsPanel } from './TaskDetailsPanel';
 interface TaskMappingPopupProps {
   state: State;
   workflowName?: string;
+  workflowDomain?: string;
   onClose: () => void;
   onApply: (updates: { onEntries?: ExecutionTask[]; onExits?: ExecutionTask[] }) => void;
   initialLane?: 'onEntries' | 'onExits';
@@ -13,7 +14,7 @@ interface TaskMappingPopupProps {
   isTransition?: boolean;
 }
 
-export function TaskMappingPopup({ state, workflowName, onClose, onApply, initialLane = 'onEntries', catalogs, isTransition = false }: TaskMappingPopupProps) {
+export function TaskMappingPopup({ state, workflowName, workflowDomain, onClose, onApply, initialLane = 'onEntries', catalogs, isTransition = false }: TaskMappingPopupProps) {
   const [activeTab, setActiveTab] = useState<'onEntries' | 'onExits'>(initialLane);
   const [draftOnEntries, setDraftOnEntries] = useState<ExecutionTask[]>(state.onEntries || []);
   const [draftOnExits, setDraftOnExits] = useState<ExecutionTask[]>(state.onExits || []);
@@ -183,6 +184,7 @@ export function TaskMappingPopup({ state, workflowName, onClose, onApply, initia
             taskIndex={selectedTaskIndex}
             stateKey={state.key}
             workflowName={workflowName}
+            workflowDomain={workflowDomain}
             lane={activeTab}
             catalogs={catalogs}
             onUpdateTask={(updatedTask) => {

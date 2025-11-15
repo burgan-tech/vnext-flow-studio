@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 
 interface TaskCreationModalProps {
   onClose: () => void;
-  onCreate: (taskName: string, taskType: string) => void;
+  onCreate: (taskName: string, taskType: string, version: string) => void;
+  workflowDomain?: string;
 }
 
 const TASK_TYPES = [
@@ -17,9 +18,10 @@ const TASK_TYPES = [
   { value: 'receive', label: 'Receive Task' }
 ];
 
-export function TaskCreationModal({ onClose, onCreate }: TaskCreationModalProps) {
+export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCreationModalProps) {
   const [taskName, setTaskName] = useState('');
   const [taskType, setTaskType] = useState('http');
+  const [version, setVersion] = useState('1.0.0');
   const [error, setError] = useState('');
 
   const validateTaskName = (name: string): boolean => {
@@ -51,7 +53,7 @@ export function TaskCreationModal({ onClose, onCreate }: TaskCreationModalProps)
 
   const handleCreate = () => {
     if (validateTaskName(taskName)) {
-      onCreate(taskName, taskType);
+      onCreate(taskName, taskType, version);
       onClose();
     }
   };
@@ -169,6 +171,77 @@ export function TaskCreationModal({ onClose, onCreate }: TaskCreationModalProps)
                 </option>
               ))}
             </select>
+          </div>
+
+          {workflowDomain && (
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontWeight: 500,
+                  color: '#1e293b'
+                }}
+              >
+                Domain
+              </label>
+              <div style={{
+                padding: '8px 12px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '4px',
+                fontSize: '14px',
+                backgroundColor: '#f8fafc',
+                color: '#64748b'
+              }}>
+                {workflowDomain}
+              </div>
+              <div style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: '#64748b'
+              }}>
+                Inherited from workflow
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginBottom: '20px' }}>
+            <label
+              htmlFor="task-version"
+              style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: 500,
+                color: '#1e293b'
+              }}
+            >
+              Version *
+            </label>
+            <input
+              id="task-version"
+              type="text"
+              value={version}
+              onChange={(e) => setVersion(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="1.0.0"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #cbd5e1',
+                borderRadius: '4px',
+                fontSize: '14px',
+                fontFamily: 'var(--vscode-font-family)',
+                backgroundColor: '#ffffff',
+                color: '#1e293b'
+              }}
+            />
+            <div style={{
+              marginTop: '6px',
+              fontSize: '12px',
+              color: '#64748b'
+            }}>
+              Semantic version (e.g., 1.0.0, 2.1.3)
+            </div>
           </div>
         </div>
 

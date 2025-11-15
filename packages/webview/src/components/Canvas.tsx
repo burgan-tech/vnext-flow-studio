@@ -2547,6 +2547,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             <TaskMappingPopup
               state={state}
               workflowName={workflow.key}
+              workflowDomain={workflow.domain}
               onClose={handleCloseTaskPopup}
               onApply={handleApplyTaskChanges}
               initialLane={taskPopupState.lane}
@@ -2587,6 +2588,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             <TaskMappingPopup
               state={transitionAsState as any}
               workflowName={workflow.key}
+              workflowDomain={workflow.domain}
               onClose={handleCloseTaskPopup}
               onApply={(updates) => handleApplyTaskChanges({ onExecutionTasks: updates.onEntries })}
               initialLane="onEntries"

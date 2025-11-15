@@ -1645,7 +1645,7 @@ export class ModelBridge {
    * Handle task creation from webview
    */
   private async handleTaskCreation(message: any, panel: vscode.WebviewPanel): Promise<void> {
-    const { taskName, taskType, folderPath, openInQuickEditor } = message;
+    const { taskName, taskType, version, workflowDomain, folderPath, openInQuickEditor } = message;
 
     try {
       // Find Tasks folder in workspace
@@ -1685,7 +1685,7 @@ export class ModelBridge {
       }
 
       // Create task template
-      const taskContent = this.createTaskTemplate(taskName, taskType);
+      const taskContent = this.createTaskTemplate(taskName, taskType, version, workflowDomain);
 
       // Create file path
       const fileName = `${taskName}.json`;
@@ -1754,13 +1754,13 @@ export class ModelBridge {
   /**
    * Create task template based on type
    */
-  private createTaskTemplate(name: string, type: string): any {
+  private createTaskTemplate(name: string, type: string, version: string, domain: string): any {
     const base = {
       key: name,
-      domain: 'my-domain',
-      version: '1.0.0',
+      domain: domain,
+      version: version,
       flow: 'sys-tasks',
-      flowVersion: '1.0.0',
+      flowVersion: version,
       tags: ['task'],
       attributes: {
         type: type,

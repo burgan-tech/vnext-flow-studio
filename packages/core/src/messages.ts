@@ -102,7 +102,7 @@ export type MsgFromWebview =
   | { type: 'deploy:openSettings' }
   | { type: 'task:openPopupEditor'; stateKey: string; lane?: 'onEntries' | 'onExits' }
   | { type: 'task:createNew' }
-  | { type: 'task:create'; taskName: string; taskType: string; folderPath?: string; openInQuickEditor?: boolean }
+  | { type: 'task:create'; taskName: string; taskType: string; version: string; workflowDomain: string; folderPath?: string; openInQuickEditor?: boolean }
   | { type: 'transition:editKey'; transitionId: string }
   | { type: 'editor:openInVSCode'; location: string }
   | { type: 'editor:createScript'; content: string; location: string; scriptType: 'mapping' | 'rule' };
