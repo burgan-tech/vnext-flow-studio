@@ -204,8 +204,8 @@ export class ModelBridge {
 
       // Dynamically find all component directories in the workspace
       const findComponentDirs = async (dirName: string): Promise<string[]> => {
-        const fg = require('fast-glob');
-        const paths = await fg(`**/${dirName}`, {
+        const fg = await import('fast-glob');
+        const paths = await fg.default(`**/${dirName}`, {
           cwd: workspaceRoot,
           onlyDirectories: true,
           ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'],
@@ -838,7 +838,7 @@ export class ModelBridge {
           break;
 
         case 'task:create':
-          await this.handleTaskCreation(message, panel);
+          await this.handleTaskCreation(message, model, panel);
           break;
 
         case 'task:open':
@@ -1838,9 +1838,45 @@ export class ModelBridge {
   }
 
   /**
+   * Find the closest Tasks folder to a workflow file by searching upwards in the directory tree
+   */
+  private async findClosestTasksFolder(workflowPath: string): Promise<vscode.Uri | undefined> {
+    let currentDir = path.dirname(workflowPath);
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+    if (!workspaceRoot) {
+      return undefined;
+    }
+
+    // Search upwards from workflow directory to workspace root
+    while (currentDir.startsWith(workspaceRoot)) {
+      const tasksFolder = vscode.Uri.file(path.join(currentDir, 'Tasks'));
+
+      try {
+        const stat = await vscode.workspace.fs.stat(tasksFolder);
+        if (stat.type === vscode.FileType.Directory) {
+          return tasksFolder;
+        }
+      } catch {
+        // Tasks folder doesn't exist at this level, continue
+      }
+
+      // Move up one directory
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) {
+        // Reached filesystem root
+        break;
+      }
+      currentDir = parentDir;
+    }
+
+    return undefined;
+  }
+
+  /**
    * Handle task creation from webview
    */
-  private async handleTaskCreation(message: any, panel: vscode.WebviewPanel): Promise<void> {
+  private async handleTaskCreation(message: any, model: WorkflowModel, panel: vscode.WebviewPanel): Promise<void> {
     const { taskName, taskType, version, domain, folderPath, openInQuickEditor } = message;
 
     try {
@@ -1861,15 +1897,27 @@ export class ModelBridge {
       if (folderPath) {
         targetFolder = vscode.Uri.file(folderPath);
       } else {
-        // Try to find Tasks folder in workspace
-        for (const folder of folders) {
-          const tasksFolder = vscode.Uri.joinPath(folder.uri, 'Tasks');
-          try {
-            await vscode.workspace.fs.stat(tasksFolder);
-            targetFolder = tasksFolder;
-            break;
-          } catch {
-            // Tasks folder doesn't exist, continue
+        // Get workflow path from the model
+        const workflowPath = model.getModelState().metadata.workflowPath;
+        console.log('[ModelBridge] Task creation - using workflow path from model:', workflowPath);
+
+        // Try to find Tasks folder closest to the workflow
+        if (workflowPath) {
+          targetFolder = await this.findClosestTasksFolder(workflowPath);
+          console.log('[ModelBridge] Task creation - found closest Tasks folder:', targetFolder?.fsPath);
+        }
+
+        // If no Tasks folder found nearby, search workspace
+        if (!targetFolder) {
+          for (const folder of folders) {
+            const tasksFolder = vscode.Uri.joinPath(folder.uri, 'Tasks');
+            try {
+              await vscode.workspace.fs.stat(tasksFolder);
+              targetFolder = tasksFolder;
+              break;
+            } catch {
+              // Tasks folder doesn't exist, continue
+            }
           }
         }
 
@@ -1883,8 +1931,8 @@ export class ModelBridge {
       // Create task template with domain and version
       const taskContent = this.createTaskTemplate(taskName, taskType, version, domain);
 
-      // Create file path
-      const fileName = `${taskName}.json`;
+      // Create file path with version
+      const fileName = `${taskName}.${version}.json`;
       const filePath = vscode.Uri.joinPath(targetFolder, fileName);
 
       // Check if file already exists
@@ -1956,7 +2004,7 @@ export class ModelBridge {
   /**
    * Open a task file in the Quick Task Editor
    */
-  private async handleOpenTask(message: any, panel: vscode.WebviewPanel): Promise<void> {
+  private async handleOpenTask(message: any, _panel: vscode.WebviewPanel): Promise<void> {
     const { taskRef, domain, flow, key, version } = message;
 
     try {

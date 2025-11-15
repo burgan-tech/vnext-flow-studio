@@ -46,18 +46,25 @@ export function TaskDetailsPanel({
   useEffect(() => {
     const unsubscribe = onMessage((message) => {
       if (message.type === 'task:created' && message.success && task && taskIndex !== null) {
-        // Format the task reference
-        const newTaskRef = message.taskRef || message.key || '';
-
-        // Update the task with the new reference
-        if (newTaskRef) {
-          handleTaskRefChange(newTaskRef);
+        // Create normalized task reference with key, domain, version, flow
+        if (message.key && message.domain && message.version) {
+          const updatedTask: ExecutionTask = {
+            ...task,
+            task: {
+              key: message.key,
+              domain: message.domain,
+              version: message.version,
+              flow: message.flow || 'sys-tasks'
+            } as TaskRef,
+          };
+          onUpdateTask(updatedTask);
+          setTaskRefInput(message.key);
         }
       }
     });
 
     return unsubscribe;
-  }, [onMessage, task, taskIndex]);
+  }, [onMessage, task, taskIndex, onUpdateTask]);
 
   // Update local state when task or taskIndex changes
   useEffect(() => {

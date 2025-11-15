@@ -73,7 +73,7 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
     };
 
     // Helper to extract reference (Schema, View, etc.)
-    const extractRef = (ref: any, type: WorkflowDependency['type'], defaultFlow: string): WorkflowDependency | null => {
+    const extractRef = (ref: any, type: WorkflowDependency['type']): WorkflowDependency | null => {
       if (!ref) return null;
       if (ref.ref) {
         // File-based reference - extract filename for display, keep ref for resolution
@@ -115,7 +115,7 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
         const stateDeps: WorkflowDependency[] = [];
 
         // State view
-        const stateView = extractRef(state.view, 'View', 'sys-views');
+        const stateView = extractRef(state.view, 'View');
         if (stateView) stateDeps.push(stateView);
 
         // OnEntry tasks and scripts
@@ -176,11 +176,11 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
             }
 
             // Transition schema
-            const transSchema = extractRef(transition.schema, 'Schema', 'sys-schemas');
+            const transSchema = extractRef(transition.schema, 'Schema');
             if (transSchema) stateDeps.push({ ...transSchema, context: `transition:${transition.key}` });
 
             // Transition view
-            const transView = extractRef(transition.view, 'View', 'sys-views');
+            const transView = extractRef(transition.view, 'View');
             if (transView) stateDeps.push({ ...transView, context: `transition:${transition.key}` });
 
             // Transition onExecutionTasks
@@ -212,7 +212,7 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
     if (workflow.attributes?.functions) {
       const workflowLevelDeps: WorkflowDependency[] = [];
       workflow.attributes.functions.forEach((funcRef: any) => {
-        const func = extractRef(funcRef, 'Function', 'sys-functions');
+        const func = extractRef(funcRef, 'Function');
         if (func) workflowLevelDeps.push(func);
       });
       if (workflowLevelDeps.length > 0) {
@@ -223,7 +223,7 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
     if (workflow.attributes?.extensions) {
       const extDeps = stateTree['[Workflow Level]'] || [];
       workflow.attributes.extensions.forEach((extRef: any) => {
-        const ext = extractRef(extRef, 'Extension', 'sys-extensions');
+        const ext = extractRef(extRef, 'Extension');
         if (ext) extDeps.push(ext);
       });
       if (extDeps.length > 0) {
@@ -234,6 +234,7 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
     return stateTree;
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const stateTree = useMemo(() => extractDependencies(), [workflow]);
   const totalDeps = Object.values(stateTree).reduce((sum, deps) => sum + deps.length, 0);
 
@@ -283,14 +284,14 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [allDeps]);
+  }, [allDeps, postMessage]);
 
   if (totalDeps === 0) {
     return (
       <div className="dependencies-panel__empty">
         <p>No dependencies found</p>
         <p className="dependencies-panel__empty-subtitle">
-          This workflow doesn't reference any tasks, schemas, views, or scripts
+          This workflow doesn&apos;t reference any tasks, schemas, views, or scripts
         </p>
       </div>
     );
