@@ -312,7 +312,7 @@ export class ComponentResolver implements IComponentResolver {
           } else {
             console.log('[ComponentResolver] Component mismatch: key=', component.key, 'vs', ref.key, 'domain=', component.domain, 'vs', ref.domain);
           }
-        } catch (err) {
+        } catch {
           // File doesn't exist or can't be read, try next path
           continue;
         }
