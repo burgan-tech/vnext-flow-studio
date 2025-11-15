@@ -113,15 +113,12 @@ export function TaskSearchPanel({
 
             {filteredTasks.length > 0 ? (
               <div className="task-search-panel__results">
-                {filteredTasks.map((task) => {
-                  // Create unique key from task identifier
-                  const uniqueKey = `${task.domain || 'unknown'}/${task.flow || 'sys-tasks'}/${task.key || 'unknown'}@${task.version || '1.0.0'}`;
-                  return (
-                    <div
-                      key={uniqueKey}
-                      className="task-search-panel__result-item"
-                      onClick={() => handleSelectTask(task)}
-                    >
+                {filteredTasks.map((task, index) => (
+                  <div
+                    key={index}
+                    className="task-search-panel__result-item"
+                    onClick={() => handleSelectTask(task)}
+                  >
                     <div className="task-search-panel__result-header">
                       <span className="task-search-panel__result-key">
                         {task.key}
@@ -143,8 +140,7 @@ export function TaskSearchPanel({
                       </div>
                     )}
                   </div>
-                  );
-                })}
+                ))}
               </div>
             ) : (
               <div className="task-search-panel__empty">

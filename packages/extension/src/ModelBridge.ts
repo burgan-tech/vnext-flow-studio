@@ -1645,7 +1645,7 @@ export class ModelBridge {
    * Handle task creation from webview
    */
   private async handleTaskCreation(message: any, panel: vscode.WebviewPanel): Promise<void> {
-    const { taskName, taskType, version, workflowDomain, folderPath, openInQuickEditor } = message;
+    const { taskName, taskType, version, domain, folderPath, openInQuickEditor } = message;
 
     try {
       // Find Tasks folder in workspace
@@ -1684,8 +1684,8 @@ export class ModelBridge {
         }
       }
 
-      // Create task template
-      const taskContent = this.createTaskTemplate(taskName, taskType, version, workflowDomain);
+      // Create task template with domain and version
+      const taskContent = this.createTaskTemplate(taskName, taskType, version, domain);
 
       // Create file path
       const fileName = `${taskName}.json`;
@@ -1727,15 +1727,11 @@ export class ModelBridge {
         });
       }
 
-      // Construct task reference for auto-selection
-      const taskRef = `${taskContent.domain}/${taskContent.flow}/${taskContent.key}@${taskContent.version}`;
-
-      // Send success message with task reference
+      // Send success message
       panel.webview.postMessage({
         type: 'task:created',
         success: true,
-        filePath: filePath.fsPath,
-        taskRef: taskRef
+        filePath: filePath.fsPath
       });
 
       vscode.window.showInformationMessage(`Task "${taskName}" created successfully`);
@@ -1754,13 +1750,13 @@ export class ModelBridge {
   /**
    * Create task template based on type
    */
-  private createTaskTemplate(name: string, type: string, version: string, domain: string): any {
+  private createTaskTemplate(name: string, type: string, version: string, domain?: string): any {
     const base = {
       key: name,
-      domain: domain,
+      domain: domain || 'my-domain',
       version: version,
       flow: 'sys-tasks',
-      flowVersion: '1.0.0',  // sys-tasks model version is always 1.0.0
+      flowVersion: '1.0.0',
       tags: ['task'],
       attributes: {
         type: type,
@@ -1769,64 +1765,64 @@ export class ModelBridge {
     };
 
     // Add type-specific default config
+    // TaskType enum values: '1' = DaprHttpEndpoint, '2' = DaprBinding, '3' = DaprService, etc.
     switch (type) {
-      case 'http':
+      case '1': // DaprHttpEndpoint
+        base.attributes.config = {
+          endpointName: '',
+          path: '',
+          method: 'GET',
+          headers: {}
+        };
+        break;
+      case '2': // DaprBinding
+        base.attributes.config = {
+          bindingName: '',
+          operation: '',
+          metadata: {},
+          data: {}
+        };
+        break;
+      case '3': // DaprService
+        base.attributes.config = {
+          appId: '',
+          methodName: '',
+          httpVerb: 'GET',
+          data: {},
+          queryString: '',
+          timeoutSeconds: 30
+        };
+        break;
+      case '4': // DaprPubSub
+        base.attributes.config = {
+          pubSubName: '',
+          topic: '',
+          data: {},
+          metadata: {}
+        };
+        break;
+      case '5': // HumanTask
+        base.attributes.config = {
+          title: 'Human Task',
+          instructions: '',
+          assignedTo: '',
+          dueDate: ''
+        };
+        break;
+      case '6': // HttpTask
         base.attributes.config = {
           url: 'https://api.example.com/endpoint',
           method: 'GET',
           headers: {},
+          body: {},
           timeout: 30000
         };
         break;
-      case 'service':
-        base.attributes.config = {
-          appId: '',
-          methodName: '',
-          protocol: 'http'
-        };
-        break;
-      case 'script':
+      case '7': // ScriptTask
         base.attributes.config = {
           language: 'csharp',
-          script: ''
-        };
-        break;
-      case 'subprocess':
-        base.attributes.config = {
-          workflowKey: '',
-          workflowDomain: '',
-          workflowVersion: ''
-        };
-        break;
-      case 'user':
-        base.attributes.config = {
-          title: 'User Task',
-          instructions: '',
-          assignedTo: ''
-        };
-        break;
-      case 'manual':
-        base.attributes.config = {
-          title: 'Manual Task',
-          description: ''
-        };
-        break;
-      case 'business-rule':
-        base.attributes.config = {
-          ruleKey: '',
-          ruleDomain: ''
-        };
-        break;
-      case 'send':
-        base.attributes.config = {
-          destination: '',
-          messageType: ''
-        };
-        break;
-      case 'receive':
-        base.attributes.config = {
-          source: '',
-          messageType: ''
+          script: '',
+          parameters: {}
         };
         break;
     }

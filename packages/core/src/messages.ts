@@ -27,7 +27,7 @@ export type MsgToWebview =
   | { type: 'mapper:saved'; mapperRef: string; mapperId: string }
   | { type: 'editor:scriptCreated'; success: boolean; location?: string; error?: string }
   | { type: 'editor:fileOpened'; success: boolean; error?: string }
-  | { type: 'task:created'; success: boolean; filePath?: string; taskRef?: string; error?: string };
+  | { type: 'task:created'; success: boolean; filePath?: string; error?: string };
 
 export type MsgFromWebview =
   | { type: 'ready' }
@@ -102,7 +102,7 @@ export type MsgFromWebview =
   | { type: 'deploy:openSettings' }
   | { type: 'task:openPopupEditor'; stateKey: string; lane?: 'onEntries' | 'onExits' }
   | { type: 'task:createNew' }
-  | { type: 'task:create'; taskName: string; taskType: string; version: string; workflowDomain: string; folderPath?: string; openInQuickEditor?: boolean }
+  | { type: 'task:create'; taskName: string; taskType: string; version: string; domain?: string; folderPath?: string; openInQuickEditor?: boolean }
   | { type: 'transition:editKey'; transitionId: string }
   | { type: 'editor:openInVSCode'; location: string }
   | { type: 'editor:createScript'; content: string; location: string; scriptType: 'mapping' | 'rule' };

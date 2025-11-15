@@ -10,6 +10,7 @@ interface TaskDetailsPanelProps {
   taskIndex: number | null;
   stateKey: string;
   workflowName?: string;
+  workflowDomain?: string;
   lane: 'onEntries' | 'onExits';
   catalogs: Record<string, any[]>;
   onUpdateTask: (updatedTask: ExecutionTask) => void;
@@ -20,6 +21,7 @@ export function TaskDetailsPanel({
   taskIndex,
   stateKey,
   workflowName,
+  workflowDomain,
   lane,
   catalogs,
   onUpdateTask,
@@ -138,12 +140,15 @@ export function TaskDetailsPanel({
       {/* Task Creation Modal */}
       {showTaskCreationModal && (
         <TaskCreationModal
+          workflowDomain={workflowDomain}
           onClose={() => setShowTaskCreationModal(false)}
-          onCreate={(taskName, taskType) => {
+          onCreate={(taskName, taskType, version) => {
             postMessage({
               type: 'task:create',
               taskName,
               taskType,
+              version,
+              domain: workflowDomain,
               openInQuickEditor: true
             });
             setShowTaskCreationModal(false);

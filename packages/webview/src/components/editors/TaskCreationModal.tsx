@@ -6,38 +6,55 @@ interface TaskCreationModalProps {
   workflowDomain?: string;
 }
 
+// Task type enum values - must match @amorphie-flow-studio/core/types/task.ts
 const TASK_TYPES = [
-  { value: 'http', label: 'HTTP Task' },
-  { value: 'service', label: 'Service Task' },
-  { value: 'script', label: 'Script Task' },
-  { value: 'subprocess', label: 'Subprocess Task' },
-  { value: 'user', label: 'User Task' },
-  { value: 'manual', label: 'Manual Task' },
-  { value: 'business-rule', label: 'Business Rule Task' },
-  { value: 'send', label: 'Send Task' },
-  { value: 'receive', label: 'Receive Task' }
+  { value: '1', label: 'Dapr HTTP Endpoint' },
+  { value: '2', label: 'Dapr Binding' },
+  { value: '3', label: 'Dapr Service' },
+  { value: '4', label: 'Dapr PubSub' },
+  { value: '5', label: 'Human Task' },
+  { value: '6', label: 'HTTP Task' },
+  { value: '7', label: 'Script Task' }
 ];
 
 export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCreationModalProps) {
   const [taskName, setTaskName] = useState('');
-  const [taskType, setTaskType] = useState('http');
+  const [taskType, setTaskType] = useState('6'); // Default to HTTP Task
   const [version, setVersion] = useState('1.0.0');
-  const [error, setError] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [versionError, setVersionError] = useState('');
 
   const validateTaskName = (name: string): boolean => {
     if (!name || name.trim() === '') {
-      setError('Task name is required');
+      setNameError('Task name is required');
       return false;
     }
 
     // Must be lowercase with hyphens (kebab-case)
     const validPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
     if (!validPattern.test(name)) {
-      setError('Task name must be lowercase with hyphens (e.g., my-task-name)');
+      setNameError('Task name must be lowercase with hyphens (e.g., my-task-name)');
       return false;
     }
 
-    setError('');
+    setNameError('');
+    return true;
+  };
+
+  const validateVersion = (ver: string): boolean => {
+    if (!ver || ver.trim() === '') {
+      setVersionError('Version is required');
+      return false;
+    }
+
+    // Validate semantic version format (X.Y.Z)
+    const semverPattern = /^\d+\.\d+\.\d+$/;
+    if (!semverPattern.test(ver)) {
+      setVersionError('Version must follow semantic versioning (e.g., 1.0.0)');
+      return false;
+    }
+
+    setVersionError('');
     return true;
   };
 
@@ -47,12 +64,25 @@ export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCre
     if (value) {
       validateTaskName(value);
     } else {
-      setError('');
+      setNameError('');
+    }
+  };
+
+  const handleVersionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setVersion(value);
+    if (value) {
+      validateVersion(value);
+    } else {
+      setVersionError('');
     }
   };
 
   const handleCreate = () => {
-    if (validateTaskName(taskName)) {
+    const nameValid = validateTaskName(taskName);
+    const versionValid = validateVersion(version);
+
+    if (nameValid && versionValid) {
       onCreate(taskName, taskType, version);
       onClose();
     }
@@ -87,6 +117,19 @@ export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCre
         </div>
 
         <div className="comment-modal__content" style={{ padding: '20px' }}>
+          {/* Domain Display */}
+          {workflowDomain && (
+            <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '4px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748b', marginBottom: '4px' }}>
+                Domain
+              </div>
+              <div style={{ fontSize: '14px', color: '#1e293b', fontFamily: 'monospace' }}>
+                {workflowDomain}
+              </div>
+            </div>
+          )}
+
+          {/* Task Name */}
           <div style={{ marginBottom: '20px' }}>
             <label
               htmlFor="task-name"
@@ -110,7 +153,7 @@ export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCre
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: error ? '1px solid #ef4444' : '1px solid #cbd5e1',
+                border: nameError ? '1px solid #ef4444' : '1px solid #cbd5e1',
                 borderRadius: '4px',
                 fontSize: '14px',
                 fontFamily: 'var(--vscode-font-family)',
@@ -118,13 +161,13 @@ export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCre
                 color: '#1e293b'
               }}
             />
-            {error && (
+            {nameError && (
               <div style={{
                 marginTop: '6px',
                 fontSize: '12px',
                 color: '#ef4444'
               }}>
-                {error}
+                {nameError}
               </div>
             )}
             <div style={{
@@ -136,6 +179,56 @@ export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCre
             </div>
           </div>
 
+          {/* Version */}
+          <div style={{ marginBottom: '20px' }}>
+            <label
+              htmlFor="task-version"
+              style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: 500,
+                color: '#1e293b'
+              }}
+            >
+              Version *
+            </label>
+            <input
+              id="task-version"
+              type="text"
+              value={version}
+              onChange={handleVersionChange}
+              onKeyDown={handleKeyDown}
+              placeholder="1.0.0"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: versionError ? '1px solid #ef4444' : '1px solid #cbd5e1',
+                borderRadius: '4px',
+                fontSize: '14px',
+                fontFamily: 'var(--vscode-font-family)',
+                backgroundColor: '#ffffff',
+                color: '#1e293b'
+              }}
+            />
+            {versionError && (
+              <div style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: '#ef4444'
+              }}>
+                {versionError}
+              </div>
+            )}
+            <div style={{
+              marginTop: '6px',
+              fontSize: '12px',
+              color: '#64748b'
+            }}>
+              Semantic versioning format (e.g., 1.0.0)
+            </div>
+          </div>
+
+          {/* Task Type */}
           <div style={{ marginBottom: '20px' }}>
             <label
               htmlFor="task-type"
@@ -172,77 +265,6 @@ export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCre
               ))}
             </select>
           </div>
-
-          {workflowDomain && (
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontWeight: 500,
-                  color: '#1e293b'
-                }}
-              >
-                Domain
-              </label>
-              <div style={{
-                padding: '8px 12px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '4px',
-                fontSize: '14px',
-                backgroundColor: '#f8fafc',
-                color: '#64748b'
-              }}>
-                {workflowDomain}
-              </div>
-              <div style={{
-                marginTop: '6px',
-                fontSize: '12px',
-                color: '#64748b'
-              }}>
-                Inherited from workflow
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginBottom: '20px' }}>
-            <label
-              htmlFor="task-version"
-              style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: 500,
-                color: '#1e293b'
-              }}
-            >
-              Version *
-            </label>
-            <input
-              id="task-version"
-              type="text"
-              value={version}
-              onChange={(e) => setVersion(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="1.0.0"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #cbd5e1',
-                borderRadius: '4px',
-                fontSize: '14px',
-                fontFamily: 'var(--vscode-font-family)',
-                backgroundColor: '#ffffff',
-                color: '#1e293b'
-              }}
-            />
-            <div style={{
-              marginTop: '6px',
-              fontSize: '12px',
-              color: '#64748b'
-            }}>
-              Semantic version (e.g., 1.0.0, 2.1.3)
-            </div>
-          </div>
         </div>
 
         <div className="comment-modal__footer">
@@ -256,7 +278,7 @@ export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCre
           <button
             className="comment-modal__btn comment-modal__btn--primary"
             onClick={handleCreate}
-            disabled={!taskName || !!error}
+            disabled={!taskName || !version || !!nameError || !!versionError}
             type="button"
           >
             Create Task
