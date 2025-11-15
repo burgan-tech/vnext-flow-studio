@@ -23,7 +23,8 @@ async function openFlowEditor(
   _diagnosticsProvider: FlowDiagnosticsProvider,
   activePanels: Map<string, vscode.WebviewPanel>,
   modelBridge: ModelBridge,
-  providedPanel?: vscode.WebviewPanel
+  providedPanel?: vscode.WebviewPanel,
+  document?: vscode.TextDocument
 ) {
   try {
     if (!isFlowDefinitionUri(flowUri)) {
@@ -108,7 +109,8 @@ async function openFlowEditor(
     }
 
     // Load the workflow using the model bridge
-    const model = await modelBridge.openWorkflow(flowUri, panel);
+    // Pass the TextDocument for proper git virtual URI support
+    const model = await modelBridge.openWorkflow(flowUri, panel, document);
 
     // Handle messages from webview using the model bridge
     panel.webview.onDidReceiveMessage(async (message) => {
@@ -534,7 +536,8 @@ class FlowEditorProvider implements vscode.CustomTextEditorProvider {
       this.diagnosticsProvider,
       this.activePanels,
       this.modelBridge,
-      webviewPanel
+      webviewPanel,
+      document
     );
   }
 }

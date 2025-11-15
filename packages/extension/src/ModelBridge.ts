@@ -55,6 +55,7 @@ export class ModelBridge {
   private integration: VSCodeModelIntegration;
   private config: ModelBridgeConfig;
   private panelModelMap: Map<string, WorkflowModel> = new Map();
+  private panelUriMap: Map<string, vscode.Uri> = new Map(); // Track URI for read-only detection
   private hintsManagers: Map<string, DesignHintsManager> = new Map();
   private autosaveTimers: Map<string, NodeJS.Timeout> = new Map();
   private lastSavedContent: Map<string, string> = new Map();
@@ -374,10 +375,43 @@ export class ModelBridge {
   /**
    * Open a workflow in the editor
    */
-  async openWorkflow(flowUri: vscode.Uri, panel: vscode.WebviewPanel): Promise<WorkflowModel> {
+  async openWorkflow(flowUri: vscode.Uri, panel: vscode.WebviewPanel, document?: vscode.TextDocument): Promise<WorkflowModel> {
     try {
       const startTime = Date.now();
       console.log('[ModelBridge] openWorkflow called for:', flowUri.fsPath);
+
+      // Extract content from VS Code TextDocument if provided
+      // This is essential for git virtual URIs (e.g., git:/path/to/file?ref=HEAD)
+      const content = document?.getText();
+      if (content) {
+        console.log('[ModelBridge] Using content from TextDocument (length:', content.length, ')');
+      }
+
+      // For git URIs, also fetch the diagram content from the same commit
+      let diagramContent: string | undefined;
+      if (flowUri.scheme === 'git') {
+        try {
+          // Construct diagram URI by replacing .json with .diagram.json
+          // Need to update both the path and the query params (VS Code uses query params to fetch)
+          const uriStr = flowUri.toString();
+
+          // Replace in both the path and query parameters
+          const diagramUriStr = uriStr
+            .replace(/\.json\?/, '.diagram.json?')  // Path before query
+            .replace(/\.json%22/, '.diagram.json%22')  // Encoded path in query params
+            .replace(/\.json"/, '.diagram.json"');  // Unencoded path in query params (if any)
+
+          const diagramUri = vscode.Uri.parse(diagramUriStr);
+          console.log('[ModelBridge] Attempting to load diagram from git:', diagramUriStr);
+
+          const diagramDoc = await vscode.workspace.openTextDocument(diagramUri);
+          diagramContent = diagramDoc.getText();
+          console.log('[ModelBridge] Successfully loaded diagram from git (length:', diagramContent.length, ')');
+        } catch (error) {
+          // Diagram doesn't exist in this commit - that's ok
+          console.log('[ModelBridge] Diagram not found in git commit (this is ok):', error);
+        }
+      }
 
       // Get the workspace folder for this file to use as basePath
       const workspaceFolder = vscode.workspace.getWorkspaceFolder(flowUri);
@@ -397,14 +431,23 @@ export class ModelBridge {
       // Get the model from integration (may be cached for cross-model queries)
       console.log('[ModelBridge] Loading workflow model...');
       const modelStartTime = Date.now();
-      const model = await this.integration.openWorkflow(flowUri.fsPath, {
-        resolveReferences: true,
-        loadScripts: true,
-        validate: true,
-        preloadComponents: true, // This will scan and load all tasks, schemas, views, etc.
-        basePath: basePath // Use VS Code workspace folder as base path
-      });
+      // Pass full URI (not just fsPath) to support separate instances for git:// vs file:// URIs
+      // Also pass fsPath explicitly for file operations (handles complex git:// URI formats)
+      const model = await this.integration.openWorkflow(
+        flowUri.toString(),  // URI for caching
+        flowUri.fsPath,      // fsPath for file operations
+        {
+          resolveReferences: true,
+          loadScripts: true,
+          validate: true,
+          preloadComponents: true, // This will scan and load all tasks, schemas, views, etc.
+          basePath: basePath, // Use VS Code workspace folder as base path
+          content: content, // Pass content from TextDocument for git virtual URIs
+          diagramContent: diagramContent // Pass diagram content from git commit
+        }
+      );
       console.log(`[ModelBridge] Model opened in ${Date.now() - modelStartTime}ms`);
+      console.log('[ModelBridge] Model URI:', flowUri.toString(), '| fsPath:', flowUri.fsPath, '| Scheme:', flowUri.scheme);
 
       // CRITICAL: Force reload from disk even if model was cached
       // The cache is needed for cross-model queries (subflows, references)
@@ -416,24 +459,30 @@ export class ModelBridge {
         loadScripts: true,
         validate: true,
         preloadComponents: true,
-        basePath: basePath
+        basePath: basePath,
+        content: content, // Pass content from TextDocument for git virtual URIs
+        diagramContent: diagramContent // Pass diagram content from git commit
       });
       console.log(`[ModelBridge] Model reloaded in ${Date.now() - reloadStartTime}ms`);
 
       // Track the association between panel and model using the flow URI as the key
       const panelKey = flowUri.toString();
       this.panelModelMap.set(panelKey, model);
+      this.panelUriMap.set(panelKey, flowUri); // Track URI for read-only detection
       this.config.activePanels.set(panelKey, panel);
 
       // Set up panel disposal cleanup
       panel.onDidDispose(() => {
         this.panelModelMap.delete(panelKey);
+        this.panelUriMap.delete(panelKey);
         this.config.activePanels.delete(panelKey);
       });
 
       // Get initial data from model
       const workflow = model.getWorkflow();
       let diagram = model.getDiagram();
+
+      console.log('[ModelBridge] Initial diagram check:', diagram ? 'exists' : 'UNDEFINED');
 
       // Check if any states have xProfile and activate corresponding plugins
       const xProfiles = new Set(
@@ -449,17 +498,35 @@ export class ModelBridge {
         }
       }
 
-      // Generate diagram if it doesn't exist
+      // Generate diagram if it doesn't exist (but not for git URIs which are read-only)
       let generatedDiagram = false;
+      const isGitUri = flowUri.scheme === 'git';
       if (!diagram) {
         console.log('[ModelBridge] Auto-generating diagram...');
         const layoutStartTime = Date.now();
-        diagram = await autoLayout(workflow);
-        model.setDiagram(diagram);
-        await this.saveModel(model);
-        console.log(`[ModelBridge] Diagram generated and saved in ${Date.now() - layoutStartTime}ms`);
-        generatedDiagram = true;
+        try {
+          diagram = await autoLayout(workflow);
+          console.log('[ModelBridge] autoLayout returned:', diagram ? 'diagram object' : 'UNDEFINED');
+          if (!diagram) {
+            throw new Error('autoLayout returned undefined');
+          }
+          model.setDiagram(diagram);
+          console.log('[ModelBridge] Diagram set on model, verifying...', model.getDiagram() ? 'OK' : 'FAILED');
+
+          // Only save for non-git URIs (git URIs are read-only snapshots)
+          if (!isGitUri) {
+            await this.saveModel(model);
+            console.log(`[ModelBridge] Diagram generated and saved in ${Date.now() - layoutStartTime}ms`);
+          } else {
+            console.log(`[ModelBridge] Diagram generated (not saved - git URI is read-only) in ${Date.now() - layoutStartTime}ms`);
+          }
+          generatedDiagram = true;
+        } catch (error) {
+          console.error('[ModelBridge] Failed to auto-generate diagram:', error);
+          throw new Error(`Failed to auto-generate diagram: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
+      console.log('[ModelBridge] After auto-generation, diagram check:', diagram ? 'exists' : 'UNDEFINED');
 
       // Get tasks from the model
       console.log('[ModelBridge] Getting tasks from model...');
@@ -478,7 +545,16 @@ export class ModelBridge {
 
       // Convert to React Flow format
       console.log('[ModelBridge] Converting to React Flow format...');
+      console.log('[ModelBridge] Pre-conversion diagram check:', diagram ? 'exists' : 'UNDEFINED');
+      console.log('[ModelBridge] Diagram type:', typeof diagram);
+      console.log('[ModelBridge] Diagram value:', diagram);
       const flowStartTime = Date.now();
+
+      // Ensure diagram exists (should have been auto-generated above if missing)
+      if (!diagram) {
+        throw new Error('Diagram is unexpectedly undefined after auto-generation attempt');
+      }
+
       const derived = toReactFlow(workflow, diagram, 'en', allDesignHints.states);
       console.log(`[ModelBridge] Converted to React Flow in ${Date.now() - flowStartTime}ms`);
 
@@ -578,6 +654,31 @@ export class ModelBridge {
   }
 
   /**
+   * Check if this message type modifies the workflow
+   */
+  private isModificationMessage(messageType: string): boolean {
+    return messageType.startsWith('domain:') ||
+           messageType.startsWith('persist:') ||
+           messageType.startsWith('mapping:') ||
+           messageType.startsWith('rule:') ||
+           messageType.startsWith('editor:createScript') ||
+           messageType.startsWith('editor:saveScript');
+  }
+
+  /**
+   * Get the URI for a given panel
+   */
+  private getUriForPanel(panel: vscode.WebviewPanel): vscode.Uri | undefined {
+    // Find the panel key by searching through activePanels
+    for (const [key, p] of this.config.activePanels.entries()) {
+      if (p === panel) {
+        return this.panelUriMap.get(key);
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * Handle messages from the webview
    */
   async handleWebviewMessage(
@@ -586,6 +687,19 @@ export class ModelBridge {
     panel: vscode.WebviewPanel
   ): Promise<void> {
     try {
+      // Check if this panel is read-only (git diff view)
+      const panelUri = this.getUriForPanel(panel);
+      const isReadOnly = panelUri?.scheme === 'git';
+
+      if (isReadOnly && this.isModificationMessage(message.type)) {
+        console.log('[ModelBridge] Blocked modification in read-only git panel:', message.type);
+        panel.webview.postMessage({
+          type: 'error',
+          message: 'Cannot modify in git diff view. This is a read-only snapshot from git history.'
+        });
+        return;
+      }
+
       switch (message.type) {
         case 'persist:diagram':
           model.setDiagram(message.diagram);

@@ -90,6 +90,11 @@
       {
         "command": "amorphie.openSettings",
         "title": "Amorphie: Open Settings"
+      },
+      {
+        "command": "flowEditor.openVisualDiff",
+        "title": "Amorphie: Open Visual Diff",
+        "icon": "$(split-horizontal)"
       }
     ],
     "menus": {
@@ -98,6 +103,11 @@
           "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceFilename =~ /-subflow\\.json$/ || resourceFilename =~ /-workflow\\.json$/ || resourceDirname =~ /(^|\\\\|\\/)workflows(\\\\|\\/|$)/ || resourceDirname =~ /(^|\\\\|\\/)Workflows(\\\\|\\/|$)/)",
           "command": "flowEditor.open",
           "group": "navigation"
+        },
+        {
+          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceFilename =~ /-subflow\\.json$/ || resourceFilename =~ /-workflow\\.json$/ || resourceDirname =~ /(^|\\\\|\\/)workflows(\\\\|\\/|$)/ || resourceDirname =~ /(^|\\\\|\\/)Workflows(\\\\|\\/|$)/)",
+          "command": "flowEditor.openVisualDiff",
+          "group": "3_compare@1"
         },
         {
           "when": "resourceFilename =~ /\\.mapper\\.json$/",
@@ -124,6 +134,11 @@
         {
           "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceFilename =~ /-subflow\\.json$/ || resourceFilename =~ /-workflow\\.json$/ || resourceDirname =~ /(^|\\\\|\\/)workflows(\\\\|\\/|$)/ || resourceDirname =~ /(^|\\\\|\\/)Workflows(\\\\|\\/|$)/)",
           "command": "flowEditor.open",
+          "group": "navigation"
+        },
+        {
+          "when": "resourceExtname == .json && (resourceFilename =~ /\\.flow\\.json$/ || resourceFilename =~ /-subflow\\.json$/ || resourceFilename =~ /-workflow\\.json$/ || resourceDirname =~ /(^|\\\\|\\/)workflows(\\\\|\\/|$)/ || resourceDirname =~ /(^|\\\\|\\/)Workflows(\\\\|\\/|$)/)",
+          "command": "flowEditor.openVisualDiff",
           "group": "navigation"
         },
         {
@@ -164,7 +179,7 @@
             "filenamePattern": "**/Workflows/**/*.json"
           }
         ],
-        "priority": "default"
+        "priority": "option"
       },
       {
         "viewType": "mapperEditor.canvas",

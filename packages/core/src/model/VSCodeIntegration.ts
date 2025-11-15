@@ -42,23 +42,33 @@ export class VSCodeModelIntegration {
 
   /**
    * Open a workflow model from a file
+   * @param workflowUri - Full URI string for caching (file://, git://, or plain path)
+   * @param fsPath - File system path for file operations (optional, derived from URI if not provided)
    */
-  async openWorkflow(workflowPath: string, options: ModelLoadOptions = {}): Promise<WorkflowModel> {
+  async openWorkflow(workflowUri: string, fsPath?: string, options: ModelLoadOptions = {}): Promise<WorkflowModel> {
+    // Use the full URI as cache key to support multiple versions (git diff, etc.)
+    const cacheKey = workflowUri;
+
     // Check if already loaded
-    if (this.models.has(workflowPath)) {
-      const model = this.models.get(workflowPath)!;
+    if (this.models.has(cacheKey)) {
+      const model = this.models.get(cacheKey)!;
       this.setActiveModel(model);
+      console.log('[VSCodeIntegration] Returning cached model for:', cacheKey);
       return model;
     }
 
-    // Load the model
-    const model = await ModelLoader.loadFromFile(workflowPath, options);
+    // Use provided fsPath or fall back to URI as path (for backward compatibility)
+    const filePath = fsPath || workflowUri;
+    console.log('[VSCodeIntegration] Loading model - URI:', cacheKey, '→ fsPath:', filePath);
+
+    // Load the model using the fsPath
+    const model = await ModelLoader.loadFromFile(filePath, options);
 
     // Set up event listeners
     this.setupModelListeners(model);
 
-    // Store and activate
-    this.models.set(workflowPath, model);
+    // Store and activate using full URI as key
+    this.models.set(cacheKey, model);
     this.setActiveModel(model);
 
     return model;

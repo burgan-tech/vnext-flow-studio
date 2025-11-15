@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Git Diff Support** ([#18](https://github.com/burgan-tech/vnext-flow-studio/issues/18)): Fixed git "Open Changes" to show text diff by default
+  - Changed custom editor priority from "default" to "option" - text editor is now the default for workflow files
+  - Fixed diagram loading from git commits (supports both `.flow.json` and `.diagram.json` from same commit)
+  - Git panel changes now show proper text diff with JSON comparison
+  - Fixed read-only enforcement for git URIs (prevents editing committed versions)
+  - Separate model instances for git vs. working tree (enables future visual diff overlays)
+
+### Added
+- **Visual Diff Command**: New "Amorphie: Open Visual Diff" command for side-by-side visual comparison
+  - Opens git HEAD and working tree in separate visual editor panels
+  - Left panel shows committed version (read-only), right panel shows working tree (editable)
+  - Accessible via command palette, context menu, and editor toolbar
+  - Provides visual workflow comparison for users who prefer graphical diff
+
+### Changed
+- **Default Editor Behavior**: Text editor is now the default for workflow files
+  - Users can still access visual editor via "Open With..." → "Amorphie Flow Studio"
+  - "Amorphie: Open Workflow" command continues to open visual editor directly
+  - Improved developer experience with standard git diff workflows
+
 ## [2.0.0] - 2025-11-14
 
 ### Major Release - Complete Platform Modernization

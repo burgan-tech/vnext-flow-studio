@@ -238,6 +238,10 @@ export interface ModelLoadOptions {
   basePath?: string;
   /** Whether to preload all components from the filesystem */
   preloadComponents?: boolean;
+  /** Pre-loaded workflow content from VS Code TextDocument (for git virtual URIs) */
+  content?: string;
+  /** Pre-loaded diagram content from VS Code TextDocument (for git virtual URIs) */
+  diagramContent?: string;
 }
 
 /**

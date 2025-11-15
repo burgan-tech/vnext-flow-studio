@@ -284,10 +284,68 @@ export function registerCommands(context: vscode.ExtensionContext) {
     }
   );
 
+  // Command to open visual diff for workflow files
+  const openVisualDiffCommand = vscode.commands.registerCommand(
+    'flowEditor.openVisualDiff',
+    async (uri?: vscode.Uri) => {
+      // Get the URI from the active editor if not provided
+      const targetUri = uri || vscode.window.activeTextEditor?.document.uri;
+
+      if (!targetUri) {
+        vscode.window.showErrorMessage('No file selected. Please open a workflow file first.');
+        return;
+      }
+
+      // Check if this is a workflow file
+      const fileName = path.basename(targetUri.fsPath);
+      if (!fileName.endsWith('.json')) {
+        vscode.window.showErrorMessage('Please select a workflow (.json) file.');
+        return;
+      }
+
+      try {
+        // Construct the git HEAD URI for comparison
+        const gitUri = targetUri.with({
+          scheme: 'git',
+          path: targetUri.path,
+          query: JSON.stringify({
+            path: targetUri.fsPath,
+            ref: 'HEAD'
+          })
+        });
+
+        // Open both files with the Amorphie visual editor
+        // Use vscode.openWith to explicitly specify our custom editor
+        await vscode.commands.executeCommand(
+          'vscode.openWith',
+          gitUri,
+          'flowEditor.canvas',
+          { viewColumn: vscode.ViewColumn.One, preserveFocus: true }
+        );
+
+        await vscode.commands.executeCommand(
+          'vscode.openWith',
+          targetUri,
+          'flowEditor.canvas',
+          { viewColumn: vscode.ViewColumn.Two, preserveFocus: false }
+        );
+
+        vscode.window.showInformationMessage(
+          `Visual diff: ${fileName} (HEAD ↔ Working Tree)`
+        );
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          `Failed to open visual diff: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+  );
+
   context.subscriptions.push(
     createWorkflowCommand,
     freezeVersionsCommand,
     createMapperCommand,
-    showWatcherStatsCommand
+    showWatcherStatsCommand,
+    openVisualDiffCommand
   );
 }

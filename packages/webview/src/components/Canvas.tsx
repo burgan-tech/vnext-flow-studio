@@ -1725,7 +1725,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: { stateType: 3, stateSubType: subType, transitions: [] }
+      state: { ...state, stateType: 3, stateSubType: subType, transitions: [] }
     });
     setContextMenu(null);
   }, [workflow, postMessage]);
@@ -1737,7 +1737,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: { stateType: 2, stateSubType: undefined }
+      state: { ...state, stateType: 2, stateSubType: undefined }
     });
     setContextMenu(null);
   }, [workflow, postMessage]);
@@ -1749,7 +1749,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: { stateType: 4 }
+      state: { ...state, stateType: 4 }
     });
     setContextMenu(null);
   }, [workflow, postMessage]);
@@ -1761,7 +1761,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: { stateType: 5 }
+      state: { ...state, stateType: 5 }
     });
     setContextMenu(null);
   }, [workflow, postMessage]);
@@ -1773,7 +1773,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: { stateSubType: subType }
+      state: { ...state, stateSubType: subType }
     });
     setContextMenu(null);
   }, [workflow, postMessage]);

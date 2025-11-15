@@ -144,18 +144,29 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
       }
 
       // Load workflow file
-      const workflowContent = await fs.readFile(this.state.metadata.workflowPath, 'utf-8');
+      // Use provided content from VS Code TextDocument if available (for git virtual URIs)
+      // Otherwise read from file system
+      const workflowContent = options.content ?? await fs.readFile(this.state.metadata.workflowPath, 'utf-8');
       this.state.workflow = JSON.parse(workflowContent) as Workflow;
 
       // Load diagram file if it exists
-      const diagramPath = this.getDiagramPath();
-      if (diagramPath) {
-        try {
-          const diagramContent = await fs.readFile(diagramPath, 'utf-8');
-          this.state.diagram = JSON.parse(diagramContent) as Diagram;
+      // Use provided diagram content from VS Code TextDocument if available (for git virtual URIs)
+      if (options.diagramContent) {
+        this.state.diagram = JSON.parse(options.diagramContent) as Diagram;
+        const diagramPath = this.getDiagramPath();
+        if (diagramPath) {
           this.state.metadata.diagramPath = diagramPath;
-        } catch {
-          // Diagram file doesn't exist - that's ok
+        }
+      } else {
+        const diagramPath = this.getDiagramPath();
+        if (diagramPath) {
+          try {
+            const diagramContent = await fs.readFile(diagramPath, 'utf-8');
+            this.state.diagram = JSON.parse(diagramContent) as Diagram;
+            this.state.metadata.diagramPath = diagramPath;
+          } catch {
+            // Diagram file doesn't exist - that's ok
+          }
         }
       }
 
@@ -506,13 +517,6 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
 
     const oldState = { ...this.state.workflow.attributes.states[stateIndex] };
     const newState = { ...oldState, ...updates };
-
-    // Remove properties that are explicitly set to undefined
-    Object.keys(updates).forEach(updateKey => {
-      if (updates[updateKey as keyof State] === undefined) {
-        delete newState[updateKey as keyof State];
-      }
-    });
 
     this.state.workflow.attributes.states[stateIndex] = newState;
 
