@@ -15,6 +15,7 @@ import type {
   TaskComponentDefinition,
   Diagram
 } from '../types/index.js';
+import type { ComponentResolver } from './ComponentResolver.js';
 
 /**
  * Represents a resolved script file (.csx)
@@ -242,6 +243,8 @@ export interface ModelLoadOptions {
   content?: string;
   /** Pre-loaded diagram content from VS Code TextDocument (for git virtual URIs) */
   diagramContent?: string;
+  /** Shared ComponentResolver instance (optional, creates new one if not provided) */
+  componentResolver?: ComponentResolver;
 }
 
 /**

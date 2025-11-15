@@ -39,7 +39,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
   private componentResolver: ComponentResolver;
   private scriptManager: ScriptManager;
 
-  constructor(workflowPath: string, basePath?: string) {
+  constructor(workflowPath: string, basePath?: string, componentResolver?: ComponentResolver) {
     super();
 
     // BasePath should be provided by the caller (VS Code workspace folder)
@@ -47,6 +47,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
     const actualBasePath = basePath || path.dirname(workflowPath);
     console.log('[WorkflowModel] constructor - workflowPath:', workflowPath);
     console.log('[WorkflowModel] constructor - basePath:', actualBasePath);
+    console.log('[WorkflowModel] constructor - using shared resolver:', !!componentResolver);
 
     this.state = {
       workflow: {} as Workflow,
@@ -72,7 +73,8 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
       }
     };
 
-    this.componentResolver = new ComponentResolver({ basePath: actualBasePath });
+    // Use provided resolver or create a new one
+    this.componentResolver = componentResolver || new ComponentResolver({ basePath: actualBasePath });
     this.scriptManager = this.componentResolver.getScriptManager();
   }
 

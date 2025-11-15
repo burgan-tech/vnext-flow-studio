@@ -62,7 +62,11 @@ export class VSCodeModelIntegration {
     console.log('[VSCodeIntegration] Loading model - URI:', cacheKey, '→ fsPath:', filePath);
 
     // Load the model using the fsPath
-    const model = await ModelLoader.loadFromFile(filePath, options);
+    // Pass through componentResolver option to share global resolver
+    const model = await ModelLoader.loadFromFile(filePath, {
+      ...options,
+      componentResolver: options.componentResolver
+    });
 
     // Set up event listeners
     this.setupModelListeners(model);

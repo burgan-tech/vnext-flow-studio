@@ -69,7 +69,7 @@ export class ModelLoader {
 
     // Create model and load it
     const basePath = options.basePath || path.dirname(workflowPath);
-    const model = new WorkflowModel(workflowPath, basePath);
+    const model = new WorkflowModel(workflowPath, basePath, options.componentResolver);
     await model.load(options);
 
     return model;
@@ -86,7 +86,7 @@ export class ModelLoader {
     const basePath = options.basePath || process.cwd();
 
     // Create a custom model that doesn't read from file
-    const model = new WorkflowModel(workflowPath, basePath);
+    const model = new WorkflowModel(workflowPath, basePath, options.componentResolver);
 
     // Inject the workflow data directly
     const state = model.getModelState();

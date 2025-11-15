@@ -443,7 +443,8 @@ export class ModelBridge {
           preloadComponents: true, // This will scan and load all tasks, schemas, views, etc.
           basePath: basePath, // Use VS Code workspace folder as base path
           content: content, // Pass content from TextDocument for git virtual URIs
-          diagramContent: diagramContent // Pass diagram content from git commit
+          diagramContent: diagramContent, // Pass diagram content from git commit
+          componentResolver: this.globalResolver // Share global component resolver
         }
       );
       console.log(`[ModelBridge] Model opened in ${Date.now() - modelStartTime}ms`);
@@ -458,7 +459,7 @@ export class ModelBridge {
         resolveReferences: true,
         loadScripts: true,
         validate: true,
-        preloadComponents: true,
+        preloadComponents: false, // Skip preload - components already loaded via shared resolver
         basePath: basePath,
         content: content, // Pass content from TextDocument for git virtual URIs
         diagramContent: diagramContent // Pass diagram content from git commit
