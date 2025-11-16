@@ -281,7 +281,12 @@ export class ComponentResolver implements IComponentResolver {
       (sp: string) => `${sp}/${ref.domain}-${ref.key}-${ref.version}.json`,
       (sp: string) => `${sp}/${ref.domain}/${ref.key}.${ref.version}.json`,
       (sp: string) => `${sp}/${ref.domain}-${ref.key}.${ref.version}.json`,
-      (sp: string) => `${sp}/${ref.key}.${ref.version}.json`
+      (sp: string) => `${sp}/${ref.key}.${ref.version}.json`,
+      // Additional workflow-specific patterns
+      (sp: string) => `${sp}/${ref.key}-workflow.json`,
+      (sp: string) => `${sp}/${ref.key}-subflow.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-workflow.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-subflow.json`
     ];
 
     // Try each search path with each pattern
@@ -319,7 +324,58 @@ export class ComponentResolver implements IComponentResolver {
       }
     }
 
-    console.log('[ComponentResolver] No matching file found');
+    console.log('[ComponentResolver] Pattern matching failed, trying content-based search');
+
+    // Fallback: Search all files and match by content
+    return this.searchForComponentPath(ref, type);
+  }
+
+  /**
+   * Search for a component file path by reading and matching content
+   */
+  private async searchForComponentPath(
+    ref: ComponentRef,
+    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'workflows'
+  ): Promise<string | null> {
+    const basePath = this.options.basePath || process.cwd();
+    const searchPaths = this.options.searchPaths![type] || [];
+
+    console.log('[ComponentResolver] Content-based search for:', ref, 'in paths:', searchPaths);
+
+    for (const searchPath of searchPaths) {
+      const searchDir = path.resolve(basePath, searchPath);
+
+      try {
+        const files = await this.findJsonFiles(searchDir);
+        console.log('[ComponentResolver] Found', files.length, 'JSON files in', searchDir);
+
+        for (const file of files) {
+          try {
+            const content = await fs.readFile(file, 'utf-8');
+            const component = JSON.parse(content) as any;
+
+            // Check if this is the component we're looking for
+            const matchesKey = component.key === ref.key;
+            const matchesDomain = component.domain === ref.domain;
+            const matchesVersion = !ref.version || component.version === ref.version;
+            const matchesFlow = !ref.flow || component.flow === ref.flow;
+
+            if (matchesKey && matchesDomain && matchesVersion && matchesFlow) {
+              console.log('[ComponentResolver] Found matching file by content:', file);
+              return file;
+            }
+          } catch {
+            // Skip invalid JSON files
+            continue;
+          }
+        }
+      } catch (err) {
+        console.log('[ComponentResolver] Error searching directory:', searchDir, err);
+        continue;
+      }
+    }
+
+    console.log('[ComponentResolver] No matching file found by content');
     return null;
   }
 
@@ -384,7 +440,12 @@ export class ComponentResolver implements IComponentResolver {
       (sp: string) => `${sp}/${ref.domain}-${ref.key}-${ref.version}.json`,
       (sp: string) => `${sp}/${ref.domain}/${ref.key}.${ref.version}.json`,
       (sp: string) => `${sp}/${ref.domain}-${ref.key}.${ref.version}.json`,
-      (sp: string) => `${sp}/${ref.key}.${ref.version}.json`
+      (sp: string) => `${sp}/${ref.key}.${ref.version}.json`,
+      // Additional workflow-specific patterns
+      (sp: string) => `${sp}/${ref.key}-workflow.json`,
+      (sp: string) => `${sp}/${ref.key}-subflow.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-workflow.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-subflow.json`
     ];
 
     // Try each search path with each pattern
@@ -435,7 +496,7 @@ export class ComponentResolver implements IComponentResolver {
    */
   private async searchForComponent<T>(
     ref: ComponentRef,
-    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions'
+    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'workflows'
   ): Promise<T | null> {
     const basePath = this.options.basePath || process.cwd();
     const searchPaths = this.options.searchPaths![type] || [];
