@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { autoLayoutMapper } from '../../../core/src/mapper/mapperLayout';
-import { ComponentResolver } from '../../../core/src/model/ComponentResolver';
+import { ComponentResolverManager } from '../../../core/src/model/ComponentResolverManager';
 import { calculateSchemaHash } from '../../../core/src/mapper/schemaHashUtils';
 
 /**
@@ -631,12 +631,22 @@ async function openMapperEditor(
                 }
 
                 console.log('Using ComponentResolver fallback...');
-                const resolver = new ComponentResolver({
-                  basePath: workspaceFolder.uri.fsPath,
-                  useCache: true
-                });
+                const manager = ComponentResolverManager.getInstance();
+                const workspacePath = workspaceFolder.uri.fsPath;
 
-                await resolver.preloadAllComponents();
+                // Try to use the global resolver if it exists, otherwise create isolated resolver
+                let resolver = manager.getGlobalResolver(workspacePath);
+                if (!resolver) {
+                  console.log('Creating isolated resolver for schema loading...');
+                  resolver = await manager.createIsolatedResolver({
+                    basePath: workspacePath,
+                    useCache: true
+                  });
+                  await resolver.preloadAllComponents();
+                } else {
+                  console.log('Using existing global resolver');
+                }
+
                 const schemaCache = (resolver as any).schemaCache as Map<string, any>;
                 schemas = Array.from(schemaCache.values());
                 console.log(`Found ${schemas.length} platform schemas from ComponentResolver`);

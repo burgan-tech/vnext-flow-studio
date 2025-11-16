@@ -333,8 +333,10 @@ export class ScriptManager implements IScriptManager {
       return false;
     }
 
-    // Must end with .csx or .mapper.json
-    if (!location.endsWith('.csx') && !location.endsWith('.mapper.json')) {
+    // Must end with .csx, .cs, .js, or .mapper.json
+    const validExtensions = ['.csx', '.cs', '.js', '.mapper.json'];
+    const hasValidExtension = validExtensions.some(ext => location.endsWith(ext));
+    if (!hasValidExtension) {
       return false;
     }
 
@@ -371,6 +373,43 @@ export class ScriptManager implements IScriptManager {
    */
   removeFromCache(absolutePath: string): void {
     this.scriptCache.delete(absolutePath);
+  }
+
+  /**
+   * Invalidate a specific script from cache
+   * Called when script file changes or is deleted
+   * Handles both relative and absolute paths
+   */
+  invalidateScript(scriptPath: string): void {
+    // Try direct removal if it's an absolute path
+    if (path.isAbsolute(scriptPath)) {
+      this.scriptCache.delete(scriptPath);
+      return;
+    }
+
+    // For relative paths, check all cached entries
+    // The cache uses absolute paths as keys, so we need to find matching entries
+    for (const [cachedAbsolutePath, cachedScript] of this.scriptCache.entries()) {
+      // Match by absolute path
+      if (cachedAbsolutePath === scriptPath) {
+        this.scriptCache.delete(cachedAbsolutePath);
+        continue;
+      }
+
+      // Match by location (relative path stored in the script object)
+      if (cachedScript.location === scriptPath) {
+        this.scriptCache.delete(cachedAbsolutePath);
+        continue;
+      }
+
+      // Match by checking if the absolute path ends with the relative path
+      // This handles cases where scriptPath is like "Scripts/foo.csx"
+      // and cachedAbsolutePath is like "/workspace/Scripts/foo.csx"
+      const normalizedScriptPath = scriptPath.replace(/^\.\//, '');
+      if (cachedAbsolutePath.endsWith(normalizedScriptPath)) {
+        this.scriptCache.delete(cachedAbsolutePath);
+      }
+    }
   }
 
   /**

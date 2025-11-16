@@ -24,6 +24,7 @@ export * from './messages.js';
 
 // Utils
 export * from './utils.js';
+export * from './utils/index.js';
 
 // Plugin System
 export * from './plugins/index.js';

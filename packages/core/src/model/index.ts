@@ -1,7 +1,23 @@
 // Model abstraction layer exports
 
 export { WorkflowModel } from './WorkflowModel.js';
-export { ComponentResolver, type ComponentResolverOptions } from './ComponentResolver.js';
+export {
+  ComponentResolver,
+  type ComponentResolverOptions,
+  type ComponentType,
+  DEFAULT_COMPONENT_SEARCH_PATHS,
+  getSearchPathsForType
+} from './ComponentResolver.js';
+export {
+  ComponentResolverManager,
+  type ComponentResolverLifecycle,
+  type GlobalResolverOptions
+} from './ComponentResolverManager.js';
+export {
+  normalizeComponentReference,
+  normalizeWorkflowReferences,
+  type ReferenceNormalizationContext
+} from './reference-normalizer.js';
 export { ComponentWatcher, type ComponentWatcherOptions, type FileChangeEvent, type WatcherStats } from './ComponentWatcher.js';
 export { ScriptManager } from './ScriptManager.js';
 export { ModelLoader, type DiscoveryOptions, type DiscoveredWorkflow } from './ModelLoader.js';

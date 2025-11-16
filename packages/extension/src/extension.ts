@@ -717,6 +717,12 @@ export function activate(context: vscode.ExtensionContext) {
   });
 }
 
-export function deactivate() {
-  // Cleanup is handled by disposal of subscriptions
+export async function deactivate() {
+  // Cleanup subscriptions (handled automatically by VS Code)
+
+  // Dispose all global component resolvers and watchers
+  const { ComponentResolverManager } = await import('@amorphie-flow-studio/core');
+  await ComponentResolverManager.getInstance().dispose();
+
+  console.log('[Extension] Deactivated and cleaned up resources');
 }

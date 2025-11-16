@@ -74,7 +74,8 @@ export class ComponentWatcher extends EventEmitter {
         'Views', 'views', 'sys-views',
         'Functions', 'functions', 'sys-functions',
         'Extensions', 'extensions', 'sys-extensions',
-        'Workflows', 'workflows', 'flows', 'sys-flows'
+        'Workflows', 'workflows', 'flows', 'sys-flows',
+        'Scripts', 'scripts', 'src' // Script directories
       ],
       debounceMs: 300,
       recursive: true,
@@ -155,19 +156,28 @@ export class ComponentWatcher extends EventEmitter {
         }
       });
 
-      // Set up event handlers - filter for .json files only
+      // Set up event handlers - filter for .json and script files
       this.watcher
         .on('add', (filePath) => {
-          if (!filePath.endsWith('.json')) return;
-          this.handleFileChange('add', filePath);
+          if (filePath.endsWith('.json')) {
+            this.handleFileChange('add', filePath);
+          } else if (this.isScriptFile(filePath)) {
+            this.handleScriptChange('add', filePath);
+          }
         })
         .on('change', (filePath) => {
-          if (!filePath.endsWith('.json')) return;
-          this.handleFileChange('change', filePath);
+          if (filePath.endsWith('.json')) {
+            this.handleFileChange('change', filePath);
+          } else if (this.isScriptFile(filePath)) {
+            this.handleScriptChange('change', filePath);
+          }
         })
         .on('unlink', (filePath) => {
-          if (!filePath.endsWith('.json')) return;
-          this.handleFileChange('unlink', filePath);
+          if (filePath.endsWith('.json')) {
+            this.handleFileChange('unlink', filePath);
+          } else if (this.isScriptFile(filePath)) {
+            this.handleScriptChange('unlink', filePath);
+          }
         })
         .on('error', (error) => {
           this.handleError(error);
@@ -256,6 +266,54 @@ export class ComponentWatcher extends EventEmitter {
   }
 
   /**
+   * Check if file is a script file
+   */
+  private isScriptFile(filePath: string): boolean {
+    return filePath.endsWith('.csx') ||
+           filePath.endsWith('.cs') ||
+           filePath.endsWith('.js') ||
+           filePath.endsWith('.mapper.json');
+  }
+
+  /**
+   * Handle script file change (invalidate cache)
+   */
+  private handleScriptChange(type: 'add' | 'change' | 'unlink', filePath: string): void {
+    this.stats.eventsReceived++;
+    this.stats.lastEventTime = Date.now();
+
+    const scriptName = path.basename(filePath);
+    this.logger.info(`Script ${type}: ${scriptName}`);
+
+    // Clear script cache when script changes
+    const scriptManager = this.resolver.getScriptManager();
+
+    if (type === 'unlink') {
+      // Script deleted
+      scriptManager.invalidateScript(filePath);
+      this.logger.info(`🗑️ Script cache invalidated (deleted): ${scriptName}`);
+      this.emit('scriptDeleted', { path: filePath });
+    } else {
+      // Script added or changed
+      scriptManager.invalidateScript(filePath);
+      this.logger.info(`🔄 Script cache invalidated: ${scriptName}`);
+
+      if (type === 'add') {
+        this.emit('scriptAdded', { path: filePath });
+      } else {
+        this.emit('scriptChanged', { path: filePath });
+      }
+    }
+
+    // Emit generic change event
+    this.emit('change', {
+      type,
+      path: filePath,
+      componentType: 'script' as any // Scripts aren't components but we track them
+    });
+  }
+
+  /**
    * Handle file change event with debouncing
    */
   private handleFileChange(type: 'add' | 'change' | 'unlink', filePath: string): void {
@@ -286,8 +344,8 @@ export class ComponentWatcher extends EventEmitter {
     try {
       this.stats.eventsProcessed++;
 
-      // Determine component type from path
-      const componentType = this.detectComponentType(filePath);
+      // Determine component type from content (with path fallback)
+      const componentType = await this.detectComponentType(filePath, type);
       if (!componentType) {
         this.logger.debug(`Skipping non-component file: ${path.basename(filePath)}`);
         return;
@@ -367,9 +425,9 @@ export class ComponentWatcher extends EventEmitter {
   }
 
   /**
-   * Detect component type from file path
+   * Detect component type from directory path (fallback method)
    */
-  private detectComponentType(filePath: string): FileChangeEvent['componentType'] | null {
+  private detectComponentTypeFromPath(filePath: string): FileChangeEvent['componentType'] | null {
     const normalized = path.normalize(filePath).toLowerCase();
 
     // Check for diagram files (should be ignored)
@@ -407,6 +465,72 @@ export class ComponentWatcher extends EventEmitter {
     }
 
     return null;
+  }
+
+  /**
+   * Detect component type from file content (authoritative method)
+   */
+  private getComponentTypeFromFlow(flow: string): FileChangeEvent['componentType'] | null {
+    if (!flow) return null;
+
+    const normalized = flow.toLowerCase();
+
+    if (normalized.includes('task')) return 'task';
+    if (normalized.includes('schema')) return 'schema';
+    if (normalized.includes('view')) return 'view';
+    if (normalized.includes('function')) return 'function';
+    if (normalized.includes('extension')) return 'extension';
+    if (normalized.includes('flow')) return 'workflow';
+
+    return null;
+  }
+
+  /**
+   * Detect component type by reading file content (preferred) with directory fallback
+   * This is the authoritative method that validates content against directory location
+   */
+  private async detectComponentType(filePath: string, eventType: 'add' | 'change' | 'unlink'): Promise<FileChangeEvent['componentType'] | null> {
+    // For delete events, we can only use path-based detection
+    if (eventType === 'unlink') {
+      return this.detectComponentTypeFromPath(filePath);
+    }
+
+    // Check for diagram files (should be ignored)
+    if (filePath.includes('.diagram.json')) {
+      return null;
+    }
+
+    // Try to read file content for accurate type detection
+    try {
+      const fs = await import('fs/promises');
+      const content = await fs.readFile(filePath, 'utf-8');
+      const component = JSON.parse(content);
+
+      // Get type from content (authoritative)
+      const typeFromContent = this.getComponentTypeFromFlow(component.flow);
+
+      // Get type from directory (for validation)
+      const typeFromPath = this.detectComponentTypeFromPath(filePath);
+
+      // Validate and warn on mismatch
+      if (typeFromContent && typeFromPath && typeFromContent !== typeFromPath) {
+        this.logger.warn(
+          `⚠️ Component type mismatch detected:\n` +
+          `   File: ${path.basename(filePath)}\n` +
+          `   Content type: ${typeFromContent} (flow: ${component.flow})\n` +
+          `   Directory type: ${typeFromPath}\n` +
+          `   Using content type as authoritative.`
+        );
+      }
+
+      // Return content-based type (authoritative) or fallback to path-based
+      return typeFromContent || typeFromPath;
+
+    } catch (error) {
+      // If we can't read the file, fall back to path-based detection
+      this.logger.debug(`Could not read file content for type detection: ${path.basename(filePath)}, using path-based detection`);
+      return this.detectComponentTypeFromPath(filePath);
+    }
   }
 
   /**

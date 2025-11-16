@@ -18,6 +18,62 @@ import type {
 import { ScriptManager } from './ScriptManager.js';
 import { ComponentWatcher, type ComponentWatcherOptions } from './ComponentWatcher.js';
 import { extractWorkflowDependencies, type DependencyTree } from '../dependencies/workflow-dependencies.js';
+import { findJsonFiles, findDirectories } from '../utils/filesystem.js';
+
+/**
+ * Component type identifier
+ */
+export type ComponentType = 'task' | 'schema' | 'view' | 'function' | 'extension' | 'workflow';
+
+/**
+ * Default search paths for each component type.
+ * These are the standard directory names where components are typically stored.
+ *
+ * @example
+ * ```typescript
+ * import { DEFAULT_COMPONENT_SEARCH_PATHS } from '@amorphie-flow-studio/core/model';
+ *
+ * const taskDirs = DEFAULT_COMPONENT_SEARCH_PATHS.task;
+ * // ['Tasks', 'tasks', 'sys-tasks']
+ * ```
+ */
+export const DEFAULT_COMPONENT_SEARCH_PATHS = {
+  task: ['Tasks', 'tasks', 'sys-tasks'],
+  schema: ['Schemas', 'schemas', 'sys-schemas'],
+  view: ['Views', 'views', 'sys-views'],
+  function: ['Functions', 'functions', 'sys-functions'],
+  extension: ['Extensions', 'extensions', 'sys-extensions'],
+  workflow: ['Workflows', 'workflows', 'flows', 'sys-flows', '.']
+} as const satisfies Record<ComponentType, readonly string[]>;
+
+/**
+ * Get search paths for a specific component type
+ *
+ * @param type - The component type
+ * @returns Array of directory names to search
+ *
+ * @example
+ * ```typescript
+ * const paths = getSearchPathsForType('task');
+ * // ['Tasks', 'tasks', 'sys-tasks']
+ * ```
+ */
+export function getSearchPathsForType(type: ComponentType): readonly string[] {
+  return DEFAULT_COMPONENT_SEARCH_PATHS[type];
+}
+
+/**
+ * Internal search paths using plural keys for backward compatibility
+ * Convert readonly arrays to mutable arrays for ComponentResolverOptions
+ */
+const DEFAULT_SEARCH_PATHS = {
+  tasks: [...DEFAULT_COMPONENT_SEARCH_PATHS.task],
+  schemas: [...DEFAULT_COMPONENT_SEARCH_PATHS.schema],
+  views: [...DEFAULT_COMPONENT_SEARCH_PATHS.view],
+  functions: [...DEFAULT_COMPONENT_SEARCH_PATHS.function],
+  extensions: [...DEFAULT_COMPONENT_SEARCH_PATHS.extension],
+  workflows: [...DEFAULT_COMPONENT_SEARCH_PATHS.workflow]
+};
 
 /**
  * Options for the component resolver
@@ -37,44 +93,6 @@ export interface ComponentResolverOptions {
   /** Whether to use caching */
   useCache?: boolean;
 }
-
-/**
- * Default search paths for components
- */
-const DEFAULT_SEARCH_PATHS = {
-  tasks: [
-    'Tasks',
-    'tasks',
-    'sys-tasks'
-  ],
-  schemas: [
-    'Schemas',
-    'schemas',
-    'sys-schemas'
-  ],
-  views: [
-    'Views',
-    'views',
-    'sys-views'
-  ],
-  functions: [
-    'Functions',
-    'functions',
-    'sys-functions'
-  ],
-  extensions: [
-    'Extensions',
-    'extensions',
-    'sys-extensions'
-  ],
-  workflows: [
-    'Workflows',
-    'workflows',
-    'flows',
-    'sys-flows',
-    '.'
-  ]
-};
 
 /**
  * Resolves component references to actual definitions
@@ -346,7 +364,7 @@ export class ComponentResolver implements IComponentResolver {
       const searchDir = path.resolve(basePath, searchPath);
 
       try {
-        const files = await this.findJsonFiles(searchDir);
+        const files = await findJsonFiles(searchDir);
         console.log('[ComponentResolver] Found', files.length, 'JSON files in', searchDir);
 
         for (const file of files) {
@@ -505,7 +523,7 @@ export class ComponentResolver implements IComponentResolver {
       const searchDir = path.resolve(basePath, searchPath);
 
       try {
-        const files = await this.findJsonFiles(searchDir);
+        const files = await findJsonFiles(searchDir);
 
         for (const file of files) {
           try {
@@ -533,71 +551,6 @@ export class ComponentResolver implements IComponentResolver {
     }
 
     return null;
-  }
-
-  /**
-   * Find all directories matching a name pattern recursively
-   * Supports patterns like "Schemas" to find all directories named "Schemas" anywhere
-   */
-  private async findDirectories(basePath: string, dirName: string, maxDepth: number = 5): Promise<string[]> {
-    const results: string[] = [];
-
-    async function walk(currentDir: string, depth: number) {
-      if (depth > maxDepth) return;
-
-      try {
-        const entries = await fs.readdir(currentDir, { withFileTypes: true });
-
-        for (const entry of entries) {
-          if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
-            const fullPath = path.join(currentDir, entry.name);
-
-            // Check if this directory matches our target name
-            if (entry.name === dirName) {
-              results.push(fullPath);
-            }
-
-            // Continue searching recursively
-            await walk(fullPath, depth + 1);
-          }
-        }
-      } catch {
-        // Directory doesn't exist or can't be read
-      }
-    }
-
-    await walk(basePath, 0);
-    return results;
-  }
-
-  /**
-   * Find all JSON files in a directory recursively
-   */
-  private async findJsonFiles(dir: string, maxDepth: number = 3): Promise<string[]> {
-    const results: string[] = [];
-
-    async function walk(currentDir: string, depth: number) {
-      if (depth > maxDepth) return;
-
-      try {
-        const entries = await fs.readdir(currentDir, { withFileTypes: true });
-
-        for (const entry of entries) {
-          const fullPath = path.join(currentDir, entry.name);
-
-          if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
-            await walk(fullPath, depth + 1);
-          } else if (entry.isFile() && entry.name.endsWith('.json')) {
-            results.push(fullPath);
-          }
-        }
-      } catch {
-        // Directory doesn't exist or can't be read
-      }
-    }
-
-    await walk(dir, 0);
-    return results;
   }
 
   /**
@@ -652,7 +605,7 @@ export class ComponentResolver implements IComponentResolver {
       // Find all directories with that name anywhere in the workspace (**/Schemas/**)
       for (const searchPathName of searchPathNames) {
         // Find all directories matching this name
-        const matchingDirs = await this.findDirectories(basePath, searchPathName);
+        const matchingDirs = await findDirectories(basePath, searchPathName, { maxDepth: 5 });
         console.log(`[ComponentResolver] Found ${matchingDirs.length} directories named "${searchPathName}"`);
 
         // Scan each matching directory
@@ -660,7 +613,7 @@ export class ComponentResolver implements IComponentResolver {
           console.log(`[ComponentResolver] Scanning directory: ${dir}`);
 
           try {
-            const files = await this.findJsonFiles(dir);
+            const files = await findJsonFiles(dir);
             console.log(`[ComponentResolver] Found ${files.length} JSON files in ${dir}`);
 
             for (const file of files) {

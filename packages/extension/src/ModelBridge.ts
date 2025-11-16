@@ -18,6 +18,8 @@ import {
   WizardStatePlugin,
   ServiceTaskPlugin,
   DesignHintsManager,
+  DEFAULT_COMPONENT_SEARCH_PATHS,
+  ComponentResolverManager,
   type Workflow,
   type State,
   type Transition,
@@ -199,9 +201,6 @@ export class ModelBridge {
       this.componentWatcherLogger.info('=== Component Watcher Starting ===');
       this.componentWatcherLogger.info(`Workspace: ${workspaceRoot}`);
 
-      // Import ComponentResolver dynamically to avoid circular dependencies
-      const { ComponentResolver } = await import('@amorphie-flow-studio/core');
-
       // Dynamically find all component directories in the workspace
       const findComponentDirs = async (dirName: string): Promise<string[]> => {
         const fg = await import('fast-glob');
@@ -229,20 +228,29 @@ export class ModelBridge {
       this.componentWatcherLogger.info(`  Functions: ${functionsDirs.join(', ')}`);
       this.componentWatcherLogger.info(`  Extensions: ${extensionsDirs.join(', ')}`);
 
-      // Create a global component resolver with dynamically found search paths
-      this.globalResolver = new ComponentResolver({
+      // Get or create a global component resolver using ComponentResolverManager
+      // This ensures proper lifecycle management and cleanup
+      const manager = ComponentResolverManager.getInstance();
+      this.globalResolver = await manager.getOrCreateGlobalResolver({
+        workspaceId: workspaceRoot,
         basePath: workspaceRoot,
         useCache: true,
         searchPaths: {
-          tasks: ['Tasks', 'tasks', 'sys-tasks', ...tasksDirs],
-          schemas: ['Schemas', 'schemas', 'sys-schemas', ...schemasDirs],
-          views: ['Views', 'views', 'sys-views', ...viewsDirs],
-          functions: ['Functions', 'functions', 'sys-functions', ...functionsDirs],
-          extensions: ['Extensions', 'extensions', 'sys-extensions', ...extensionsDirs]
+          tasks: [...DEFAULT_COMPONENT_SEARCH_PATHS.task, ...tasksDirs],
+          schemas: [...DEFAULT_COMPONENT_SEARCH_PATHS.schema, ...schemasDirs],
+          views: [...DEFAULT_COMPONENT_SEARCH_PATHS.view, ...viewsDirs],
+          functions: [...DEFAULT_COMPONENT_SEARCH_PATHS.function, ...functionsDirs],
+          extensions: [...DEFAULT_COMPONENT_SEARCH_PATHS.extension, ...extensionsDirs]
+        },
+        enableWatching: false, // We'll enable watching manually to set up custom event handlers
+        lifecycle: {
+          onError: (error: Error) => {
+            this.componentWatcherLogger?.error(`Resolver error: ${error.message}`);
+          }
         }
       });
 
-      this.componentWatcherLogger.info('ComponentResolver created, enabling file watching...');
+      this.componentWatcherLogger.info('ComponentResolver created via manager, enabling file watching...');
 
       // Enable file watching with custom logger
       this.componentWatcher = await this.globalResolver.enableFileWatching({
