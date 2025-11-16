@@ -567,7 +567,6 @@ export class TaskQuickEditorProvider implements vscode.CustomTextEditorProvider 
  * Find the closest Tasks folder to a workflow file by searching upwards in the directory tree
  */
 async function findClosestTasksFolder(workflowPath: string): Promise<vscode.Uri | undefined> {
-  const path = require('path');
   let currentDir = path.dirname(workflowPath);
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 

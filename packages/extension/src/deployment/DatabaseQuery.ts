@@ -39,7 +39,7 @@ export async function getComponentData(
   flow: string,
   key: string,
   version?: string,
-  domain?: string  // Not currently stored in DB, but part of component identity
+  _domain?: string  // Not currently stored in DB, but part of component identity
 ): Promise<ComponentDatabaseData> {
   // Import pg dynamically to avoid activation errors when module is missing
   let pg;

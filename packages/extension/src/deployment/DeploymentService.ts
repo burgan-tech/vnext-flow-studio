@@ -255,7 +255,6 @@ export class DeploymentService {
       const totalToSkip = changeDetection.toSkip.length;
       const totalToChange = changeDetection.toDeploy.length;
       const totalNew = changeDetection.newComponents.length;
-      const totalToDeploy = totalToChange + totalNew;
 
       this.log(`Change detection complete: ${totalToSkip} unchanged, ${totalToChange} changed, ${totalNew} new`);
 
