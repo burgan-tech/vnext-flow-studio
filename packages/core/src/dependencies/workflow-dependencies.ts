@@ -2,7 +2,7 @@
 import type { Workflow } from '../types/index.js';
 
 export interface WorkflowDependency {
-  type: 'Task' | 'Schema' | 'View' | 'Script' | 'Function' | 'Extension';
+  type: 'Task' | 'Schema' | 'View' | 'Script' | 'Function' | 'Extension' | 'Workflow';
   key: string;
   domain?: string;
   flow?: string;
@@ -82,6 +82,30 @@ export function extractWorkflowDependencies(workflow: Workflow): DependencyTree 
       // State view
       const stateView = extractRef(state.view, 'View', 'sys-views');
       if (stateView) stateDeps.push(stateView);
+
+      // SubFlow process reference
+      if (state.subFlow?.process) {
+        const subFlowRef = extractRef(state.subFlow.process, 'Workflow', 'sys-flows');
+        if (subFlowRef) stateDeps.push({ ...subFlowRef, context: 'subFlow' });
+
+        // SubFlow mapping script
+        if (state.subFlow.mapping?.location) {
+          stateDeps.push({
+            type: 'Script',
+            key: state.subFlow.mapping.location.split('/').pop()?.replace('.csx', '') || state.subFlow.mapping.location,
+            location: state.subFlow.mapping.location,
+            context: 'subFlow:mapping'
+          });
+        }
+
+        // SubFlow view overrides
+        if (state.subFlow.viewOverrides) {
+          Object.entries(state.subFlow.viewOverrides).forEach(([_viewKey, viewRef]) => {
+            const viewOverride = extractRef(viewRef, 'View', 'sys-views');
+            if (viewOverride) stateDeps.push({ ...viewOverride, context: 'subFlow:viewOverride' });
+          });
+        }
+      }
 
       // OnEntry tasks and scripts
       if (state.onEntries) {
