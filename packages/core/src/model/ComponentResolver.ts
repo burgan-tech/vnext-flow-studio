@@ -248,7 +248,7 @@ export class ComponentResolver implements IComponentResolver {
    */
   async resolveComponentPath(
     ref: ComponentRef | { ref: string },
-    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions'
+    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'workflows'
   ): Promise<string | null> {
     // Handle ref-style reference
     if ('ref' in ref) {

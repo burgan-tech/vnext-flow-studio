@@ -1656,6 +1656,44 @@ export class ModelBridge {
         return;
       }
 
+      // For workflows, use the flowEditor.open command to open in visual editor
+      if (dependency.type === 'Workflow') {
+        if (!this.globalResolver) {
+          vscode.window.showErrorMessage('Component resolver not initialized');
+          return;
+        }
+
+        // Build the component reference
+        let componentRef: any;
+        if (dependency.ref) {
+          componentRef = { ref: dependency.ref };
+        } else if (dependency.key) {
+          componentRef = {
+            key: dependency.key,
+            domain: dependency.domain,
+            flow: dependency.flow,
+            version: dependency.version
+          };
+        } else {
+          vscode.window.showErrorMessage(`Invalid workflow reference`);
+          return;
+        }
+
+        // Use ComponentResolver to find the workflow file
+        console.log('[ModelBridge] Resolving workflow:', componentRef);
+        const foundPath = await this.globalResolver.resolveComponentPath(componentRef, 'workflows');
+        console.log('[ModelBridge] Found workflow path:', foundPath);
+
+        if (foundPath) {
+          // Open the workflow in the visual editor
+          await vscode.commands.executeCommand('flowEditor.open', vscode.Uri.file(foundPath));
+        } else {
+          const refInfo = dependency.ref || (dependency.domain ? `${dependency.domain}/${dependency.key}` : dependency.key);
+          vscode.window.showErrorMessage(`Could not find workflow: ${refInfo}`);
+        }
+        return;
+      }
+
       // For all other components (tasks, schemas, views, functions, extensions), use ComponentResolver
       if (!this.globalResolver) {
         vscode.window.showErrorMessage('Component resolver not initialized');
