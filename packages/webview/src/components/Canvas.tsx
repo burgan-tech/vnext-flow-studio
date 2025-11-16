@@ -24,12 +24,13 @@ import {
   reconnectEdge
 } from '@xyflow/react';
 import { toSvg } from 'html-to-image';
-import { Boxes, Rocket, BookOpen, Network } from 'lucide-react';
+import { Boxes, Rocket, BookOpen, Network, Settings } from 'lucide-react';
 import { PluggableStateNode } from './nodes/PluggableStateNode';
 import { LayerControlButton } from './LayerControlButton';
 import { DocumentationViewer } from './DocumentationViewer';
 import { DeploymentResultModal } from './DeploymentResultModal';
 import { DependenciesPanel } from './DependenciesPanel';
+import { WorkflowSettingsPanel } from './WorkflowSettingsPanel';
 import { ToolbarIconButton } from './ToolbarIconButton';
 import { FlyoutPanel } from './FlyoutPanel';
 import { TaskMappingPopup } from './editors/TaskMappingPopup';
@@ -128,7 +129,7 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const pendingMeasuredAutoLayout = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [showDocumentation, setShowDocumentation] = useState(false);
-  const [activePanel, setActivePanel] = useState<'states' | 'deploy' | 'dependencies' | null>(null);
+  const [activePanel, setActivePanel] = useState<'states' | 'deploy' | 'dependencies' | 'settings' | null>(null);
   const [deployStatus, setDeployStatus] = useState<{ ready: boolean; configured: boolean; environment?: { id: string; name?: string; baseUrl: string; domain: string }; apiReachable: boolean; error?: string } | null>(null);
   const [deployProgress, setDeployProgress] = useState<{ step: string; current: number; total: number; workflow?: { key: string; domain: string; filePath: string }; message: string; percentage: number } | null>(null);
   const [deployResult, setDeployResult] = useState<{ success: boolean; message: string; results?: Array<{ success: boolean; key: string; domain: string; error?: string }> } | null>(null);
@@ -2089,6 +2090,12 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               isActive={activePanel === 'dependencies'}
               onClick={() => setActivePanel(activePanel === 'dependencies' ? null : 'dependencies')}
             />
+            <ToolbarIconButton
+              icon={Settings}
+              label="Workflow Settings"
+              isActive={activePanel === 'settings'}
+              onClick={() => setActivePanel(activePanel === 'settings' ? null : 'settings')}
+            />
           </div>
 
           {/* Flyout Panel for States */}
@@ -2376,6 +2383,15 @@ ${documentation.split('\n').slice(1).join('\n')}`;
                 });
               }}
             />
+          </FlyoutPanel>
+
+          {/* Flyout Panel for Workflow Settings */}
+          <FlyoutPanel
+            title="Workflow Settings"
+            isOpen={activePanel === 'settings'}
+            onClose={() => setActivePanel(null)}
+          >
+            <WorkflowSettingsPanel postMessage={postMessage} catalogs={catalogs} workflow={workflow} />
           </FlyoutPanel>
 
           <ReactFlow

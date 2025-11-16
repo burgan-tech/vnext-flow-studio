@@ -9,7 +9,7 @@ interface TransitionLabelEditPopupProps {
   onApply: (transitionId: string, labels: Label[]) => void;
 }
 
-const COMMON_LANGUAGES = ['en', 'tr', 'en-US', 'tr-TR'];
+const COMMON_LANGUAGES = ['en-US', 'tr-TR'];
 
 export function TransitionLabelEditPopup({ transitionId, workflow, onClose, onApply }: TransitionLabelEditPopupProps) {
   const [labels, setLabels] = useState<Label[]>([{ label: '', language: 'en-US' }]);

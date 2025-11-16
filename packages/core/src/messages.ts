@@ -28,7 +28,9 @@ export type MsgToWebview =
   | { type: 'editor:scriptCreated'; success: boolean; location?: string; error?: string }
   | { type: 'editor:fileOpened'; success: boolean; error?: string }
   | { type: 'task:created'; success: boolean; filePath?: string; taskRef?: string; domain?: string; flow?: string; key?: string; version?: string; error?: string }
-  | { type: 'dependency:validation'; results: Array<{ index: number; exists: boolean }> };
+  | { type: 'dependency:validation'; results: Array<{ index: number; exists: boolean }> }
+  | { type: 'workflow:settings'; data: { key: string; domain: string; version: string; labels?: Array<{ label: string; language: string }>; tags: string[]; type: 'C' | 'F' | 'S' | 'P'; subFlowType?: 'S' | 'P'; timeout?: any; functions?: any[]; extensions?: any[] } }
+  | { type: 'workflow:settingsSaved'; success: boolean; error?: string };
 
 export type MsgFromWebview =
   | { type: 'ready' }
@@ -111,4 +113,6 @@ export type MsgFromWebview =
   | { type: 'editor:openInVSCode'; location: string }
   | { type: 'editor:createScript'; content: string; location: string; scriptType: 'mapping' | 'rule' }
   | { type: 'dependency:open'; dependency: { type: string; key: string; domain?: string; flow?: string; version?: string; location?: string; ref?: string } }
-  | { type: 'dependency:validate'; dependencies: Array<{ type: string; key: string; domain?: string; flow?: string; version?: string; location?: string; ref?: string }> };
+  | { type: 'dependency:validate'; dependencies: Array<{ type: string; key: string; domain?: string; flow?: string; version?: string; location?: string; ref?: string }> }
+  | { type: 'workflow:getSettings' }
+  | { type: 'workflow:updateSettings'; data: { key?: string; domain?: string; version?: string; labels?: Array<{ label: string; language: string }>; tags?: string[]; type?: 'C' | 'F' | 'S' | 'P'; subFlowType?: 'S' | 'P'; functions?: any[]; extensions?: any[] } };

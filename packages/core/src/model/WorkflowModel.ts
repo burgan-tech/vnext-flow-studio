@@ -477,6 +477,91 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
   }
 
   /**
+   * Get workflow settings (metadata, labels, tags, type configuration, timeout, dependencies)
+   */
+  getWorkflowSettings() {
+    return {
+      key: this.state.workflow.key,
+      domain: this.state.workflow.domain,
+      version: this.state.workflow.version,
+      labels: this.state.workflow.attributes.labels || [],
+      tags: this.state.workflow.tags || [],
+      type: this.state.workflow.attributes.type,
+      subFlowType: this.state.workflow.attributes.subFlowType,
+      timeout: this.state.workflow.attributes.timeout || null,
+      functions: this.state.workflow.attributes.functions || [],
+      features: this.state.workflow.attributes.features || [],
+      extensions: this.state.workflow.attributes.extensions || []
+    };
+  }
+
+  /**
+   * Update workflow settings (metadata, labels, tags, type configuration, timeout, dependencies)
+   */
+  updateWorkflowSettings(settings: {
+    key?: string;
+    domain?: string;
+    version?: string;
+    labels?: Array<{ label: string; language: string }>;
+    tags?: string[];
+    type?: 'C' | 'F' | 'S' | 'P';
+    subFlowType?: 'S' | 'P';
+    timeout?: any;
+    functions?: any[];
+    features?: any[];
+    extensions?: any[];
+  }): void {
+    const oldSettings = this.getWorkflowSettings();
+
+    // Update root-level properties
+    if (settings.key !== undefined) {
+      this.state.workflow.key = settings.key;
+    }
+    if (settings.domain !== undefined) {
+      this.state.workflow.domain = settings.domain;
+    }
+    if (settings.version !== undefined) {
+      this.state.workflow.version = settings.version;
+    }
+    if (settings.tags !== undefined) {
+      this.state.workflow.tags = settings.tags;
+    }
+
+    // Update attributes
+    if (settings.labels !== undefined) {
+      this.state.workflow.attributes.labels = settings.labels;
+    }
+    if (settings.type !== undefined) {
+      this.state.workflow.attributes.type = settings.type;
+    }
+    if (settings.subFlowType !== undefined) {
+      this.state.workflow.attributes.subFlowType = settings.subFlowType;
+    }
+    if (settings.timeout !== undefined) {
+      this.state.workflow.attributes.timeout = settings.timeout;
+    }
+    if (settings.functions !== undefined) {
+      this.state.workflow.attributes.functions = settings.functions;
+    }
+    if (settings.features !== undefined) {
+      this.state.workflow.attributes.features = settings.features;
+    }
+    if (settings.extensions !== undefined) {
+      this.state.workflow.attributes.extensions = settings.extensions;
+    }
+
+    this.markDirty();
+
+    this.emitChange({
+      type: 'workflow',
+      action: 'update',
+      target: 'settings',
+      oldValue: oldSettings,
+      newValue: this.getWorkflowSettings()
+    });
+  }
+
+  /**
    * Get a resolved state by key
    */
   getState(key: string): ResolvedState | undefined {

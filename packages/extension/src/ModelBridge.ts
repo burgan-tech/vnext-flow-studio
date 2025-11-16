@@ -883,6 +883,14 @@ export class ModelBridge {
           await this.validateDependencies(model, message.dependencies, panel);
           break;
 
+        case 'workflow:getSettings':
+          await this.getWorkflowSettings(model, panel);
+          break;
+
+        case 'workflow:updateSettings':
+          await this.updateWorkflowSettings(model, message.data, panel);
+          break;
+
         case 'request:lint':
           await this.performLinting(model, panel);
           break;
@@ -3262,6 +3270,97 @@ export class ModelBridge {
 
       // Refresh status
       await this.handleCheckDeployStatus(panel);
+    }
+  }
+
+  /**
+   * Get workflow settings and send to webview
+   */
+  private async getWorkflowSettings(model: WorkflowModel, panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      console.log('[ModelBridge] Getting workflow settings');
+      const settings = model.getWorkflowSettings();
+      console.log('[ModelBridge] Settings retrieved:', settings);
+
+      panel.webview.postMessage({
+        type: 'workflow:settings',
+        data: settings
+      });
+      console.log('[ModelBridge] Settings sent to webview');
+    } catch (error) {
+      console.error('[ModelBridge] Error getting workflow settings:', error);
+      vscode.window.showErrorMessage(`Failed to get workflow settings: ${error}`);
+    }
+  }
+
+  /**
+   * Update workflow settings and save
+   */
+  private async updateWorkflowSettings(
+    model: WorkflowModel,
+    data: {
+      key?: string;
+      domain?: string;
+      version?: string;
+      labels?: Array<{ label: string; language: string }>;
+      tags?: string[];
+      type?: 'C' | 'F' | 'S' | 'P';
+      subFlowType?: 'S' | 'P';
+      timeout?: any;
+      functions?: any[];
+      features?: any[];
+      extensions?: any[];
+    },
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    try {
+      // Validate settings before applying
+      const errors: string[] = [];
+
+      if (data.key !== undefined && !/^[a-z0-9-]+$/.test(data.key)) {
+        errors.push('Key must be lowercase with hyphens only (pattern: ^[a-z0-9-]+$)');
+      }
+      if (data.domain !== undefined && !/^[a-z0-9-]+$/.test(data.domain)) {
+        errors.push('Domain must be lowercase with hyphens only (pattern: ^[a-z0-9-]+$)');
+      }
+      if (data.version !== undefined && !/^\d+\.\d+\.\d+$/.test(data.version)) {
+        errors.push('Version must be semantic version format (e.g., 1.0.0)');
+      }
+      if (data.tags !== undefined && data.tags.some(tag => !tag.trim())) {
+        errors.push('Tags cannot be empty');
+      }
+
+      if (errors.length > 0) {
+        panel.webview.postMessage({
+          type: 'workflow:settingsSaved',
+          success: false,
+          error: errors.join('\n')
+        });
+        vscode.window.showErrorMessage(`Validation failed:\n${errors.join('\n')}`);
+        return;
+      }
+
+      // Update workflow settings
+      model.updateWorkflowSettings(data);
+
+      // Auto-save the workflow
+      await this.saveModel(model);
+
+      panel.webview.postMessage({
+        type: 'workflow:settingsSaved',
+        success: true
+      });
+
+      vscode.window.showInformationMessage('Workflow settings updated successfully');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      panel.webview.postMessage({
+        type: 'workflow:settingsSaved',
+        success: false,
+        error: errorMessage
+      });
+      console.error('[ModelBridge] Error updating workflow settings:', error);
+      vscode.window.showErrorMessage(`Failed to update workflow settings: ${errorMessage}`);
     }
   }
 

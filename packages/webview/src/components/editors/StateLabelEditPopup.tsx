@@ -9,7 +9,7 @@ interface StateLabelEditPopupProps {
   onApply: (labels: Label[]) => void;
 }
 
-const COMMON_LANGUAGES = ['en', 'tr', 'en-US', 'tr-TR'];
+const COMMON_LANGUAGES = ['en-US', 'tr-TR'];
 
 export function StateLabelEditPopup({ stateKey, currentLabels, onClose, onApply }: StateLabelEditPopupProps) {
   const initialLabels = useMemo(() => {
