@@ -98,9 +98,10 @@ export function extractWorkflowDependencies(workflow: Workflow): DependencyTree 
           });
         }
 
-        // SubFlow view overrides
-        if (state.subFlow.viewOverrides) {
-          Object.entries(state.subFlow.viewOverrides).forEach(([_viewKey, viewRef]) => {
+        // SubFlow view overrides (if present - not in TypeScript type but may exist in runtime data)
+        const subFlowAny = state.subFlow as any;
+        if (subFlowAny.viewOverrides && typeof subFlowAny.viewOverrides === 'object') {
+          Object.entries(subFlowAny.viewOverrides as Record<string, any>).forEach(([_viewKey, viewRef]) => {
             const viewOverride = extractRef(viewRef, 'View', 'sys-views');
             if (viewOverride) stateDeps.push({ ...viewOverride, context: 'subFlow:viewOverride' });
           });
