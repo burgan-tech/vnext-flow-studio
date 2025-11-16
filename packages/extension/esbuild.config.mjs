@@ -9,7 +9,7 @@ const buildOptions = {
   outfile: 'dist/extension.js',
   bundle: true,
   platform: 'node',
-  external: ['vscode', 'pg'],
+  external: ['vscode'],
   sourcemap: true
 };
 

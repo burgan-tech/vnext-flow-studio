@@ -3,6 +3,10 @@
  */
 
 import type { DatabaseConfig } from '@amorphie-flow-studio/graph-core';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 /**
  * Component data from database
@@ -41,58 +45,54 @@ export async function getComponentData(
   version?: string,
   _domain?: string  // Not currently stored in DB, but part of component identity
 ): Promise<ComponentDatabaseData> {
-  // Import pg dynamically to avoid activation errors when module is missing
-  let pg;
-  try {
-    pg = await import('pg');
-  } catch (importError) {
-    console.error('[DatabaseQuery] Failed to import pg module:', importError);
-    console.error('[DatabaseQuery] Direct database connections require the "pg" package.');
-    console.error('[DatabaseQuery] Please use Docker connection instead (set useDocker: true in database config).');
-    return {
-      data: null,
-      enteredAt: new Date(0),
-      etag: '',
-      version: '',
-      exists: false
-    };
-  }
+  const dbSchema = flow.replace(/-/g, '_');
 
-  const { Client } = pg;
-  const client = new Client({
-    host: dbConfig.host,
-    port: dbConfig.port,
-    database: dbConfig.database,
-    user: dbConfig.user,
-    password: dbConfig.password
-  });
+  if (dbConfig.useDocker) {
+    // Use Docker exec
+    const cmd = version
+      ? `docker exec ${dbConfig.dockerContainer} psql -U ${dbConfig.user} -d ${dbConfig.database} -t -c "SELECT i.\\"Key\\", i.\\"Flow\\", d.\\"Data\\", d.\\"EnteredAt\\", d.\\"ETag\\", d.\\"Version\\" FROM \\"${dbSchema}\\".\\"Instances\\" i JOIN \\"${dbSchema}\\".\\"InstancesData\\" d ON i.\\"Id\\" = d.\\"InstanceId\\" WHERE i.\\"Key\\" = '${key}' AND d.\\"Version\\" = '${version}'"`
+      : `docker exec ${dbConfig.dockerContainer} psql -U ${dbConfig.user} -d ${dbConfig.database} -t -c "SELECT i.\\"Key\\", i.\\"Flow\\", d.\\"Data\\", d.\\"EnteredAt\\", d.\\"ETag\\", d.\\"Version\\" FROM \\"${dbSchema}\\".\\"Instances\\" i JOIN \\"${dbSchema}\\".\\"InstancesData\\" d ON i.\\"Id\\" = d.\\"InstanceId\\" WHERE i.\\"Key\\" = '${key}' AND d.\\"IsLatest\\" = true"`;
 
-  try {
-    await client.connect();
+    try {
+      const { stdout } = await execAsync(cmd);
+      const line = stdout.trim();
 
-    // Map flow to database schema (sys-flows → sys_flows)
-    const dbSchema = flow.replace(/-/g, '_');
+      if (!line) {
+        return {
+          data: null,
+          key: '',
+          flow: '',
+          enteredAt: new Date(0),
+          etag: '',
+          version: '',
+          exists: false
+        };
+      }
 
-    // Query for specific version if provided, otherwise latest version
-    const result = version
-      ? await client.query(
-          `SELECT i."Key", i."Flow", d."Data", d."EnteredAt", d."ETag", d."Version"
-           FROM "${dbSchema}"."Instances" i
-           JOIN "${dbSchema}"."InstancesData" d ON i."Id" = d."InstanceId"
-           WHERE i."Key" = $1
-           AND d."Version" = $2`,
-          [key, version]
-        )
-      : await client.query(
-          `SELECT i."Key", i."Flow", d."Data", d."EnteredAt", d."ETag", d."Version"
-           FROM "${dbSchema}"."Instances" i
-           JOIN "${dbSchema}"."InstancesData" d ON i."Id" = d."InstanceId"
-           WHERE i."Key" = $1
-           AND d."IsLatest" = true`,
-          [key]
-        );
+      const parts = line.split('|').map(p => p.trim());
+      if (parts.length >= 6) {
+        return {
+          key: parts[0],
+          flow: parts[1],
+          data: parts[2] ? JSON.parse(parts[2]) : null,
+          enteredAt: new Date(parts[3]),
+          etag: parts[4],
+          version: parts[5],
+          exists: true
+        };
+      }
 
-    if (result.rows.length === 0) {
+      return {
+        data: null,
+        key: '',
+        flow: '',
+        enteredAt: new Date(0),
+        etag: '',
+        version: '',
+        exists: false
+      };
+    } catch (error) {
+      console.error('[DatabaseQuery] Error querying database:', error);
       return {
         data: null,
         key: '',
@@ -103,19 +103,19 @@ export async function getComponentData(
         exists: false
       };
     }
-
-    const row = result.rows[0];
+  } else {
+    // Direct connection not supported without pg module
+    console.error('[DatabaseQuery] Direct database connections are not supported.');
+    console.error('[DatabaseQuery] Please use Docker connection (set useDocker: true in database config).');
     return {
-      data: row.Data,
-      key: row.Key,
-      flow: row.Flow,
-      enteredAt: row.EnteredAt,
-      etag: row.ETag,
-      version: row.Version,
-      exists: true
+      data: null,
+      key: '',
+      flow: '',
+      enteredAt: new Date(0),
+      etag: '',
+      version: '',
+      exists: false
     };
-  } finally {
-    await client.end();
   }
 }
 
@@ -127,18 +127,13 @@ export async function getComponentDataBatch(
   dbConfig: DatabaseConfig,
   components: Array<{ flow: string; key: string; version?: string; domain?: string }>
 ): Promise<Map<string, ComponentDatabaseData>> {
-  // Import pg dynamically to avoid activation errors when module is missing
-  let pg;
-  try {
-    pg = await import('pg');
-  } catch (importError) {
-    console.error('[DatabaseQuery] Failed to import pg module:', importError);
-    console.error('[DatabaseQuery] Direct database connections require the "pg" package.');
-    console.error('[DatabaseQuery] Please use Docker connection instead (set useDocker: true in database config).');
-    return new Map<string, ComponentDatabaseData>();
-  }
-
   const results = new Map<string, ComponentDatabaseData>();
+
+  if (!dbConfig.useDocker) {
+    console.error('[DatabaseQuery] Direct database connections are not supported.');
+    console.error('[DatabaseQuery] Please use Docker connection (set useDocker: true in database config).');
+    return results;
+  }
 
   // Check if any component specifies a version
   const hasVersions = components.some(c => c.version);
@@ -163,43 +158,33 @@ export async function getComponentDataBatch(
     bySchema.get(schema)!.push(comp.key);
   }
 
-  const { Client } = pg;
-  const client = new Client({
-    host: dbConfig.host,
-    port: dbConfig.port,
-    database: dbConfig.database,
-    user: dbConfig.user,
-    password: dbConfig.password
-  });
+  // Query each schema
+  for (const [schema, keys] of bySchema) {
+    const keysArray = keys.map(k => `'${k}'`).join(',');
+    const cmd = `docker exec ${dbConfig.dockerContainer} psql -U ${dbConfig.user} -d ${dbConfig.database} -t -c "SELECT i.\\"Key\\", i.\\"Flow\\", d.\\"Data\\", d.\\"EnteredAt\\", d.\\"ETag\\", d.\\"Version\\" FROM \\"${schema}\\".\\"Instances\\" i JOIN \\"${schema}\\".\\"InstancesData\\" d ON i.\\"Id\\" = d.\\"InstanceId\\" WHERE i.\\"Key\\" IN (${keysArray}) AND d.\\"IsLatest\\" = true"`;
 
-  try {
-    await client.connect();
-
-    // Query each schema
-    for (const [schema, keys] of bySchema) {
-      const result = await client.query(
-        `SELECT i."Key", i."Flow", d."Data", d."EnteredAt", d."ETag", d."Version"
-         FROM "${schema}"."Instances" i
-         JOIN "${schema}"."InstancesData" d ON i."Id" = d."InstanceId"
-         WHERE i."Key" = ANY($1::text[])
-         AND d."IsLatest" = true`,
-        [keys]
-      );
+    try {
+      const { stdout } = await execAsync(cmd);
+      const lines = stdout.trim().split('\n').filter(l => l.trim());
 
       // Map results
       const found = new Set<string>();
-      for (const row of result.rows) {
-        const compKey = `${schema}/${row.Key}`;
-        results.set(compKey, {
-          data: row.Data,
-          key: row.Key,
-          flow: row.Flow,
-          enteredAt: row.EnteredAt,
-          etag: row.ETag,
-          version: row.Version,
-          exists: true
-        });
-        found.add(row.Key);
+      for (const line of lines) {
+        const parts = line.split('|').map(p => p.trim());
+        if (parts.length >= 6) {
+          const key = parts[0];
+          const compKey = `${schema}/${key}`;
+          results.set(compKey, {
+            key: parts[0],
+            flow: parts[1],
+            data: parts[2] ? JSON.parse(parts[2]) : null,
+            enteredAt: new Date(parts[3]),
+            etag: parts[4],
+            version: parts[5],
+            exists: true
+          });
+          found.add(key);
+        }
       }
 
       // Add missing components
@@ -217,10 +202,23 @@ export async function getComponentDataBatch(
           });
         }
       }
+    } catch (error) {
+      console.error('[DatabaseQuery] Error querying schema:', schema, error);
+      // Add all as missing
+      for (const key of keys) {
+        const compKey = `${schema}/${key}`;
+        results.set(compKey, {
+          data: null,
+          key: '',
+          flow: '',
+          enteredAt: new Date(0),
+          etag: '',
+          version: '',
+          exists: false
+        });
+      }
     }
-
-    return results;
-  } finally {
-    await client.end();
   }
+
+  return results;
 }
