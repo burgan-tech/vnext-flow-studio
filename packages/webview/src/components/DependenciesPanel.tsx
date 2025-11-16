@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import { CheckSquare, FileCode, Database, Eye, Zap, Package, XCircle } from 'lucide-react';
+import { CheckSquare, FileCode, Database, Eye, Zap, Package, XCircle, Workflow as WorkflowIcon } from 'lucide-react';
 import type { Workflow } from '@amorphie-flow-studio/core';
 import '../styles/dependencies-panel.css';
 
@@ -14,7 +14,7 @@ interface DependenciesPanelProps {
 }
 
 interface WorkflowDependency {
-  type: 'Task' | 'Schema' | 'View' | 'Script' | 'Function' | 'Extension';
+  type: 'Task' | 'Schema' | 'View' | 'Script' | 'Function' | 'Extension' | 'Workflow';
   key: string;
   domain?: string;
   flow?: string;
@@ -44,6 +44,7 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
       case 'View': return <Eye {...iconProps} />;
       case 'Function': return <Zap {...iconProps} />;
       case 'Extension': return <Package {...iconProps} />;
+      case 'Workflow': return <WorkflowIcon {...iconProps} />;
       default: return <CheckSquare {...iconProps} />;
     }
   };
@@ -117,6 +118,30 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
         // State view
         const stateView = extractRef(state.view, 'View');
         if (stateView) stateDeps.push(stateView);
+
+        // SubFlow process reference
+        if (state.subFlow?.process) {
+          const subFlowRef = extractRef(state.subFlow.process, 'Workflow');
+          if (subFlowRef) stateDeps.push({ ...subFlowRef, context: 'subFlow' });
+
+          // SubFlow mapping script
+          if (state.subFlow.mapping?.location) {
+            stateDeps.push({
+              type: 'Script',
+              key: state.subFlow.mapping.location.split('/').pop()?.replace('.csx', '') || state.subFlow.mapping.location,
+              location: state.subFlow.mapping.location,
+              context: 'subFlow:mapping'
+            });
+          }
+
+          // SubFlow view overrides
+          if (state.subFlow.viewOverrides) {
+            Object.entries(state.subFlow.viewOverrides).forEach(([_viewKey, viewRef]) => {
+              const viewOverride = extractRef(viewRef, 'View');
+              if (viewOverride) stateDeps.push({ ...viewOverride, context: 'subFlow:viewOverride' });
+            });
+          }
+        }
 
         // OnEntry tasks and scripts
         if (state.onEntries) {
