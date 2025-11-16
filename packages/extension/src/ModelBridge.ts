@@ -508,9 +508,19 @@ export class ModelBridge {
 
       // Set up panel disposal cleanup
       panel.onDidDispose(() => {
+        console.log('[ModelBridge] Panel disposed, cleaning up model for:', panelKey);
         this.panelModelMap.delete(panelKey);
         this.panelUriMap.delete(panelKey);
         this.config.activePanels.delete(panelKey);
+
+        // Force remove model from integration cache to ensure fresh load on reopen
+        // We use forceClose instead of closeWorkflow to bypass dirty state checks
+        try {
+          this.integration.forceClose(panelKey);
+          console.log('[ModelBridge] Model removed from cache:', panelKey);
+        } catch (error) {
+          console.warn('[ModelBridge] Error closing workflow:', error);
+        }
       });
 
       // Get initial data from model

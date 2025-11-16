@@ -40,13 +40,12 @@ async function openFlowEditor(
       // Use the panel provided by CustomTextEditor
       panel = providedPanel;
     } else {
-      // Check if we already have a panel for this file and close it
+      // Check if we already have a panel for this file
       const existingPanel = activePanels.get(flowUri.toString());
       if (existingPanel) {
-        console.log('[Extension] Disposing existing panel for:', flowUri.toString());
-        existingPanel.dispose();
-        // Wait for cleanup to complete
-        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('[Extension] Panel already open for:', flowUri.toString(), '- revealing existing panel');
+        existingPanel.reveal(vscode.ViewColumn.Active);
+        return; // Don't create a new panel, just reveal the existing one
       }
 
       // Create webview panel

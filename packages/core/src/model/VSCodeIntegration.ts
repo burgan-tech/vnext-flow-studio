@@ -104,6 +104,25 @@ export class VSCodeModelIntegration {
   }
 
   /**
+   * Force close a workflow model, bypassing dirty state checks
+   * Used when a panel is disposed and we need to ensure cleanup
+   */
+  forceClose(workflowPath: string): void {
+    const model = this.models.get(workflowPath);
+    if (!model) return;
+
+    // Remove from cache regardless of dirty state
+    this.models.delete(workflowPath);
+
+    // If this was the active model, clear it
+    if (this.activeModel === model) {
+      this.activeModel = undefined;
+    }
+
+    console.log('[VSCodeIntegration] Force closed workflow:', workflowPath);
+  }
+
+  /**
    * Save the active model
    */
   async save(options: ModelSaveOptions = {}): Promise<SaveResult | null> {
