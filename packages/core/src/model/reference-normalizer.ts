@@ -122,7 +122,7 @@ function parseFilePathHeuristic(filePath: string): ComponentRef | null {
 /**
  * Map component type to resolver method name
  */
-function getComponentTypeName(type: ComponentType): 'task' | 'schema' | 'view' | 'function' | 'extension' | 'workflow' {
+function _getComponentTypeName(type: ComponentType): 'task' | 'schema' | 'view' | 'function' | 'extension' | 'workflow' {
   // ComponentType uses singular form which matches resolver method names
   return type as any;
 }

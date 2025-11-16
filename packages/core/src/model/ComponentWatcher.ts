@@ -526,7 +526,7 @@ export class ComponentWatcher extends EventEmitter {
       // Return content-based type (authoritative) or fallback to path-based
       return typeFromContent || typeFromPath;
 
-    } catch (error) {
+    } catch {
       // If we can't read the file, fall back to path-based detection
       this.logger.debug(`Could not read file content for type detection: ${path.basename(filePath)}, using path-based detection`);
       return this.detectComponentTypeFromPath(filePath);

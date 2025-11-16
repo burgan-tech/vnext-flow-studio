@@ -276,7 +276,7 @@ export async function findDirectories(
           }
         }
       }
-    } catch (error) {
+    } catch {
       // Directory doesn't exist, permission denied, or other I/O error
       // Silently skip
     }
