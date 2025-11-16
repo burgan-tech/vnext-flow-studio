@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Script File Watching**: Real-time monitoring and cache invalidation for script files
+  - Watches .csx, .cs, .js, and .mapper.json files for changes
+  - Automatic cache invalidation when scripts are added, changed, or deleted
+  - Extended watch paths to include Scripts, scripts, and src directories
+  - Emits scriptAdded, scriptChanged, scriptDeleted events
+  - No VS Code restart needed when scripts change
+
 - **Dependencies Panel**: New panel showing all workflow dependencies with validation
   - Tree view organized by state showing tasks, schemas, views, scripts, functions, and extensions
   - Visual validation indicators - red X icon for broken/missing dependencies
@@ -41,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Clickable Task References**: Task references in task detail panel now clickable to open in Quick Editor
 
 ### Fixed
+- **Content-Based Component Type Detection**: ComponentWatcher now uses authoritative metadata
+  - Component types determined by reading the `flow` field from JSON content
+  - Maps flow values to component types (sys-tasks → Task, sys-schemas → Schema, etc.)
+  - Warns when directory location doesn't match component content type
+  - Falls back to directory-based detection only when content can't be read
+  - Fixes incorrect type detection when components are placed in non-standard directories
+
 - **Git Diff Support** ([#18](https://github.com/burgan-tech/vnext-flow-studio/issues/18)): Fixed git "Open Changes" to show text diff by default
   - Changed custom editor priority from "default" to "option" - text editor is now the default for workflow files
   - Fixed diagram loading from git commits (supports both `.flow.json` and `.diagram.json` from same commit)
@@ -79,6 +93,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved performance by reducing duplicate file system operations
 
 ### Changed
+- **Code Architecture Refactoring**: Comprehensive refactoring to eliminate duplication and improve maintainability
+  - **Centralized Configuration** (~92 lines of duplicate code removed):
+    - Exported DEFAULT_COMPONENT_SEARCH_PATHS from ComponentResolver
+    - Created shared filesystem utilities (findJsonFiles, scanJsonFiles, findDirectories)
+    - Updated LocalGraphBuilder to use shared constants and utilities
+  - **Resolver Lifecycle Management** (prevents memory leaks):
+    - Created ComponentResolverManager singleton for centralized resolver management
+    - Provides getOrCreateGlobalResolver() for shared workspace resolvers
+    - Provides createIsolatedResolver() for temporary resolvers
+    - Added lifecycle callbacks: onCacheInvalidated, onError, onDispose
+    - Updated ModelBridge and MapperEditorProvider to use manager pattern
+    - Added proper disposal in extension deactivation
+  - **Unified Reference Normalization** (~155 lines of duplicate code removed):
+    - Created reference-normalizer.ts with unified normalization logic
+    - Handles all reference formats: structured refs, ref-style strings, file paths
+    - Supports optional resolver for content validation
+    - Added normalizeWorkflowReferences() for deep workflow traversal
+    - Updated LocalGraphBuilder to use shared normalization with caching
+  - **Net Impact**: ~247 lines of duplicate code eliminated, improved maintainability, reduced memory footprint
+
 - **Default Editor Behavior**: Text editor is now the default for workflow files
   - Users can still access visual editor via "Open With..." → "Amorphie Flow Studio"
   - "Amorphie: Open Workflow" command continues to open visual editor directly
