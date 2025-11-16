@@ -66,7 +66,7 @@ export function DeploymentResultModal({ success, message, results, onClose }: De
             {message}
           </div>
 
-          {results && results.length > 0 && (
+          {results && results.length > 0 ? (
             <div className="deployment-result-modal__results">
               <h3 className="deployment-result-modal__results-title">Deployment Details</h3>
               <div className="deployment-result-modal__results-list">
@@ -101,6 +101,26 @@ export function DeploymentResultModal({ success, message, results, onClose }: De
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          ) : success && (
+            <div className="deployment-result-modal__up-to-date">
+              <div style={{
+                padding: '24px',
+                textAlign: 'center',
+                color: '#10b981',
+                fontSize: '1.1rem',
+                fontWeight: '500'
+              }}>
+                ✓ All components are up to date
+              </div>
+              <div style={{
+                padding: '0 24px 24px',
+                textAlign: 'center',
+                color: '#6b7280',
+                fontSize: '0.9rem'
+              }}>
+                No deployment needed
               </div>
             </div>
           )}

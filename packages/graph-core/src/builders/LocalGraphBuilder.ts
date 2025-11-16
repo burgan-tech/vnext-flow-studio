@@ -270,14 +270,36 @@ async function normalizeWorkflowReferences(workflowDef: any, basePath: string): 
   // Create component resolver for this workflow
   const resolver = new ComponentResolver({ basePath });
 
-  // Helper to resolve a reference object using ComponentResolver
+  // Helper to normalize a reference object
   const resolveRef = async (refObj: any, type: 'task' | 'schema' | 'view'): Promise<any> => {
     if (!refObj || typeof refObj !== 'object') {
       return refObj;
     }
 
-    // If it has a "ref" field with file path, use ComponentResolver to resolve it
+    // If it's already a complete structured reference (has key, domain, flow, version), use as-is
+    if (refObj.key && refObj.domain && refObj.flow && refObj.version) {
+      return refObj;
+    }
+
+    // If it has a "ref" field, check what kind of reference it is
     if (refObj.ref && typeof refObj.ref === 'string') {
+      const refString = refObj.ref;
+
+      // Check if it's a ref-style string (e.g., "domain/flow/key@version")
+      // vs a file path (e.g., "Tasks/task.json")
+      const isRefStyle = refString.match(/^([^/]+)\/([^/]+)\/([^@]+)@(.+)$/);
+
+      if (isRefStyle) {
+        // It's already a normalized ref-style string, just parse it to structured format
+        return {
+          domain: isRefStyle[1].toLowerCase(),
+          flow: isRefStyle[2].toLowerCase(),
+          key: isRefStyle[3].toLowerCase(),
+          version: isRefStyle[4]
+        };
+      }
+
+      // It's a file path reference, resolve it using ComponentResolver
       let component: any = null;
 
       try {

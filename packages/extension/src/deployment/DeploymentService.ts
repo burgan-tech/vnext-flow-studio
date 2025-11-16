@@ -207,21 +207,22 @@ export class DeploymentService {
         continue;
       }
 
-      // Read the actual file from disk
-      try {
-        const fs = await import('fs/promises');
-        const content = await fs.readFile(filePath, 'utf-8');
-        const component = JSON.parse(content);
+      // Use the graph node's definition (already normalized with correct versions)
+      // Graph stores: ref (key, domain, flow, version) + definition (attributes)
+      // Reconstruct full component for deployment
+      const component = {
+        key: dep.ref.key,
+        domain: dep.ref.domain,
+        flow: dep.ref.flow,
+        version: dep.ref.version,  // ← Correct version from graph!
+        attributes: dep.definition  // Already normalized
+      };
 
-        deploymentRequests.push({
-          component: component,
-          environment: request.environment,
-          filePath
-        });
-      } catch (error) {
-        this.log(`Warning: Failed to read ${dep.type} ${dep.ref.key} from ${filePath}: ${error}`);
-        continue;
-      }
+      deploymentRequests.push({
+        component: component,
+        environment: request.environment,
+        filePath
+      });
     }
 
     // Add the main workflow last (after all dependencies)
@@ -250,23 +251,33 @@ export class DeploymentService {
 
       const changeDetection = await this.detectChanges(deploymentRequests, request.environment);
 
-      // Log change detection results
-      if (changeDetection.toSkip.length > 0) {
-        this.log(`Skipping ${changeDetection.toSkip.length} unchanged components:`);
+      // Log change detection summary
+      const totalToSkip = changeDetection.toSkip.length;
+      const totalToChange = changeDetection.toDeploy.length;
+      const totalNew = changeDetection.newComponents.length;
+      const totalToDeploy = totalToChange + totalNew;
+
+      this.log(`Change detection complete: ${totalToSkip} unchanged, ${totalToChange} changed, ${totalNew} new`);
+
+      // Log skipped components
+      if (totalToSkip > 0) {
+        this.log(`Skipping ${totalToSkip} unchanged components:`);
         changeDetection.toSkip.forEach(comp => {
           this.log(`  ✓ ${comp.key} (${comp.reason})`);
         });
       }
 
-      if (changeDetection.toDeploy.length > 0) {
-        this.log(`Deploying ${changeDetection.toDeploy.length} changed components:`);
+      // Log changed components
+      if (totalToChange > 0) {
+        this.log(`Deploying ${totalToChange} changed components:`);
         changeDetection.toDeploy.forEach(comp => {
           this.log(`  → ${comp.key} (${comp.reason})`);
         });
       }
 
-      if (changeDetection.newComponents.length > 0) {
-        this.log(`Deploying ${changeDetection.newComponents.length} new components:`);
+      // Log new components
+      if (totalNew > 0) {
+        this.log(`Deploying ${totalNew} new components:`);
         changeDetection.newComponents.forEach(comp => {
           this.log(`  → ${comp.key} (${comp.reason})`);
         });
@@ -284,24 +295,17 @@ export class DeploymentService {
 
       // If no components need deployment, return early
       if (filteredDeploymentRequests.length === 0) {
-        this.log('No components need deployment - all are up to date!');
+        this.log('');
+        this.log('═══════════════════════════════════════════════════════');
+        this.log(`✓ All ${totalToSkip} components are up to date!`);
+        this.log('  No deployment needed.');
+        this.log('═══════════════════════════════════════════════════════');
         return {
           success: true,
-          total: deploymentRequests.length,
+          total: 0,  // Only count components that were actually deployed
           succeeded: 0,
           failed: 0,
-          results: changeDetection.toSkip.map(comp => ({
-            success: true,
-            type: this.getComponentType(comp.flow) as 'workflow' | 'task' | 'schema' | 'view' | 'function' | 'extension',
-            key: comp.key,
-            domain: comp.domain,
-            flow: comp.flow,
-            version: request.component.version,
-            filePath: comp.filePath,
-            instanceId: undefined,
-            error: undefined,
-            validationErrors: undefined
-          }))
+          results: []  // Don't include skipped components in results
         };
       }
     }
@@ -378,6 +382,20 @@ export class DeploymentService {
       this.log(`Normalization complete: ${normalizeResult.stats.referencesResolved} refs resolved, ` +
         `${normalizeResult.stats.scriptsInlined} scripts inlined, ${normalizeResult.stats.mappersCompiled} mappers compiled`);
 
+      // Report normalization stats to UI
+      onProgress?.({
+        step: 'deploying',
+        current: 0,
+        total: 1,
+        workflow: {
+          key: request.component.key,
+          domain: request.component.domain,
+          filePath: request.filePath
+        },
+        message: `Normalized: ${normalizeResult.stats.referencesResolved} refs, ${normalizeResult.stats.scriptsInlined} scripts, ${normalizeResult.stats.mappersCompiled} mappers`,
+        percentage: 30
+      });
+
       componentToDeploy = normalizeResult.workflow;
     } else {
       // For non-workflow components, use as-is
@@ -389,14 +407,11 @@ export class DeploymentService {
     componentToDeploy = filterDesignTimeAttributes(componentToDeploy);
 
     // Clean up existing instance from database if database config is provided
-    // Skip cleanup on force deployment
-    if (request.force) {
-      this.log(`🔴 FORCE MODE: Skipping database cleanup, API will override existing instances`);
-    } else if (!request.environment.database) {
+    if (!request.environment.database) {
       this.log(`⚠️  WARNING: Database configuration not set for environment '${request.environment.id}'`);
       this.log(`   Skipping database cleanup. If there are existing instances, deployment may fail with 409 Conflict`);
       this.log(`   Configure database connection in Amorphie Settings to enable automatic cleanup`);
-    } else if (request.environment.database) {
+    } else {
       this.log(`Checking for existing instance in database...`);
       this.log(`  Schema: ${request.component.flow || 'sys-flows'} (converted from flow name)`);
       this.log(`  Key: ${request.component.key}`);
@@ -415,16 +430,18 @@ export class DeploymentService {
       });
 
       try {
+        // First, query for specific version
         const instanceInfo = await getInstanceInfo(
           request.environment.database,
           request.component.flow || 'sys-flows',
-          request.component.key
+          request.component.key,
+          request.component.version  // Query for specific version
         );
 
         this.log(`Database query completed. Instance found: ${instanceInfo ? 'YES' : 'NO'}`);
 
         if (instanceInfo) {
-          this.log(`Found existing instance ${instanceInfo.id} (Status: ${instanceInfo.status})`);
+          this.log(`Found existing instance ${instanceInfo.id} (Status: ${instanceInfo.status}, Version: ${request.component.version})`);
           this.log(`Deleting ${instanceInfo.status} instance ${instanceInfo.id}...`);
 
           const deleted = await deleteWorkflowInstance(
@@ -440,7 +457,38 @@ export class DeploymentService {
             this.log(`   This may cause deployment conflicts if instance exists in API`);
           }
         } else {
-          this.log(`No existing instance found in database`);
+          // Specific version not found, but check if ANY other version exists
+          // The runtime only allows ONE active instance per key (regardless of version)
+          this.log(`Specific version ${request.component.version} not found in database`);
+          this.log(`Checking for other versions of key "${request.component.key}"...`);
+
+          const anyVersionInfo = await getInstanceInfo(
+            request.environment.database,
+            request.component.flow || 'sys-flows',
+            request.component.key
+            // No version parameter = gets latest version by CreatedAt
+          );
+
+          if (anyVersionInfo) {
+            this.log(`Found instance with different version: ${anyVersionInfo.id} (Status: ${anyVersionInfo.status}, DB Version: ${anyVersionInfo.version || 'unknown'})`);
+            this.log(`Expected version: ${request.component.version}, Found version: ${anyVersionInfo.version || 'unknown'}`);
+            this.log(`Deleting to avoid 409 Conflict...`);
+
+            const deleted = await deleteWorkflowInstance(
+              request.environment.database,
+              request.component.flow || 'sys-flows',
+              anyVersionInfo.id
+            );
+
+            if (deleted) {
+              this.log(`✓ Deleted instance ${anyVersionInfo.id}`);
+            } else {
+              this.log(`⚠ Failed to delete instance ${anyVersionInfo.id}`);
+              this.log(`   Deployment may fail with 409 Conflict`);
+            }
+          } else {
+            this.log(`No existing instance found in database (any version)`);
+          }
         }
       } catch (error) {
         this.log(`⚠ Database cleanup failed: ${error}`);
@@ -520,7 +568,7 @@ export class DeploymentService {
     const activateResult = await this.adapter.activateComponent(
       componentType,
       deployResult.instanceId,
-      request.component.version,
+      request.component.flowVersion || '1.0.0',  // Flow version, not instance version
       request.component.domain,
       request.component.flow || 'sys-flows',
       request.environment
@@ -763,14 +811,32 @@ export class DeploymentService {
     try {
       this.log(`Checking ${deploymentRequests.length} components for changes...`);
 
-      // Build query list
+      // Build query list with version and domain for specific component lookup
       const components = deploymentRequests.map(req => ({
         flow: req.component.flow,
-        key: req.component.key
+        key: req.component.key,
+        version: req.component.version,  // Query for this specific version
+        domain: req.component.domain     // Part of component identity
       }));
+
+      // Log what we're querying for
+      this.log(`Querying database for ${components.length} components:`);
+      components.forEach(c => {
+        this.log(`  → ${c.domain}/${c.flow}/${c.key}@${c.version}`);
+      });
 
       // Batch query database
       const dbData = await getComponentDataBatch(environment.database, components);
+
+      // Log query results
+      this.log(`Database query returned ${dbData.size} results`);
+      for (const [mapKey, data] of dbData.entries()) {
+        if (data.exists) {
+          this.log(`  ✓ ${mapKey} → Found (version: ${data.version})`);
+        } else {
+          this.log(`  ✗ ${mapKey} → NOT FOUND`);
+        }
+      }
 
       // Check each component
       for (const req of deploymentRequests) {
@@ -781,6 +847,8 @@ export class DeploymentService {
 
         const dbKey = `${flow.replace(/-/g, '_')}/${key}`;
         const dbComponent = dbData.get(dbKey);
+
+        this.log(`Checking ${key}: dbKey="${dbKey}", found=${!!dbComponent?.exists}`);
 
         // Component not in database - it's new
         if (!dbComponent || !dbComponent.exists) {
@@ -833,8 +901,23 @@ export class DeploymentService {
           localAttributes = extractAttributes(filtered);
         }
 
-        // Compare content
-        const comparison = compareContent(localAttributes, dbComponent.data);
+        // Reconstruct database component from separate fields
+        // Database stores: data (attributes only), key, flow, version in separate columns
+        let dbAttributes = null;
+        if (dbComponent.data) {
+          // Reconstruct full component structure for comparison
+          const dbReconstructed = {
+            key: dbComponent.key,
+            version: dbComponent.version,
+            flow: dbComponent.flow,
+            domain,  // Use domain from local component for consistency
+            attributes: dbComponent.data  // Data column contains only attributes
+          };
+          dbAttributes = extractAttributes(dbReconstructed);
+        }
+
+        // Compare content (version is already matched in database query)
+        const comparison = compareContent(localAttributes, dbAttributes);
 
         if (comparison.identical) {
           // No changes detected

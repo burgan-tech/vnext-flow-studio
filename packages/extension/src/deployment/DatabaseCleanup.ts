@@ -15,21 +15,27 @@ const execAsync = promisify(exec);
 export interface InstanceInfo {
   id: string;
   status: 'Draft' | 'Active' | 'Inactive' | 'Unknown';
+  version?: string;  // The actual version stored in database
 }
 
 /**
  * Get the instance ID and status for a workflow from the database
+ * @param version Optional version to query for specific version. If not provided, gets latest by CreatedAt
  */
 export async function getInstanceInfo(
   dbConfig: DatabaseConfig,
   flow: string,
-  key: string
+  key: string,
+  version?: string
 ): Promise<InstanceInfo | null> {
   const dbSchema = flow.replace(/-/g, '_');
 
   if (dbConfig.useDocker) {
     // Use Docker exec
-    const cmd = `docker exec ${dbConfig.dockerContainer} psql -U ${dbConfig.user} -d ${dbConfig.database} -t -c "SELECT \\"Id\\", \\"Status\\" FROM \\"${dbSchema}\\".\\"Instances\\" WHERE \\"Key\\" = '${key}' ORDER BY \\"CreatedAt\\" DESC LIMIT 1"`;
+    // Join with InstancesData to get version info
+    const cmd = version
+      ? `docker exec ${dbConfig.dockerContainer} psql -U ${dbConfig.user} -d ${dbConfig.database} -t -c "SELECT i.\\"Id\\", i.\\"Status\\", d.\\"Version\\" FROM \\"${dbSchema}\\".\\"Instances\\" i JOIN \\"${dbSchema}\\".\\"InstancesData\\" d ON i.\\"Id\\" = d.\\"InstanceId\\" WHERE i.\\"Key\\" = '${key}' AND d.\\"Version\\" = '${version}' ORDER BY i.\\"CreatedAt\\" DESC LIMIT 1"`
+      : `docker exec ${dbConfig.dockerContainer} psql -U ${dbConfig.user} -d ${dbConfig.database} -t -c "SELECT i.\\"Id\\", i.\\"Status\\", d.\\"Version\\" FROM \\"${dbSchema}\\".\\"Instances\\" i JOIN \\"${dbSchema}\\".\\"InstancesData\\" d ON i.\\"Id\\" = d.\\"InstanceId\\" WHERE i.\\"Key\\" = '${key}' ORDER BY i.\\"CreatedAt\\" DESC LIMIT 1"`;
 
     try {
       console.log('[DatabaseCleanup] Executing Docker exec...');
@@ -38,6 +44,9 @@ export async function getInstanceInfo(
       console.log('[DatabaseCleanup]   Database:', dbConfig.database);
       console.log('[DatabaseCleanup]   Schema:', dbSchema);
       console.log('[DatabaseCleanup]   Key:', key);
+      if (version) {
+        console.log('[DatabaseCleanup]   Querying for version:', version);
+      }
 
       const { stdout } = await execAsync(cmd);
       const line = stdout.trim();
@@ -47,7 +56,8 @@ export async function getInstanceInfo(
       if (parts.length >= 2) {
         return {
           id: parts[0],
-          status: (parts[1] as any) || 'Unknown'
+          status: (parts[1] as any) || 'Unknown',
+          version: parts[2] || undefined
         };
       }
       return null;
@@ -84,15 +94,30 @@ export async function getInstanceInfo(
 
       await client.connect();
       console.log('[DatabaseCleanup] Querying schema:', dbSchema, 'for key:', key);
+      if (version) {
+        console.log('[DatabaseCleanup]   Version:', version);
+      }
 
       // First, check if there are ANY instances in this schema
       const countQuery = `SELECT COUNT(*) as count FROM "${dbSchema}"."Instances"`;
       const countResult = await client.query(countQuery);
       console.log(`[DatabaseCleanup] Total instances in schema "${dbSchema}":`, countResult.rows[0].count);
 
-      // Then query for our specific key
-      const query = `SELECT "Id", "Status" FROM "${dbSchema}"."Instances" WHERE "Key" = $1 ORDER BY "CreatedAt" DESC LIMIT 1`;
-      const result = await client.query(query, [key]);
+      // Then query for our specific key (and version if provided)
+      // Join with InstancesData to get version info
+      const query = version
+        ? `SELECT i."Id", i."Status", d."Version" FROM "${dbSchema}"."Instances" i
+           JOIN "${dbSchema}"."InstancesData" d ON i."Id" = d."InstanceId"
+           WHERE i."Key" = $1 AND d."Version" = $2
+           ORDER BY i."CreatedAt" DESC LIMIT 1`
+        : `SELECT i."Id", i."Status", d."Version" FROM "${dbSchema}"."Instances" i
+           JOIN "${dbSchema}"."InstancesData" d ON i."Id" = d."InstanceId"
+           WHERE i."Key" = $1
+           ORDER BY i."CreatedAt" DESC LIMIT 1`;
+
+      const result = version
+        ? await client.query(query, [key, version])
+        : await client.query(query, [key]);
 
       console.log('[DatabaseCleanup] Query result rows:', result.rows.length);
       if (result.rows.length > 0) {
@@ -109,7 +134,8 @@ export async function getInstanceInfo(
       if (result.rows.length > 0) {
         return {
           id: result.rows[0].Id,
-          status: result.rows[0].Status || 'Unknown'
+          status: result.rows[0].Status || 'Unknown',
+          version: result.rows[0].Version || undefined
         };
       }
       return null;
@@ -123,13 +149,15 @@ export async function getInstanceInfo(
 
 /**
  * Get the instance ID for a workflow from the database (legacy)
+ * @param version Optional version to query for specific version. If not provided, gets latest by CreatedAt
  */
 export async function getInstanceId(
   dbConfig: DatabaseConfig,
   flow: string,
-  key: string
+  key: string,
+  version?: string
 ): Promise<string | null> {
-  const info = await getInstanceInfo(dbConfig, flow, key);
+  const info = await getInstanceInfo(dbConfig, flow, key, version);
   return info?.id || null;
 }
 

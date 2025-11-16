@@ -257,13 +257,15 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
         };
       }
 
-      // Extract domain, flow, and version from the definition
+      // Extract domain, flow, and flowVersion from the definition
       const domain = definition.domain || 'core';
       const flow = definition.flow || 'sys-flows';
-      const version = definition.version || '1.0.0';
+      // Use flowVersion (the version of the flow/class to create instance in)
+      // definition.version is the INSTANCE version, not the flow version
+      const flowVersion = definition.flowVersion || '1.0.0';
 
       // Use the flow from the definition (e.g., sys-flows, sys-tasks, sys-schemas, etc.)
-      const url = `${envConfig.baseUrl}/api/v1/${domain}/workflows/${flow}/instances/start?version=${version}&sync=true`;
+      const url = `${envConfig.baseUrl}/api/v1/${domain}/workflows/${flow}/instances/start?version=${flowVersion}&sync=true`;
 
       // Send the full document directly (no wrapper)
       console.log('[AmorphieRuntimeAdapter] Creating component:', {
@@ -310,13 +312,15 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
     _etag?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Extract domain, flow, and version from the definition
+      // Extract domain, flow, and flowVersion from the definition
       const domain = definition.domain || 'core';
       const flow = definition.flow || 'sys-flows';
-      const version = definition.version || '1.0.0';
+      // Use flowVersion (the version of the flow/class to create instance in)
+      // definition.version is the INSTANCE version, not the flow version
+      const flowVersion = definition.flowVersion || '1.0.0';
 
       // Use the flow from the definition (e.g., sys-flows, sys-tasks, sys-schemas, etc.)
-      const url = `${envConfig.baseUrl}/api/v1/${domain}/workflows/${flow}/instances/start?version=${version}&sync=true`;
+      const url = `${envConfig.baseUrl}/api/v1/${domain}/workflows/${flow}/instances/start?version=${flowVersion}&sync=true`;
 
       // The key should always be at the root level of the definition
       if (!definition.key) {

@@ -112,9 +112,17 @@ export function extractAttributes(component: any): any {
     return null;
   }
 
-  // If it has an attributes field, extract it
+  // If it has an attributes field, extract it along with metadata
   if (component.attributes) {
-    return component.attributes;
+    return {
+      ...component.attributes,
+      // Include metadata for comparison (excluding version - we only care about content changes)
+      _metadata: {
+        domain: component.domain,
+        flow: component.flow,
+        key: component.key
+      }
+    };
   }
 
   // Otherwise assume it's already the attributes section

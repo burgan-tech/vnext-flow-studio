@@ -532,6 +532,16 @@ export class TaskQuickEditorProvider implements vscode.CustomTextEditorProvider 
     );
 
     // Register commands
+    const openCommand = vscode.commands.registerCommand(
+      'taskEditor.open',
+      async (uri?: vscode.Uri) => {
+        const targetUri = uri || vscode.window.activeTextEditor?.document.uri;
+        if (targetUri) {
+          await vscode.commands.executeCommand('vscode.openWith', targetUri, TaskQuickEditorProvider.viewType);
+        }
+      }
+    );
+
     const openAsJsonCommand = vscode.commands.registerCommand(
       'taskEditor.openAsJson',
       async (uri?: vscode.Uri) => {
@@ -549,8 +559,45 @@ export class TaskQuickEditorProvider implements vscode.CustomTextEditorProvider 
       }
     );
 
-    return vscode.Disposable.from(providerDisposable, openAsJsonCommand, newTaskCommand);
+    return vscode.Disposable.from(providerDisposable, openCommand, openAsJsonCommand, newTaskCommand);
   }
+}
+
+/**
+ * Find the closest Tasks folder to a workflow file by searching upwards in the directory tree
+ */
+async function findClosestTasksFolder(workflowPath: string): Promise<vscode.Uri | undefined> {
+  const path = require('path');
+  let currentDir = path.dirname(workflowPath);
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+  if (!workspaceRoot) {
+    return undefined;
+  }
+
+  // Search upwards from workflow directory to workspace root
+  while (currentDir.startsWith(workspaceRoot)) {
+    const tasksFolder = vscode.Uri.file(path.join(currentDir, 'Tasks'));
+
+    try {
+      const stat = await vscode.workspace.fs.stat(tasksFolder);
+      if (stat.type === vscode.FileType.Directory) {
+        return tasksFolder;
+      }
+    } catch {
+      // Tasks folder doesn't exist at this level, continue
+    }
+
+    // Move up one directory
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      // Reached filesystem root
+      break;
+    }
+    currentDir = parentDir;
+  }
+
+  return undefined;
 }
 
 async function createNewTask(contextUri?: vscode.Uri) {
@@ -564,15 +611,24 @@ async function createNewTask(contextUri?: vscode.Uri) {
       return;
     }
 
-    // Try to find Tasks folder in workspace
-    for (const folder of folders) {
-      const tasksFolder = vscode.Uri.joinPath(folder.uri, 'Tasks');
-      try {
-        await vscode.workspace.fs.stat(tasksFolder);
-        targetFolder = tasksFolder;
-        break;
-      } catch {
-        // Tasks folder doesn't exist, continue
+    // Try to find Tasks folder closest to active workflow
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor && activeEditor.document.uri.fsPath.endsWith('.flow.json')) {
+      const workflowPath = activeEditor.document.uri.fsPath;
+      targetFolder = await findClosestTasksFolder(workflowPath);
+    }
+
+    // If no workflow is open or no Tasks folder found nearby, search workspace
+    if (!targetFolder) {
+      for (const folder of folders) {
+        const tasksFolder = vscode.Uri.joinPath(folder.uri, 'Tasks');
+        try {
+          await vscode.workspace.fs.stat(tasksFolder);
+          targetFolder = tasksFolder;
+          break;
+        } catch {
+          // Tasks folder doesn't exist, continue
+        }
       }
     }
 
@@ -642,8 +698,8 @@ async function createNewTask(contextUri?: vscode.Uri) {
   // Create task content based on type
   const taskContent = createTaskTemplate(taskName, taskType.value);
 
-  // Create file path
-  const fileName = `${taskName}.json`;
+  // Create file path with version
+  const fileName = `${taskName}.${taskContent.version}.json`;
   const filePath = vscode.Uri.joinPath(targetFolder, fileName);
 
   try {

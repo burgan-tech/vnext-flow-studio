@@ -58,6 +58,11 @@
         "title": "Amorphie: Open Mapper"
       },
       {
+        "command": "taskEditor.open",
+        "title": "Amorphie: Open Task Editor",
+        "icon": "$(edit)"
+      },
+      {
         "command": "taskEditor.openAsJson",
         "title": "Amorphie: Open Task as JSON",
         "icon": "$(json)"
@@ -112,6 +117,11 @@
         {
           "when": "resourceFilename =~ /\\.mapper\\.json$/",
           "command": "mapperEditor.open",
+          "group": "navigation"
+        },
+        {
+          "when": "resourceExtname == .json && resourceDirname =~ /(^|\\\\|\\/)Tasks(\\\\|\\/|$)/",
+          "command": "taskEditor.open",
           "group": "navigation"
         },
         {
@@ -202,7 +212,7 @@
             "filenamePattern": "**/Tasks/**/*.json"
           }
         ],
-        "priority": "default"
+        "priority": "option"
       }
     ],
     "configuration": {

@@ -8,8 +8,14 @@ import type { DatabaseConfig } from '@amorphie-flow-studio/graph-core';
  * Component data from database
  */
 export interface ComponentDatabaseData {
-  /** Full component data (attributes section) */
+  /** Component attributes (from Data column) */
   data: any;
+
+  /** Component key (from Instances.Key) */
+  key: string;
+
+  /** Flow name (from Instances.Flow) */
+  flow: string;
 
   /** When this version was created */
   enteredAt: Date;
@@ -17,7 +23,7 @@ export interface ComponentDatabaseData {
   /** ETag for versioning */
   etag: string;
 
-  /** Version string */
+  /** Version string (from InstancesData.Version) */
   version: string;
 
   /** Whether this exists in database */
@@ -26,11 +32,14 @@ export interface ComponentDatabaseData {
 
 /**
  * Get component data from database
+ * Note: domain is part of component identity but not stored in database
  */
 export async function getComponentData(
   dbConfig: DatabaseConfig,
   flow: string,
-  key: string
+  key: string,
+  version?: string,
+  domain?: string  // Not currently stored in DB, but part of component identity
 ): Promise<ComponentDatabaseData> {
   // Import pg dynamically to avoid activation errors when module is missing
   let pg;
@@ -64,19 +73,30 @@ export async function getComponentData(
     // Map flow to database schema (sys-flows → sys_flows)
     const dbSchema = flow.replace(/-/g, '_');
 
-    // Query for latest version
-    const result = await client.query(
-      `SELECT d."Data", d."EnteredAt", d."ETag", d."Version"
-       FROM "${dbSchema}"."Instances" i
-       JOIN "${dbSchema}"."InstancesData" d ON i."Id" = d."InstanceId"
-       WHERE i."Key" = $1
-       AND d."IsLatest" = true`,
-      [key]
-    );
+    // Query for specific version if provided, otherwise latest version
+    const result = version
+      ? await client.query(
+          `SELECT i."Key", i."Flow", d."Data", d."EnteredAt", d."ETag", d."Version"
+           FROM "${dbSchema}"."Instances" i
+           JOIN "${dbSchema}"."InstancesData" d ON i."Id" = d."InstanceId"
+           WHERE i."Key" = $1
+           AND d."Version" = $2`,
+          [key, version]
+        )
+      : await client.query(
+          `SELECT i."Key", i."Flow", d."Data", d."EnteredAt", d."ETag", d."Version"
+           FROM "${dbSchema}"."Instances" i
+           JOIN "${dbSchema}"."InstancesData" d ON i."Id" = d."InstanceId"
+           WHERE i."Key" = $1
+           AND d."IsLatest" = true`,
+          [key]
+        );
 
     if (result.rows.length === 0) {
       return {
         data: null,
+        key: '',
+        flow: '',
         enteredAt: new Date(0),
         etag: '',
         version: '',
@@ -87,6 +107,8 @@ export async function getComponentData(
     const row = result.rows[0];
     return {
       data: row.Data,
+      key: row.Key,
+      flow: row.Flow,
       enteredAt: row.EnteredAt,
       etag: row.ETag,
       version: row.Version,
@@ -99,10 +121,11 @@ export async function getComponentData(
 
 /**
  * Batch query multiple components
+ * Note: domain is part of component identity but not currently stored in database
  */
 export async function getComponentDataBatch(
   dbConfig: DatabaseConfig,
-  components: Array<{ flow: string; key: string }>
+  components: Array<{ flow: string; key: string; version?: string; domain?: string }>
 ): Promise<Map<string, ComponentDatabaseData>> {
   // Import pg dynamically to avoid activation errors when module is missing
   let pg;
@@ -117,7 +140,20 @@ export async function getComponentDataBatch(
 
   const results = new Map<string, ComponentDatabaseData>();
 
-  // Group by schema for efficient querying
+  // Check if any component specifies a version
+  const hasVersions = components.some(c => c.version);
+
+  if (hasVersions) {
+    // Query each component individually when versions are specified
+    for (const comp of components) {
+      const data = await getComponentData(dbConfig, comp.flow, comp.key, comp.version, comp.domain);
+      const compKey = `${comp.flow.replace(/-/g, '_')}/${comp.key}`;
+      results.set(compKey, data);
+    }
+    return results;
+  }
+
+  // Group by schema for efficient batch querying (when no versions specified)
   const bySchema = new Map<string, string[]>();
   for (const comp of components) {
     const schema = comp.flow.replace(/-/g, '_');
@@ -142,7 +178,7 @@ export async function getComponentDataBatch(
     // Query each schema
     for (const [schema, keys] of bySchema) {
       const result = await client.query(
-        `SELECT i."Key", d."Data", d."EnteredAt", d."ETag", d."Version"
+        `SELECT i."Key", i."Flow", d."Data", d."EnteredAt", d."ETag", d."Version"
          FROM "${schema}"."Instances" i
          JOIN "${schema}"."InstancesData" d ON i."Id" = d."InstanceId"
          WHERE i."Key" = ANY($1::text[])
@@ -156,6 +192,8 @@ export async function getComponentDataBatch(
         const compKey = `${schema}/${row.Key}`;
         results.set(compKey, {
           data: row.Data,
+          key: row.Key,
+          flow: row.Flow,
           enteredAt: row.EnteredAt,
           etag: row.ETag,
           version: row.Version,
@@ -170,6 +208,8 @@ export async function getComponentDataBatch(
           const compKey = `${schema}/${key}`;
           results.set(compKey, {
             data: null,
+            key: '',
+            flow: '',
             enteredAt: new Date(0),
             etag: '',
             version: '',
