@@ -24,6 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Flexible width based on content
   - Enhanced ComponentResolver with dynamic directory discovery and dot-separated version support
 
+- **Workflow Settings Panel**: Comprehensive tabbed panel for editing workflow-level properties
+  - **General Tab**: Edit key, domain, version, and type configuration (C/F/S/P with subFlowType)
+  - **Labels & Tags Tab**: Multi-language label editor with required languages (en-US, tr-TR) and tag management
+  - **Timeout Tab**: Configure workflow timeout with state dropdown, ISO 8601 duration format, and presets
+  - **Dependencies Tab**: Manage workflow-level functions, features, and extensions with component search
+  - Timeout configuration automatically renders as a state node on the canvas
+  - Real-time validation with immediate feedback on all fields
+  - UI styling matches existing popup editors (StateLabelEditPopup, TimeoutConfigPopup)
+  - Accessible from vertical toolbar Settings icon
+  - Component search panel for intelligent dependency selection
+
 - **Auto Layout Improvements**: Enhanced automatic layout algorithm
   - Direction options: RIGHT (default), DOWN, LEFT, UP
   - Accounts for edge label widths in layout calculations
