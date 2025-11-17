@@ -25,7 +25,7 @@ interface TransitionToolbarProps {
   onEditLabels: () => void;
   onEditTasks?: () => void; // Not available for start transitions
   onEditMapping: () => void;
-  onEditSchema?: () => void; // Only for manual and event
+  onEditSchema?: () => void; // For manual, event, and start transitions
   onEditRule?: () => void; // Only for auto transitions (triggerType === 1)
   onEditTimeout?: () => void; // Only for timeout transitions
   onMakeShared?: () => void;

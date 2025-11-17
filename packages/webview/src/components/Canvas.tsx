@@ -2528,7 +2528,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               onEditLabels={() => handleEditTransitionLabels(edgeId)}
               onEditTasks={!isStart ? () => handleOpenTransitionTaskPopup(edgeId) : undefined}
               onEditMapping={() => handleOpenTransitionMappingPopup(edgeId)}
-              onEditSchema={supportsSchema ? () => handleEditTransitionSchema(edgeId) : undefined}
+              onEditSchema={(supportsSchema || isStart) ? () => handleEditTransitionSchema(edgeId) : undefined}
               onEditRule={isAuto ? () => handleEditTransitionRule(edgeId) : undefined}
               onEditTimeout={isTimeout ? () => handleEditTransitionTimeout(edgeId) : undefined}
               onMakeShared={isLocal ? () => handleMakeTransitionShared(edgeId) : undefined}
