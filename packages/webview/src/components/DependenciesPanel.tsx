@@ -115,9 +115,16 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
       workflow.attributes.states.forEach((state) => {
         const stateDeps: WorkflowDependency[] = [];
 
-        // State view
-        const stateView = extractRef(state.view, 'View');
-        if (stateView) stateDeps.push(stateView);
+        // State view (handle both direct ViewRef and nested view config)
+        if (state.view) {
+          const viewObj = state.view as any;
+          // Check if nested view configuration { view: {...}, loadData, extensions }
+          const viewRef = (viewObj.view && typeof viewObj === 'object' && 'view' in viewObj)
+            ? viewObj.view
+            : viewObj;
+          const stateView = extractRef(viewRef, 'View');
+          if (stateView) stateDeps.push(stateView);
+        }
 
         // SubFlow process reference
         if (state.subFlow?.process) {
@@ -205,9 +212,16 @@ export function DependenciesPanel({ workflow, onOpenDependency, postMessage }: D
             const transSchema = extractRef(transition.schema, 'Schema');
             if (transSchema) stateDeps.push({ ...transSchema, context: `transition:${transition.key}` });
 
-            // Transition view
-            const transView = extractRef(transition.view, 'View');
-            if (transView) stateDeps.push({ ...transView, context: `transition:${transition.key}` });
+            // Transition view (handle both direct ViewRef and nested view config)
+            if (transition.view) {
+              const viewObj = transition.view as any;
+              // Check if nested view configuration { view: {...}, loadData, extensions }
+              const viewRef = (viewObj.view && typeof viewObj === 'object' && 'view' in viewObj)
+                ? viewObj.view
+                : viewObj;
+              const transView = extractRef(viewRef, 'View');
+              if (transView) stateDeps.push({ ...transView, context: `transition:${transition.key}` });
+            }
 
             // Transition onExecutionTasks
             if (transition.onExecutionTasks) {

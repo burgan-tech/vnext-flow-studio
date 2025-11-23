@@ -24,6 +24,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
    */
   async fetchGraph(
     envConfig: EnvironmentConfig,
+    domain: string,
     options?: FetchGraphOptions
   ): Promise<Graph> {
     const graph = createGraph();
@@ -32,13 +33,13 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
 
     // Fetch each component type
     for (const type of includeTypes) {
-      const components = await this.fetchComponentsByType(type, envConfig, {
+      const components = await this.fetchComponentsByType(type, envConfig, domain, {
         pageSize: options?.limit || 100
       });
 
       // Add components to graph
       for (const component of components) {
-        const node = await this.convertToNode(component, type, computeHashes, envConfig);
+        const node = await this.convertToNode(component, type, computeHashes, envConfig, domain);
         if (node) {
           addNode(graph, node);
         }
@@ -74,6 +75,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
   async fetchComponentsByType(
     type: ComponentType,
     envConfig: EnvironmentConfig,
+    domain: string,
     options?: FetchOptions
   ): Promise<any[]> {
     const workflowName = COMPONENT_WORKFLOWS[type];
@@ -87,7 +89,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
 
     // Fetch all pages
     while (true) {
-      const url = this.buildUrl(envConfig, workflowName, page, pageSize, options?.filter);
+      const url = this.buildUrl(envConfig, domain, workflowName, page, pageSize, options?.filter);
       const response = await this.fetchWithAuth(url, envConfig);
 
       if (!response.ok) {
@@ -116,10 +118,10 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
   /**
    * Test connection to runtime environment
    */
-  async testConnection(envConfig: EnvironmentConfig): Promise<boolean> {
+  async testConnection(envConfig: EnvironmentConfig, domain: string = 'core'): Promise<boolean> {
     try {
       // Try fetching a small page of sys-flows
-      const url = this.buildUrl(envConfig, 'sys-flows', 1, 1);
+      const url = this.buildUrl(envConfig, domain, 'sys-flows', 1, 1);
       const response = await this.fetchWithAuth(url, envConfig);
 
       // Accept any response from the server (even 404/500) as "connected"
@@ -366,12 +368,13 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
    */
   private buildUrl(
     envConfig: EnvironmentConfig,
+    domain: string,
     workflowName: string,
     page: number,
     pageSize: number,
     filter?: string
   ): string {
-    const { baseUrl, domain } = envConfig;
+    const { baseUrl } = envConfig;
     const params = new URLSearchParams({
       page: page.toString(),
       pageSize: pageSize.toString()
@@ -447,7 +450,8 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
     instance: WorkflowInstanceResponse,
     type: ComponentType,
     computeHashes: boolean,
-    envConfig: EnvironmentConfig
+    envConfig: EnvironmentConfig,
+    domain: string
   ): Promise<GraphNode | null> {
     // Check if attributes is empty or missing
     const hasEmptyAttributes = !instance.attributes || Object.keys(instance.attributes).length === 0;
@@ -461,7 +465,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
       // Fetch full instance to get extensions
       if (!instance.extensions || Object.keys(instance.extensions).length === 0) {
         try {
-          const instanceUrl = this.buildUrl(envConfig, COMPONENT_WORKFLOWS[type], 1, 1);
+          const instanceUrl = this.buildUrl(envConfig, domain, COMPONENT_WORKFLOWS[type], 1, 1);
           const baseUrl = instanceUrl.substring(0, instanceUrl.indexOf('/instances?'));
           const fullInstanceUrl = `${baseUrl}/instances/${instance.id}`;
           const response = await this.fetchWithAuth(fullInstanceUrl, envConfig);
@@ -495,7 +499,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
     }
 
     // Extract domain from attributes or fall back to instance domain
-    const domain = (definition.domain || instance.domain).toLowerCase();
+    const componentDomain = (definition.domain || instance.domain).toLowerCase();
     const flow = (definition.flow || instance.flow).toLowerCase();
     const key = (definition.key || instance.key).toLowerCase();
 
@@ -503,10 +507,10 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
     const version = definition.version || instance.flowVersion || '1.0.0';
 
     const node: GraphNode = {
-      id: `${domain}/${flow}/${key}@${version}`,
+      id: `${componentDomain}/${flow}/${key}@${version}`,
       type,
       ref: {
-        domain,
+        domain: componentDomain,
         flow,
         key,
         version

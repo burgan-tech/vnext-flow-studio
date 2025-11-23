@@ -36,9 +36,10 @@ interface WorkflowSettingsPanelProps {
   postMessage: (message: any) => void;
   catalogs?: Record<string, any[]>;
   workflow?: any;
+  onClose?: () => void;
 }
 
-export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow }: WorkflowSettingsPanelProps) {
+export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow, onClose }: WorkflowSettingsPanelProps) {
   console.log('[WorkflowSettingsPanel] Component rendering');
 
   const [settings, setSettings] = useState<WorkflowSettings | null>(null);
@@ -73,8 +74,10 @@ export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow }: 
         setSettings(settingsWithLanguages);
         setOriginalSettings(JSON.parse(JSON.stringify(settingsWithLanguages)));
       } else if (message.type === 'workflow:settingsSaved') {
+        console.log('[WorkflowSettingsPanel] Received settingsSaved message:', message);
         setSaving(false);
         if (message.success) {
+          console.log('[WorkflowSettingsPanel] Save successful, updating state');
           setSettings(current => {
             if (current) {
               setOriginalSettings(JSON.parse(JSON.stringify(current)));
@@ -82,16 +85,25 @@ export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow }: 
             return current;
           });
           setErrors({});
+          // Close the panel after successful save
+          console.log('[WorkflowSettingsPanel] onClose exists?', !!onClose);
+          if (onClose) {
+            console.log('[WorkflowSettingsPanel] Calling onClose()');
+            onClose();
+            console.log('[WorkflowSettingsPanel] onClose() called');
+          } else {
+            console.warn('[WorkflowSettingsPanel] onClose callback not provided');
+          }
         } else {
           // Show error
-          console.error('Failed to save settings:', message.error);
+          console.error('[WorkflowSettingsPanel] Failed to save settings:', message.error);
         }
       }
     };
 
     window.addEventListener('message', messageHandler);
     return () => window.removeEventListener('message', messageHandler);
-  }, [postMessage]);
+  }, [postMessage, onClose]);
 
   const handleFieldChange = (field: keyof WorkflowSettings, value: any) => {
     if (!settings) return;
@@ -223,15 +235,18 @@ export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow }: 
   };
 
   const handleSave = () => {
+    console.log('[WorkflowSettingsPanel] handleSave called');
     if (!settings) return;
 
     // Validate all settings
     const validation = validateAllSettings(settings);
     if (!validation.valid) {
+      console.log('[WorkflowSettingsPanel] Validation failed:', validation.errors);
       setErrors(validation.errors);
       return;
     }
 
+    console.log('[WorkflowSettingsPanel] Validation passed, sending update message');
     setSaving(true);
     postMessage({
       type: 'workflow:updateSettings',
@@ -243,6 +258,10 @@ export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow }: 
     if (originalSettings) {
       setSettings(JSON.parse(JSON.stringify(originalSettings)));
       setErrors({});
+    }
+    // Close the panel
+    if (onClose) {
+      onClose();
     }
   };
 
@@ -746,6 +765,7 @@ export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow }: 
       </div>
 
       <div className={styles.footer}>
+        {isDirty() && <span className={styles.dirtyIndicator}>● Unsaved changes</span>}
         <button onClick={handleCancel} className={styles.cancelButton} disabled={saving}>
           Cancel
         </button>
@@ -754,9 +774,8 @@ export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow }: 
           className={styles.saveButton}
           disabled={saving || !isDirty()}
         >
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? 'Applying...' : 'Apply'}
         </button>
-        {isDirty() && <span className={styles.dirtyIndicator}>● Unsaved changes</span>}
       </div>
     </div>
   );

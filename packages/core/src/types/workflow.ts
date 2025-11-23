@@ -96,7 +96,6 @@ export interface State {
   key: string;
   stateType: StateType;
   stateSubType?: StateSubType;
-  xProfile?: 'Default' | 'ServiceTask' | 'HumanTask' | string;
   versionStrategy: VersionStrategy;
   labels: Label[];
   onEntries?: ExecutionTask[];
@@ -135,13 +134,19 @@ export type ProcessRef =
   | { ref: string }
   | { key: string; domain: string; flow: string; version: string };
 
+/**
+ * SubFlow configuration for workflow states
+ *
+ * Type behaviors:
+ * - 'S' (SubFlow): Creates a separate instance and blocks the parent workflow until completion
+ * - 'P' (SubProcess): Creates a separate instance and runs in parallel without blocking parent
+ * - 'C' (Core): Core workflow type
+ * - 'F' (Flow): Standard flow type
+ */
 export interface SubFlowConfig {
   type: 'C' | 'F' | 'S' | 'P';
   process: ProcessRef;
-  inputMapping?: Mapping | null;
-  outputMapping?: Mapping | null;
-  // Deprecated: use inputMapping/outputMapping instead
-  mapping?: ScriptCode;
+  mapping: Mapping;
   _comment?: string;
 }
 
@@ -156,7 +161,6 @@ export interface Workflow {
   attributes: {
     type: 'C' | 'F' | 'S' | 'P';
     subFlowType?: 'S' | 'P';
-    xProfile?: 'Default' | 'ServiceTask' | 'HumanTask' | string;
     timeout?: TimeoutCfg | null;
     labels?: Label[];
     functions?: FunctionRef[];

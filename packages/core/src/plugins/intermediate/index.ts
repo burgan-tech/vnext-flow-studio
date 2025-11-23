@@ -180,11 +180,6 @@ const intermediateStateHooks: PluginHooks = {
       return null;
     }
 
-    // Don't deserialize if it has a specific xProfile (like ServiceTask)
-    if (state.xProfile && state.xProfile !== 'Default' && state.xProfile !== 'Intermediate') {
-      return null;
-    }
-
     // Reconstruct hints from state
     const hints: DesignHints = {
       kind: 'Intermediate',
@@ -257,7 +252,6 @@ export const IntermediateStatePlugin: StatePlugin = {
     return {
       key: stateKey,
       stateType: 2, // Intermediate
-      xProfile: 'Intermediate',
       versionStrategy: 'Minor',
       labels: [
         {

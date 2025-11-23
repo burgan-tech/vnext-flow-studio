@@ -120,7 +120,7 @@ export interface StateVariant {
  * Design hints store editor-only information for enhanced UX
  */
 export interface DesignHints {
-  /** Plugin kind identifier (e.g., "ServiceTask", "HumanTask") */
+  /** Plugin kind identifier (e.g., "Initial", "Intermediate", "Final") */
   kind: string;
 
   /** Terminal configurations */
@@ -311,7 +311,7 @@ export interface StatePlugin {
   /** Whether this plugin is enabled by default */
   enabled?: boolean;
 
-  /** Required xProfile values for activation */
+  /** Required profile values for activation */
   profiles?: string[];
 }
 
@@ -365,12 +365,4 @@ export interface IPluginManager {
 
   /** Check if plugin is active */
   isActive(pluginId: string): boolean;
-}
-
-/**
- * Extended workflow attributes with xProfile
- */
-export interface WorkflowAttributesWithProfile {
-  xProfile?: 'Default' | 'ServiceTask' | 'HumanTask' | string;
-  // ... rest of the attributes
 }

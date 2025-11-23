@@ -9,8 +9,6 @@
  */
 const DESIGN_TIME_ATTRIBUTES = new Set([
   // UI/Visual attributes
-  'xprofile',
-  'xProfile',  // Case variants
   'position',
   'layout',
   'uiMetadata',
@@ -26,6 +24,9 @@ const DESIGN_TIME_ATTRIBUTES = new Set([
   'editorVersion',
   'lastModifiedBy',
   'designNotes',
+  '_comment',  // Inline comments in JSON (editor-only)
+  'stateSubType',  // State sub-type classification (not used by runtime)
+  'xProfile',  // Plugin identification attribute (editor-only, backward compatibility for old flows)
 
   // Development/debugging attributes
   'debugInfo',

@@ -195,7 +195,6 @@ export const FinalStatePlugin: StatePlugin = {
       key: stateKey,
       stateType: 3, // Final
       stateSubType: 1, // Default to Success
-      xProfile: 'Final',
       versionStrategy: 'Minor',
       labels: [
         {

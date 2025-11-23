@@ -58,7 +58,7 @@
     "React", "Monaco", "Vite", "ESLint",
 
     // BBT Workflow interfaces
-    "IMapping", "IConditionMapping", "ISubFlowMapping",
+    "IMapping", "IConditionMapping", "ISubFlowMapping", "ISubProcessMapping",
     "ScriptContext", "ScriptResponse", "ScriptBase",
     "WorkflowTask", "HttpTask", "DaprTask",
     "GlobalScriptFunctions",

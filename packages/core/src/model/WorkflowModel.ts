@@ -678,6 +678,236 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
   }
 
   /**
+   * Refresh a single script from disk (when file changed externally)
+   * More efficient than reloading all components
+   * Also updates embedded base64 content in workflow model if script is referenced
+   */
+  async refreshScript(scriptPath: string): Promise<{ script: ResolvedScript; type: 'mapper' | 'rule' | 'unknown' } | null> {
+    const basePath = this.state.metadata.basePath;
+
+    console.log('[WorkflowModel] ========================================');
+    console.log('[WorkflowModel] 🔄 SCRIPT REFRESH STARTED');
+    console.log('[WorkflowModel] Script path:', scriptPath);
+    console.log('[WorkflowModel] ========================================');
+
+    // Use ScriptManager to reload the single script
+    const result = await this.scriptManager.reloadScript(scriptPath, basePath);
+
+    if (!result) {
+      console.log('[WorkflowModel] ❌ Script refresh failed or script deleted:', scriptPath);
+      return null;
+    }
+
+    const { script, type } = result;
+
+    console.log('[WorkflowModel] ✓ Script loaded from disk:', {
+      location: script.location,
+      type,
+      contentLength: script.content?.length || 0,
+      base64Length: script.base64?.length || 0
+    });
+
+    // Update the appropriate state collection
+    if (type === 'mapper') {
+      // Update in mappers collection
+      const existingIndex = Array.from(this.state.mappers.values()).findIndex(
+        m => m.absolutePath === script.absolutePath
+      );
+
+      if (existingIndex >= 0) {
+        // Replace existing mapper
+        this.state.mappers.set(script.absolutePath, script);
+        console.log('[WorkflowModel] ✓ Updated existing mapper in state:', script.location);
+      } else {
+        // Add new mapper
+        this.state.mappers.set(script.absolutePath, script);
+        console.log('[WorkflowModel] ✓ Added new mapper to state:', script.location);
+      }
+    } else if (type === 'rule') {
+      // Update in rules collection
+      const existingIndex = Array.from(this.state.rules.values()).findIndex(
+        r => r.absolutePath === script.absolutePath
+      );
+
+      if (existingIndex >= 0) {
+        // Replace existing rule
+        this.state.rules.set(script.absolutePath, script);
+        console.log('[WorkflowModel] ✓ Updated existing rule in state:', script.location);
+      } else {
+        // Add new rule
+        this.state.rules.set(script.absolutePath, script);
+        console.log('[WorkflowModel] ✓ Added new rule to state:', script.location);
+      }
+    }
+
+    // Also update in scripts collection
+    this.state.scripts.set(script.absolutePath, script);
+
+    // Update embedded base64 content in workflow if script is referenced
+    const updated = await this.updateEmbeddedScriptContent(script);
+    if (updated) {
+      console.log('[WorkflowModel] ✓ Updated embedded base64 content in workflow model');
+    } else {
+      console.log('[WorkflowModel] ℹ Script not embedded in workflow (no update needed)');
+    }
+
+    // Emit change event (use 'update' as action type)
+    this.emitChange({
+      type: 'script',
+      action: 'update',
+      target: scriptPath,
+      newValue: script.content
+    });
+
+    console.log('[WorkflowModel] ========================================');
+    console.log('[WorkflowModel] ✅ SCRIPT REFRESH COMPLETE');
+    console.log('[WorkflowModel] ========================================');
+
+    return { script, type };
+  }
+
+  /**
+   * Update embedded base64 script content in workflow model
+   * Searches for mappings/rules that reference the script and updates their code field
+   */
+  private async updateEmbeddedScriptContent(script: ResolvedScript): Promise<boolean> {
+    let updated = false;
+    const workflow = this.state.workflow;
+
+    // Normalize script path to be relative to workflow file (not project root)
+    // Workflow files store script references relative to the workflow file location
+    const workflowDir = path.dirname(this.state.metadata.workflowPath);
+    let scriptLocationRelativeToWorkflow = path.relative(workflowDir, script.absolutePath);
+    if (!scriptLocationRelativeToWorkflow.startsWith('./') && !scriptLocationRelativeToWorkflow.startsWith('../')) {
+      scriptLocationRelativeToWorkflow = `./${scriptLocationRelativeToWorkflow}`;
+    }
+
+    console.log('[WorkflowModel] 🔍 Searching for embedded references to:', scriptLocationRelativeToWorkflow);
+    console.log('[WorkflowModel]   Script absolute path:', script.absolutePath);
+    console.log('[WorkflowModel]   Workflow directory:', workflowDir);
+    console.log('[WorkflowModel]   Script location (original):', script.location);
+    console.log('[WorkflowModel]   Script location (normalized):', scriptLocationRelativeToWorkflow);
+
+    // Helper to update mapping
+    const updateMapping = (mapping: any | undefined, location: string): boolean => {
+      if (!mapping) return false;
+
+      if (mapping.location === scriptLocationRelativeToWorkflow) {
+        console.log(`[WorkflowModel]   → Found mapping reference at: ${location}`);
+        console.log(`[WorkflowModel]     Old code length: ${mapping.code?.length || 0}`);
+        mapping.code = script.base64;
+        console.log(`[WorkflowModel]     New code length: ${script.base64?.length || 0}`);
+        console.log(`[WorkflowModel]     ✓ Updated base64 content`);
+        return true;
+      }
+      return false;
+    };
+
+    // Helper to update rule
+    const updateRule = (rule: any | undefined, location: string): boolean => {
+      if (!rule) return false;
+
+      if (rule.location === scriptLocationRelativeToWorkflow) {
+        console.log(`[WorkflowModel]   → Found rule reference at: ${location}`);
+        console.log(`[WorkflowModel]     Old code length: ${rule.code?.length || 0}`);
+        rule.code = script.base64;
+        console.log(`[WorkflowModel]     New code length: ${script.base64?.length || 0}`);
+        console.log(`[WorkflowModel]     ✓ Updated base64 content`);
+        return true;
+      }
+      return false;
+    };
+
+    // Helper to update execution tasks
+    const updateExecutionTasks = (tasks: any[] | undefined, location: string): boolean => {
+      if (!tasks) return false;
+
+      let taskUpdated = false;
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        if (updateMapping(task.mapping, `${location}.onExecutionTasks[${i}].mapping`)) {
+          taskUpdated = true;
+        }
+      }
+      return taskUpdated;
+    };
+
+    // Helper to update transition
+    const updateTransition = (transition: any, location: string): boolean => {
+      let transUpdated = false;
+
+      // Update mapping
+      if (updateMapping(transition.mapping, `${location}.mapping`)) {
+        transUpdated = true;
+      }
+
+      // Update rule
+      if (updateRule(transition.rule, `${location}.rule`)) {
+        transUpdated = true;
+      }
+
+      // Update onExecutionTasks
+      if (updateExecutionTasks(transition.onExecutionTasks, location)) {
+        transUpdated = true;
+      }
+
+      return transUpdated;
+    };
+
+    // Check start transition
+    if (updateTransition(workflow.attributes.startTransition, 'startTransition')) {
+      updated = true;
+    }
+
+    // Check shared transitions
+    if (workflow.attributes.sharedTransitions) {
+      for (let i = 0; i < workflow.attributes.sharedTransitions.length; i++) {
+        if (updateTransition(workflow.attributes.sharedTransitions[i], `sharedTransitions[${i}]`)) {
+          updated = true;
+        }
+      }
+    }
+
+    // Check states
+    for (const state of workflow.attributes.states) {
+      // Check onEntries
+      if (updateExecutionTasks(state.onEntries, `state.${state.key}.onEntries`)) {
+        updated = true;
+      }
+
+      // Check onExits
+      if (updateExecutionTasks(state.onExits, `state.${state.key}.onExits`)) {
+        updated = true;
+      }
+
+      // Check subflow mapping
+      if (state.subFlow) {
+        if (updateMapping(state.subFlow.mapping, `state.${state.key}.subFlow.mapping`)) {
+          updated = true;
+        }
+      }
+
+      // Check transitions
+      if (state.transitions) {
+        for (let i = 0; i < state.transitions.length; i++) {
+          if (updateTransition(state.transitions[i], `state.${state.key}.transitions[${i}]`)) {
+            updated = true;
+          }
+        }
+      }
+    }
+
+    if (updated) {
+      console.log('[WorkflowModel] 📝 Workflow model updated with new script content');
+      this.markDirty();
+    } else {
+      console.log('[WorkflowModel] ℹ No embedded references found');
+    }
+
+    return updated;
+  }
+
+  /**
    * Create a new script from template
    */
   async createScript(location: string, taskType?: string): Promise<ResolvedScript> {

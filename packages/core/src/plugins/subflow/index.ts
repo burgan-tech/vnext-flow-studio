@@ -318,7 +318,6 @@ export const SubFlowStatePlugin: StatePlugin = {
     return {
       key: stateKey,
       stateType: 4, // SubFlow
-      xProfile: 'SubFlow',
       versionStrategy: 'Minor',
       labels: [
         {

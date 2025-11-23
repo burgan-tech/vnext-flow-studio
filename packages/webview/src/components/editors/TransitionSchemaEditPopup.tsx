@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { ExternalLink } from 'lucide-react';
 import type { Workflow, SchemaRef, Transition, SharedTransition } from '@amorphie-workflow/core';
 import { SchemaSearchPanel } from './SchemaSearchPanel';
 
@@ -8,6 +9,7 @@ interface TransitionSchemaEditPopupProps {
   availableSchemas: any[];
   onClose: () => void;
   onApply: (transitionId: string, schema: SchemaRef | null) => void;
+  postMessage: (message: any) => void;
 }
 
 /**
@@ -69,7 +71,7 @@ function getTransitionByEdgeId(workflow: Workflow, edgeId: string): { transition
 
   // Check for start transition: t:start:key
   const startMatch = /^t:start:(.+)$/.exec(edgeId);
-  if (startMatch) {
+  if (startMatch && workflow.attributes?.startTransition) {
     return { transition: workflow.attributes.startTransition, isShared: false };
   }
 
@@ -81,12 +83,23 @@ export function TransitionSchemaEditPopup({
   workflow,
   availableSchemas,
   onClose,
-  onApply
+  onApply,
+  postMessage
 }: TransitionSchemaEditPopupProps) {
   const transitionData = getTransitionByEdgeId(workflow, transitionId);
 
+  console.log('[TransitionSchemaEditPopup] transitionId:', transitionId);
+  console.log('[TransitionSchemaEditPopup] transitionData:', transitionData);
+  console.log('[TransitionSchemaEditPopup] transition.schema:', transitionData?.transition?.schema);
+  console.log('[TransitionSchemaEditPopup] availableSchemas count:', availableSchemas?.length);
+  console.log('[TransitionSchemaEditPopup] availableSchemas:', availableSchemas);
+
   const [selectedSchema, setSelectedSchema] = useState<string>(
-    () => transitionData ? formatSchemaRef(transitionData.transition.schema) : ''
+    () => {
+      const formatted = transitionData ? formatSchemaRef(transitionData.transition.schema) : '';
+      console.log('[TransitionSchemaEditPopup] formatted schema:', formatted);
+      return formatted;
+    }
   );
   const [isDirty, setIsDirty] = useState(false);
 
@@ -109,6 +122,23 @@ export function TransitionSchemaEditPopup({
     onApply(transitionId, null);
     onClose();
   }, [transitionId, onApply, onClose]);
+
+  const handleOpenSchema = useCallback(() => {
+    if (!transitionData?.transition?.schema) return;
+
+    const schema = transitionData.transition.schema;
+    postMessage({
+      type: 'dependency:open',
+      dependency: {
+        type: 'Schema',
+        key: schema.key,
+        domain: schema.domain,
+        flow: schema.flow,
+        version: schema.version,
+        ref: 'ref' in schema ? schema.ref : undefined
+      }
+    });
+  }, [transitionData, postMessage]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -154,6 +184,22 @@ export function TransitionSchemaEditPopup({
           <div className="state-edit-popup__info">
             <strong>Transition:</strong> {transitionLabel}
           </div>
+
+          {transitionData?.transition?.schema && (
+            <div className="state-edit-popup__info" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+              <strong>Current Schema:</strong>
+              <span>{formatSchemaRef(transitionData.transition.schema)}</span>
+              <button
+                className="state-edit-popup__btn state-edit-popup__btn--secondary"
+                onClick={handleOpenSchema}
+                title="Open schema file in new editor"
+                style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                <ExternalLink size={14} />
+                Open Schema File
+              </button>
+            </div>
+          )}
 
           <SchemaSearchPanel
             availableSchemas={availableSchemas}

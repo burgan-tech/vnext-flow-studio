@@ -85,6 +85,34 @@ export function TransitionMappingPopup({
     setIsDirty(hasChanges);
   }, [draftMapping, mapping]);
 
+  // Update mapping code when catalog script is updated (for readonly display)
+  useEffect(() => {
+    // Get the location to check (either from mapperRef or location)
+    const scriptLocation = draftMapping.mapperRef || draftMapping.location;
+
+    // Check if this is any script file (.mapper.json, .csx, .cs, .js)
+    const isScriptFile = scriptLocation && (
+      scriptLocation.endsWith('.mapper.json') ||
+      scriptLocation.endsWith('.csx') ||
+      scriptLocation.endsWith('.cs') ||
+      scriptLocation.endsWith('.js')
+    );
+
+    if (isScriptFile && draftMapping.code) {
+      // Find the script in the catalog
+      const catalogScript = availableMappers.find(m => m.location === scriptLocation);
+      if (catalogScript && catalogScript.base64 && catalogScript.base64 !== draftMapping.code) {
+        // Script was updated in catalog, refresh the readonly display
+        console.log('[TransitionMappingPopup] Updating readonly script display for:', scriptLocation);
+        console.log('[TransitionMappingPopup] Old code length:', draftMapping.code?.length, 'New code length:', catalogScript.base64.length);
+        setDraftMapping(prev => ({
+          ...prev,
+          code: catalogScript.base64
+        }));
+      }
+    }
+  }, [availableMappers, draftMapping.mapperRef, draftMapping.location, draftMapping.code]);
+
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);

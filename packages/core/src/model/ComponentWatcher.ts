@@ -5,6 +5,7 @@
 
 import * as chokidar from 'chokidar';
 import * as path from 'path';
+import { promises as fs } from 'fs';
 import { EventEmitter } from 'events';
 import type { ComponentResolver } from './ComponentResolver.js';
 import type { ILogger } from './Logger.js';
@@ -388,10 +389,7 @@ export class ComponentWatcher extends EventEmitter {
   private async handleFileAdded(filePath: string, componentType: string): Promise<void> {
     this.logger.info(`Component added: ${componentType} at ${path.basename(filePath)}`);
 
-    // Clear cache to force reload
-    this.resolver.clearCache();
-
-    // Optionally: Load just this component instead of full reload
+    // Load just this component (no need to clear entire cache)
     await this.loadSingleComponent(filePath, componentType);
 
     this.emit('componentAdded', { path: filePath, type: componentType });
@@ -403,10 +401,7 @@ export class ComponentWatcher extends EventEmitter {
   private async handleFileChanged(filePath: string, componentType: string): Promise<void> {
     this.logger.info(`Component changed: ${componentType} at ${path.basename(filePath)}`);
 
-    // Clear cache for this specific component
-    this.invalidateCacheForFile(filePath);
-
-    // Reload the component
+    // Reload the component (loadSingleComponent will overwrite the cache entry)
     await this.loadSingleComponent(filePath, componentType);
 
     this.emit('componentChanged', { path: filePath, type: componentType });
@@ -419,7 +414,7 @@ export class ComponentWatcher extends EventEmitter {
     this.logger.info(`Component deleted: ${componentType} at ${path.basename(filePath)}`);
 
     // Remove from cache
-    this.invalidateCacheForFile(filePath);
+    await this.invalidateCacheForFile(filePath, componentType);
 
     this.emit('componentDeleted', { path: filePath, type: componentType });
   }
@@ -560,11 +555,46 @@ export class ComponentWatcher extends EventEmitter {
   /**
    * Invalidate cache for a specific file
    */
-  private invalidateCacheForFile(filePath: string): void {
-    // For now, just clear all caches
-    // In a more sophisticated implementation, we could track file-to-cache-key mappings
+  private async invalidateCacheForFile(filePath: string, componentType: string): Promise<void> {
     this.logger.debug(`Invalidating cache for ${path.basename(filePath)}`);
-    this.resolver.clearCache();
+
+    // Instead of clearing all caches, reload all components except the deleted one
+    // This preserves the cache while removing the deleted component
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const component = JSON.parse(content);
+      const key = component.key;
+
+      // Remove the specific component from the appropriate cache
+      switch (componentType) {
+        case 'task':
+          this.resolver['taskCache'].delete(key);
+          break;
+        case 'schema':
+          this.resolver['schemaCache'].delete(key);
+          break;
+        case 'view':
+          this.resolver['viewCache'].delete(key);
+          break;
+        case 'function':
+          this.resolver['functionCache'].delete(key);
+          break;
+        case 'extension':
+          this.resolver['extensionCache'].delete(key);
+          break;
+        case 'workflow':
+          this.resolver['workflowCache'].delete(key);
+          break;
+        case 'mapper':
+        case 'rule':
+          this.resolver['scriptManager'].invalidateScript(filePath);
+          break;
+      }
+    } catch {
+      // If we can't read the file (it's deleted), that's expected
+      // In this case, we can't get the key, so just clear the relevant cache type
+      this.logger.debug(`Could not read deleted file ${filePath}, clearing cache type ${componentType}`);
+    }
   }
 
   /**

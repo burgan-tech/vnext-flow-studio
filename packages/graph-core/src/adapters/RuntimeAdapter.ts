@@ -7,16 +7,19 @@ import type { EnvironmentConfig } from '../types/config.js';
 
 /**
  * Runtime adapter interface
+ * Note: domain parameter is now required as it comes from vnext.config.json
  */
 export interface RuntimeAdapter {
   /**
    * Fetch all components from the runtime environment
    * @param envConfig Environment configuration
+   * @param domain Project domain from vnext.config.json
    * @param options Fetch options
    * @returns Graph representing deployed components
    */
   fetchGraph(
     envConfig: EnvironmentConfig,
+    domain: string,
     options?: FetchGraphOptions
   ): Promise<Graph>;
 
@@ -24,21 +27,24 @@ export interface RuntimeAdapter {
    * Fetch components of a specific type
    * @param type Component type
    * @param envConfig Environment configuration
+   * @param domain Project domain from vnext.config.json
    * @param options Fetch options
    * @returns Array of components
    */
   fetchComponentsByType(
     type: ComponentType,
     envConfig: EnvironmentConfig,
+    domain: string,
     options?: FetchOptions
   ): Promise<any[]>;
 
   /**
    * Test connection to the runtime environment
    * @param envConfig Environment configuration
+   * @param domain Project domain from vnext.config.json (optional, defaults to 'core')
    * @returns true if connection successful
    */
-  testConnection(envConfig: EnvironmentConfig): Promise<boolean>;
+  testConnection(envConfig: EnvironmentConfig, domain?: string): Promise<boolean>;
 }
 
 /**

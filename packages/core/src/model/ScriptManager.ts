@@ -62,6 +62,57 @@ public class MappingHandler : ScriptBase, IMapping
 }`;
 
 /**
+ * Default C# script template for subflow mappings
+ *
+ * SubFlow (Type 'S') mappings use ISubFlowMapping with both InputHandler and OutputHandler.
+ * SubFlows create separate instances and block the parent workflow until completion.
+ */
+const DEFAULT_SUBFLOW_MAPPING_TEMPLATE = `using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+
+public class SubFlowMapping : ISubFlowMapping
+{
+    public Task<ScriptResponse> InputHandler(ScriptContext context)
+    {
+        return Task.FromResult(new ScriptResponse
+        {
+            Data = context.Instance.Data,
+            Headers = null
+        });
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        return Task.FromResult(new ScriptResponse
+        {
+            Data = context.Body,
+            Headers = null
+        });
+    }
+}`;
+
+/**
+ * Default C# script template for subprocess mappings
+ *
+ * SubProcess (Type 'P') mappings use ISubProcessMapping which only has InputHandler.
+ * SubProcesses run in parallel without blocking the parent workflow.
+ */
+const DEFAULT_SUBPROCESS_MAPPING_TEMPLATE = `using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+
+public class SubProcessMapping : ISubProcessMapping
+{
+    public Task<ScriptResponse> InputHandler(ScriptContext context)
+    {
+        return Task.FromResult(new ScriptResponse
+        {
+            Data = context.Instance.Data,
+            Headers = null
+        });
+    }
+}`;
+
+/**
  * Default C# script template for rules
  */
 const DEFAULT_RULE_TEMPLATE = `using System;
@@ -302,6 +353,16 @@ export class ScriptManager implements IScriptManager {
       return DEFAULT_RULE_TEMPLATE;
     }
 
+    // Check if it's a subflow mapping template request
+    if (taskType === 'subflow' || taskType === 'subflowMapping') {
+      return DEFAULT_SUBFLOW_MAPPING_TEMPLATE;
+    }
+
+    // Check if it's a subprocess mapping template request
+    if (taskType === 'subprocess' || taskType === 'subprocessMapping') {
+      return DEFAULT_SUBPROCESS_MAPPING_TEMPLATE;
+    }
+
     // Default to mapping template
     return DEFAULT_MAPPING_TEMPLATE;
   }
@@ -413,6 +474,58 @@ export class ScriptManager implements IScriptManager {
   }
 
   /**
+   * Reload a single script file from disk
+   * Returns the updated script with its type (mapper or rule)
+   */
+  async reloadScript(scriptPath: string, basePath: string): Promise<{ script: ResolvedScript; type: 'mapper' | 'rule' | 'unknown' } | null> {
+    // Invalidate the cache first
+    this.invalidateScript(scriptPath);
+
+    // Determine if this is an absolute or relative path
+    const absolutePath = path.isAbsolute(scriptPath)
+      ? scriptPath
+      : path.resolve(basePath, scriptPath);
+
+    // Calculate relative path from basePath
+    let relativePath = path.relative(basePath, absolutePath);
+    if (!relativePath.startsWith('./') && !relativePath.startsWith('../')) {
+      relativePath = `./${relativePath}`;
+    }
+
+    console.log('[ScriptManager] Reloading single script:', relativePath);
+
+    try {
+      // Load the script (this will read from disk since cache was invalidated)
+      const script = await this.loadScript(relativePath, basePath);
+
+      if (!script || !script.exists) {
+        console.log('[ScriptManager] Script no longer exists:', relativePath);
+        return null;
+      }
+
+      // Analyze script type
+      const scriptType = this.analyzeScriptType(script.content);
+
+      // Convert 'mapping' to 'mapper' for consistency with state collections
+      const normalizedType = scriptType === 'mapping' ? 'mapper' : scriptType;
+
+      console.log('[ScriptManager] Script reloaded:', {
+        path: relativePath,
+        type: normalizedType,
+        size: script.content.length
+      });
+
+      return {
+        script,
+        type: normalizedType as 'mapper' | 'rule' | 'unknown'
+      };
+    } catch (error) {
+      console.error('[ScriptManager] Failed to reload script:', relativePath, error);
+      return null;
+    }
+  }
+
+  /**
    * Discover and load all .csx script files in the workspace recursively
    * Returns scripts categorized by type based on implemented interface (IMapping or ICondition/IRule)
    */
@@ -512,7 +625,7 @@ export class ScriptManager implements IScriptManager {
    * Analyze script content to determine if it implements IMapping (mappers) or IConditionMapping/ICondition/IRule (rules)
    */
   private analyzeScriptType(content: string): 'mapping' | 'rule' | 'unknown' {
-    // Check for IMapping, ITransitionMapping, or ISubFlowMapping interfaces (these are mappers)
+    // Check for IMapping, ITransitionMapping, ISubFlowMapping, or ISubProcessMapping interfaces (these are mappers)
     if (content.includes(': IMapping') ||
         content.includes(':IMapping') ||
         content.includes(', IMapping') ||
@@ -524,7 +637,11 @@ export class ScriptManager implements IScriptManager {
         content.includes(': ISubFlowMapping') ||
         content.includes(':ISubFlowMapping') ||
         content.includes(', ISubFlowMapping') ||
-        content.includes(',ISubFlowMapping')) {
+        content.includes(',ISubFlowMapping') ||
+        content.includes(': ISubProcessMapping') ||
+        content.includes(':ISubProcessMapping') ||
+        content.includes(', ISubProcessMapping') ||
+        content.includes(',ISubProcessMapping')) {
       return 'mapping';
     }
 

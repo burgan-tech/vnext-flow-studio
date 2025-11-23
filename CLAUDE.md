@@ -54,7 +54,7 @@ This is a VS Code extension for editing Amorphie Workflow Definitions with a vis
 
 ## File Types and Structure
 
-- **`*.flow.json`**: Workflow definitions (source of truth) with JSON schema validation
+- **`*.json`**: Workflow definitions (source of truth) with JSON schema validation
 - **`*.diagram.json`**: Layout and positioning data for visual editor
 - **`*.flow.lock.json`**: Deterministic build versions (optional)
 - **`sys-tasks/`**: System task definitions

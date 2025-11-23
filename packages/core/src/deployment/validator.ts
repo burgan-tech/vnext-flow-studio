@@ -147,11 +147,24 @@ export class DeploymentValidator {
     const location = `state:${state.key}`;
 
     // Check view reference
+    // Handle both direct ViewRef and nested view configuration object
     if (state.view) {
-      if ('ref' in state.view) {
-        this.addError(`View reference not normalized: ${location}.view`, context);
+      const viewObj = state.view as any;
+      // Check if this is a nested view configuration with { view, loadData, extensions }
+      if (typeof viewObj === 'object' && 'view' in viewObj && viewObj.view) {
+        // Nested structure - validate the inner view property
+        if ('ref' in viewObj.view) {
+          this.addError(`View reference not normalized: ${location}.view`, context);
+        } else {
+          this.validateExplicitReference(viewObj.view, `${location}.view`, context);
+        }
       } else {
-        this.validateExplicitReference(state.view, `${location}.view`, context);
+        // Direct ViewRef
+        if ('ref' in viewObj) {
+          this.addError(`View reference not normalized: ${location}.view`, context);
+        } else {
+          this.validateExplicitReference(viewObj, `${location}.view`, context);
+        }
       }
     }
 
@@ -216,11 +229,24 @@ export class DeploymentValidator {
     }
 
     // Check view reference
+    // Handle both direct ViewRef and nested view configuration object
     if (transition.view) {
-      if ('ref' in transition.view) {
-        this.addError(`View reference not normalized: ${location}.view`, context);
+      const viewObj = transition.view as any;
+      // Check if this is a nested view configuration with { view, loadData, extensions }
+      if (typeof viewObj === 'object' && 'view' in viewObj && viewObj.view) {
+        // Nested structure - validate the inner view property
+        if ('ref' in viewObj.view) {
+          this.addError(`View reference not normalized: ${location}.view`, context);
+        } else {
+          this.validateExplicitReference(viewObj.view, `${location}.view`, context);
+        }
       } else {
-        this.validateExplicitReference(transition.view, `${location}.view`, context);
+        // Direct ViewRef
+        if ('ref' in viewObj) {
+          this.addError(`View reference not normalized: ${location}.view`, context);
+        } else {
+          this.validateExplicitReference(viewObj, `${location}.view`, context);
+        }
       }
     }
 

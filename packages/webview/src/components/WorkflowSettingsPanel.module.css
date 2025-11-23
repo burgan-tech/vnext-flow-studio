@@ -374,6 +374,7 @@
   padding: 16px;
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
+  justify-content: flex-end;
 }
 
 .cancelButton,
@@ -418,7 +419,7 @@
 }
 
 .dirtyIndicator {
-  margin-left: auto;
+  margin-right: auto;
   font-size: 13px;
   color: #f59e0b;
   font-weight: 500;

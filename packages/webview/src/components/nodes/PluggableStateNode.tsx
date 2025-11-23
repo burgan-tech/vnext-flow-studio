@@ -22,6 +22,9 @@ interface PluggableStateNodeProps {
     designHints?: DesignHints;
     // Callback for task badge clicks
     onTaskBadgeClick?: (stateKey: string, lane?: 'onEntries' | 'onExits') => void;
+    // Instance highlighting
+    highlighted?: boolean;
+    highlightedInHistory?: boolean;
   };
   selected?: boolean;
   style?: React.CSSProperties;
@@ -76,12 +79,7 @@ const getStateSubTypeIcon = (stateSubType?: number): string => {
   }
 };
 
-const getStateTypeIcon = (stateType: StateType, pluginId?: string): string => {
-  // Use plugin-specific icon if available
-  if (pluginId === 'ServiceTask') {
-    return '⚙';
-  }
-
+const getStateTypeIcon = (stateType: StateType, _pluginId?: string): string => {
   switch (stateType) {
     case 1: return '▶'; // Initial
     case 2: return '▢'; // Intermediate
@@ -161,7 +159,9 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
     height: dataHeight,
     pluginId,
     designHints,
-    onTaskBadgeClick
+    onTaskBadgeClick,
+    highlighted,
+    highlightedInHistory
   } = data;
 
   const { postMessage } = useBridge();
@@ -254,15 +254,16 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
   }
 
   // Build class name with plugin-specific styling
-  const pluginClass = pluginId === 'ServiceTask' ? 'state-node--service-task' :
-                      pluginId ? `state-node--plugin-${pluginId.toLowerCase()}` : '';
+  const pluginClass = pluginId ? `state-node--plugin-${pluginId.toLowerCase()}` : '';
 
   const classNames = [
     'react-flow__node-default',
     'state-node',
     stateTypeClass,
     pluginClass,
-    selected ? 'selected' : ''
+    selected ? 'selected' : '',
+    highlighted ? 'state-node--highlighted' : '',
+    highlightedInHistory ? 'state-node--history' : ''
   ].filter(Boolean).join(' ');
 
   // Render terminal labels for plugin nodes (currently disabled to keep nodes clean)

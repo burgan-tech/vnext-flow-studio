@@ -5,19 +5,29 @@ interface SaveScriptDialogProps {
   templateContent: string;
   workflowName?: string;
   fromStateKey?: string;
-  onSave: (location: string, content: string) => void;
+  mode?: 'create' | 'override';
+  overrideLocation?: string; // Pre-filled location when overriding
+  onSave: (location: string, content: string, mode: 'create' | 'override') => void;
   onCancel: () => void;
 }
 
 /**
  * Dialog for saving a new script file (.csx)
  */
-export function SaveScriptDialog({ scriptType, templateContent, workflowName, fromStateKey, onSave, onCancel }: SaveScriptDialogProps) {
+export function SaveScriptDialog({ scriptType, templateContent, workflowName, fromStateKey, mode = 'create', overrideLocation, onSave, onCancel }: SaveScriptDialogProps) {
   const [filePath, setFilePath] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // Auto-generate suggested file path: ./src/{workflowPrefix}/{stateKey}_{Mapping|Rule}.csx
+  // OR use overrideLocation if in override mode
   useEffect(() => {
+    // If overrideLocation is provided (override mode), use it
+    if (overrideLocation) {
+      setFilePath(overrideLocation);
+      return;
+    }
+
+    // Otherwise, auto-generate suggested path
     let path = './src/';
 
     // Extract workflow prefix (part before first dash)
@@ -38,7 +48,7 @@ export function SaveScriptDialog({ scriptType, templateContent, workflowName, fr
     }
 
     setFilePath(path);
-  }, [scriptType, workflowName, fromStateKey]);
+  }, [scriptType, workflowName, fromStateKey, overrideLocation]);
 
   const handleSave = () => {
     setError(null);
@@ -60,7 +70,14 @@ export function SaveScriptDialog({ scriptType, templateContent, workflowName, fr
       location = `./${location}`;
     }
 
-    onSave(location, templateContent);
+    // Determine the actual mode:
+    // If we're in override mode but the user changed the filename, switch to create mode
+    let actualMode = mode;
+    if (mode === 'override' && overrideLocation && location !== overrideLocation) {
+      actualMode = 'create';
+    }
+
+    onSave(location, templateContent, actualMode);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -78,7 +95,7 @@ export function SaveScriptDialog({ scriptType, templateContent, workflowName, fr
       <div className="comment-modal" style={{ width: '550px', maxWidth: '90vw' }} onClick={(e) => e.stopPropagation()}>
         <div className="comment-modal__header">
           <h2 className="comment-modal__title">
-            Save {scriptType === 'mapping' ? 'Mapping' : 'Rule'} Script
+            {mode === 'override' ? 'Override' : 'Save'} {scriptType === 'mapping' ? 'Mapping' : 'Rule'} Script
           </h2>
           <button
             className="comment-modal__close-btn"
@@ -113,9 +130,15 @@ export function SaveScriptDialog({ scriptType, templateContent, workflowName, fr
                 color: '#1e293b'
               }}
             />
-            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
-              Pattern: ./src/[WorkflowName]/[StateKey]_{scriptType === 'mapping' ? 'Mapping' : 'Rule'}.csx
-            </div>
+            {mode === 'override' ? (
+              <div style={{ fontSize: '12px', color: '#f59e0b', marginTop: '6px', fontWeight: 500 }}>
+                ⚠️ This will overwrite the existing file. You can change the filename to create a new file instead.
+              </div>
+            ) : (
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+                Pattern: ./src/[WorkflowName]/[StateKey]_{scriptType === 'mapping' ? 'Mapping' : 'Rule'}.csx
+              </div>
+            )}
           </div>
 
           {error && (
@@ -145,7 +168,7 @@ export function SaveScriptDialog({ scriptType, templateContent, workflowName, fr
             className="comment-modal__btn comment-modal__btn--primary"
             onClick={handleSave}
           >
-            Create File
+            {mode === 'override' ? 'Override File' : 'Create File'}
           </button>
         </div>
       </div>

@@ -179,7 +179,6 @@ export const WizardStatePlugin: StatePlugin = {
     return {
       key: stateKey,
       stateType: 5, // Wizard
-      xProfile: 'Wizard',
       versionStrategy: 'Minor',
       labels: [
         {

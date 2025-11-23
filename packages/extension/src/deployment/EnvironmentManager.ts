@@ -223,7 +223,7 @@ export class EnvironmentManager {
 
     const items = envList.map((env) => ({
       label: env.name || env.id,
-      description: `${env.baseUrl} (${env.domain})`,
+      description: env.baseUrl,
       detail: env.id === activeEnvId ? 'Currently active' : undefined,
       env
     }));
@@ -261,9 +261,7 @@ export class EnvironmentManager {
       }
     }
 
-    if (!env.domain || env.domain.trim() === '') {
-      errors.push('Domain is required');
-    }
+    // Note: Domain is now read from vnext.config.json, not validated here
 
     if (env.auth) {
       if (env.auth.type === 'bearer' && !env.auth.token) {

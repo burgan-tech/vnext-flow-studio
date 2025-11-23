@@ -34,3 +34,6 @@ export * from './deployment/index.js';
 
 // Dependencies
 export * from './dependencies/index.js';
+
+// Config
+export * from './config/vnext-config.js';

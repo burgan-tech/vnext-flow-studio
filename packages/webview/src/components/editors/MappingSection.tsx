@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { FileText, Download, Upload, Key, RefreshCw, GitBranch } from 'lucide-react';
 import { useBridge } from '../../hooks/useBridge';
 import { ScriptSelector, type ScriptItem } from './ScriptSelector';
 import { SaveScriptDialog } from './SaveScriptDialog';
+import { OverrideScriptDialog } from './OverrideScriptDialog';
 
 export type MappingMode = 'none' | 'mapper' | 'code';
 
@@ -66,7 +67,7 @@ interface MappingSectionProps {
   lane?: 'onEntries' | 'onExits';
   taskIndex?: number | null;
   scriptType?: 'mapping' | 'rule'; // Optional: filter scripts by type (IMapping vs IConditionMapping)
-  interfaceType?: 'IMapping' | 'ITransitionMapping'; // Interface to search for in scripts
+  interfaceType?: 'IMapping' | 'ITransitionMapping' | 'ISubProcessMapping' | 'ISubFlowMapping' | 'none'; // Interface to search for in scripts, or 'none' to skip filtering
 }
 
 const TASK_MAPPING_TEMPLATES = [
@@ -412,6 +413,59 @@ public class TransitionMapping : ITransitionMapping
   },
 ];
 
+const SUBFLOW_MAPPING_TEMPLATES = [
+  {
+    name: 'Pass Through',
+    description: 'Pass data to/from subflow without modification',
+    icon: FileText,
+    code: `using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+
+public class SubFlowMapping : ISubFlowMapping
+{
+    public Task<ScriptResponse> InputHandler(ScriptContext context)
+    {
+        return Task.FromResult(new ScriptResponse
+        {
+            Data = context.Instance.Data,
+            Headers = null
+        });
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context)
+    {
+        return Task.FromResult(new ScriptResponse
+        {
+            Data = context.Body,
+            Headers = null
+        });
+    }
+}`,
+  },
+];
+
+const SUBPROCESS_MAPPING_TEMPLATES = [
+  {
+    name: 'Pass Through',
+    description: 'Pass data to subprocess without modification',
+    icon: FileText,
+    code: `using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+
+public class SubProcessMapping : ISubProcessMapping
+{
+    public Task<ScriptResponse> InputHandler(ScriptContext context)
+    {
+        return Task.FromResult(new ScriptResponse
+        {
+            Data = context.Instance.Data,
+            Headers = null
+        });
+    }
+}`,
+  },
+];
+
 export function MappingSection({
   type,
   value,
@@ -426,20 +480,31 @@ export function MappingSection({
 }: MappingSectionProps) {
   const { postMessage } = useBridge();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [templateToSave, setTemplateToSave] = useState<string>('');
+  const [saveMode, setSaveMode] = useState<'create' | 'override'>('create');
+  const [overrideLocation, setOverrideLocation] = useState<string | undefined>(undefined);
   const [hoveredTemplateIndex, setHoveredTemplateIndex] = useState<number | null>(null);
+  const [previousBinding, setPreviousBinding] = useState<{ location: string; code: string } | null>(null);
 
   // Choose templates based on interface type
-  const TEMPLATES = interfaceType === 'ITransitionMapping' ? TRANSITION_MAPPING_TEMPLATES : TASK_MAPPING_TEMPLATES;
+  const TEMPLATES =
+    interfaceType === 'ISubFlowMapping' ? SUBFLOW_MAPPING_TEMPLATES :
+    interfaceType === 'ISubProcessMapping' ? SUBPROCESS_MAPPING_TEMPLATES :
+    interfaceType === 'ITransitionMapping' ? TRANSITION_MAPPING_TEMPLATES :
+    interfaceType === 'none' ? [] :
+    TASK_MAPPING_TEMPLATES;
 
-  const title = interfaceType === 'ITransitionMapping'
-    ? 'Transition Mapping'
-    : (type === 'input' ? 'Input Mapping' : 'Output Mapping');
-  const subtitle = interfaceType === 'ITransitionMapping'
-    ? 'Transform data as it passes through the transition'
-    : (type === 'input'
-      ? 'Map context data to task input'
-      : 'Map task output back to context');
+  const title =
+    interfaceType === 'ISubFlowMapping' ? 'SubFlow Mapping' :
+    interfaceType === 'ISubProcessMapping' ? 'SubProcess Mapping' :
+    interfaceType === 'ITransitionMapping' ? 'Transition Mapping' :
+    (type === 'input' ? 'Input Mapping' : 'Output Mapping');
+  const subtitle =
+    interfaceType === 'ISubFlowMapping' ? 'Map data to/from subflow (blocks parent until complete)' :
+    interfaceType === 'ISubProcessMapping' ? 'Map data to subprocess (runs in parallel)' :
+    interfaceType === 'ITransitionMapping' ? 'Transform data as it passes through the transition' :
+    (type === 'input' ? 'Map context data to task input' : 'Map task output back to context');
 
   // Filter to only show .mapper.json files (visual mapper files)
   const visualMappers = availableMappers.filter(m => {
@@ -455,6 +520,12 @@ export function MappingSection({
     return availableMappers.filter(m => {
       const location = m.location || '';
       if (!location.endsWith('.csx')) return false;
+
+      // If interfaceType is 'none', skip filtering (parent already filtered)
+      if (interfaceType === 'none') {
+        console.log('[MappingSection] ✓ No interface filtering (parent already filtered):', location);
+        return true;
+      }
 
       // If we have base64 content, check for interface implementation
       if (m.base64) {
@@ -568,21 +639,85 @@ export function MappingSection({
 
   const handleCreateFromTemplate = (templateCode: string) => {
     setTemplateToSave(templateCode);
+
+    // Check if a file is already bound to this mapping
+    if (value.location && value.location.trim().length > 0) {
+      // Already bound - show override dialog
+      setShowOverrideDialog(true);
+    } else {
+      // Not bound - proceed with save dialog for creating new file
+      setSaveMode('create');
+      setShowSaveDialog(true);
+    }
+  };
+
+  const handleOverrideExisting = () => {
+    setShowOverrideDialog(false);
+    setSaveMode('override');
+    // Set the override location to the currently bound file
+    setOverrideLocation(value.location || undefined);
     setShowSaveDialog(true);
   };
 
-  const handleSaveNewScript = (location: string, content: string) => {
+  const handleCreateNewFile = () => {
+    setShowOverrideDialog(false);
+    setSaveMode('create');
+    // Clear override location for creating new file
+    setOverrideLocation(undefined);
+    setShowSaveDialog(true);
+  };
+
+  const handleSaveNewScript = (location: string, content: string, mode: 'create' | 'override') => {
     setShowSaveDialog(false);
+
+    // Save previous binding for rollback
+    setPreviousBinding({
+      location: value.location || '',
+      code: value.code || ''
+    });
+
+    // Send new message type
     postMessage({
-      type: 'editor:createScript',
+      type: 'editor:createOrBindScript',
       location,
       content,
-      scriptType
+      scriptType,
+      mode
     });
-    // After successful creation, the script will be selected via catalog:update message
-    // For now, set the location optimistically
-    onChange({ ...value, location, code: btoa(content) });
+
+    // Optimistically bind - will rollback if extension returns error
+    onChange({ ...value, mode: 'code', location, code: btoa(content) });
   };
+
+  // Listen for script operation result and rollback on error
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+
+      if (message.type === 'editor:scriptOperationResult') {
+        if (!message.success) {
+          // Rollback optimistic binding
+          console.log('[MappingSection] Script operation failed, rolling back:', message.error);
+          if (previousBinding) {
+            onChange({
+              ...value,
+              location: previousBinding.location,
+              code: previousBinding.code,
+              mode: previousBinding.location ? 'code' : 'none'
+            });
+            setPreviousBinding(null);
+          }
+        } else {
+          // Success - clear previous binding
+          console.log('[MappingSection] Script operation succeeded:', message.action);
+          setPreviousBinding(null);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [previousBinding, value, onChange]);
 
   return (
     <div className="mapping-section">
@@ -927,6 +1062,18 @@ export function MappingSection({
         )}
       </div>
 
+      {/* Override Script Dialog */}
+      {showOverrideDialog && (
+        <OverrideScriptDialog
+          scriptType={scriptType}
+          currentLocation={value.location || ''}
+          templateContent={templateToSave}
+          onOverride={handleOverrideExisting}
+          onCreateNew={handleCreateNewFile}
+          onCancel={() => setShowOverrideDialog(false)}
+        />
+      )}
+
       {/* Save Script Dialog */}
       {showSaveDialog && (
         <SaveScriptDialog
@@ -934,6 +1081,8 @@ export function MappingSection({
           templateContent={templateToSave}
           workflowName={workflowName}
           fromStateKey={stateKey}
+          mode={saveMode}
+          overrideLocation={overrideLocation}
           onSave={handleSaveNewScript}
           onCancel={() => setShowSaveDialog(false)}
         />

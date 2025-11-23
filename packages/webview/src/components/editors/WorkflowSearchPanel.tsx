@@ -15,8 +15,18 @@ export function WorkflowSearchPanel({
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // Debug: Log what WorkflowSearchPanel receives
+  console.log('[WorkflowSearchPanel] Received workflows:', availableWorkflows.length);
+  if (availableWorkflows.length > 0) {
+    console.log('[WorkflowSearchPanel] First 3 workflows:', availableWorkflows.slice(0, 3).map((w: any) => ({
+      key: w.key,
+      type: w.attributes?.type
+    })));
+  }
+
   // Filter workflows based on search query
   const filteredWorkflows = useMemo(() => {
+    console.log('[WorkflowSearchPanel] Filtering with search query:', searchQuery || '(empty)');
     if (!searchQuery) return availableWorkflows.slice(0, 20);
 
     const query = searchQuery.toLowerCase();

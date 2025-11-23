@@ -405,14 +405,6 @@ export class PluginManager implements IPluginManager {
    * Detect plugin for existing state
    */
   detectPlugin(state: State): StatePlugin | null {
-    // Check xProfile first
-    if (state.xProfile) {
-      const plugin = this.getPlugin(state.xProfile);
-      if (plugin) {
-        return plugin;
-      }
-    }
-
     // Try each plugin's detection logic
     for (const plugin of this.getActivePlugins()) {
       if (plugin.hooks?.onDeserialize) {
@@ -424,23 +416,15 @@ export class PluginManager implements IPluginManager {
     }
 
     // Fallback based on state type for backward compatibility
-    // Note: We don't use heuristics to detect ServiceTask since regular
-    // Intermediate states can also have tasks in onEntries. ServiceTask
-    // should only be detected when xProfile is explicitly set.
-    if (!state.xProfile) {
-      switch (state.stateType) {
-        case 1: return this.getPlugin('Initial') || null;
-        case 3: return this.getPlugin('Final') || null;
-        case 4: return this.getPlugin('SubFlow') || null;
-        case 5: return this.getPlugin('Wizard') || null;
-        case 2:
-        default:
-          // Regular intermediate state, NOT ServiceTask
-          return this.getPlugin('Intermediate') || null;
-      }
+    switch (state.stateType) {
+      case 1: return this.getPlugin('Initial') || null;
+      case 3: return this.getPlugin('Final') || null;
+      case 4: return this.getPlugin('SubFlow') || null;
+      case 5: return this.getPlugin('Wizard') || null;
+      case 2:
+      default:
+        return this.getPlugin('Intermediate') || null;
     }
-
-    return null;
   }
 
   /**

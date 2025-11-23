@@ -7,6 +7,7 @@ import { registerMapperEditor } from './mapper/MapperEditorProvider';
 import { registerGraphCommands } from './graph/graphCommands';
 import { TaskQuickEditorProvider } from './taskEditor/TaskQuickEditorProvider';
 import { SettingsEditorProvider } from './settings/SettingsEditorProvider';
+import { TestPanelProvider } from './testing/TestPanelProvider';
 import {
   FLOW_AND_DIAGRAM_GLOBS,
   FLOW_FILE_GLOBS,
@@ -708,6 +709,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register settings editor
   context.subscriptions.push(SettingsEditorProvider.register(context));
+
+  // Register test panel provider
+  context.subscriptions.push(
+    TestPanelProvider.register(context, modelBridge)
+  );
 
   // Clean up on deactivation
   context.subscriptions.push({

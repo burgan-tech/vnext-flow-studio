@@ -16,7 +16,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        mapper: resolve(__dirname, 'mapper.html')
+        mapper: resolve(__dirname, 'mapper.html'),
+        testRunner: resolve(__dirname, 'testRunner.html')
       }
     }
   },

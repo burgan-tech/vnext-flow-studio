@@ -6,16 +6,19 @@ interface FlyoutPanelProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  closeOnClickOutside?: boolean; // Default true, set false for drag-and-drop panels
 }
 
-export function FlyoutPanel({ title, isOpen, onClose, children }: FlyoutPanelProps) {
+export function FlyoutPanel({ title, isOpen, onClose, children, closeOnClickOutside = true }: FlyoutPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    console.log('[FlyoutPanel] useEffect - isOpen:', isOpen, 'closeOnClickOutside:', closeOnClickOutside);
+    if (!isOpen || !closeOnClickOutside) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
+      console.log('[FlyoutPanel] Click detected on:', target.className, target.tagName);
 
       // Don't close if clicking inside the panel
       if (panelRef.current && panelRef.current.contains(target)) {
@@ -37,33 +40,40 @@ export function FlyoutPanel({ title, isOpen, onClose, children }: FlyoutPanelPro
 
     // Add slight delay to prevent immediate close on button click that opened the panel
     const timeoutId = setTimeout(() => {
+      console.log('[FlyoutPanel] Adding mousedown listener');
       document.addEventListener('mousedown', handleClickOutside);
     }, 100);
 
     return () => {
+      console.log('[FlyoutPanel] Cleanup - removing mousedown listener');
       clearTimeout(timeoutId);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, closeOnClickOutside]);
 
   if (!isOpen) return null;
 
   return (
-    <div ref={panelRef} className="flyout-panel">
-      <div className="flyout-panel__header">
-        <h2 className="flyout-panel__title">{title}</h2>
-        <button
-          className="flyout-panel__close-btn"
-          onClick={onClose}
-          aria-label="Close"
-          type="button"
-        >
-          <X size={18} />
-        </button>
+    <>
+      {closeOnClickOutside && (
+        <div className="flyout-panel-backdrop" onClick={onClose} />
+      )}
+      <div ref={panelRef} className="flyout-panel">
+        <div className="flyout-panel__header">
+          <h2 className="flyout-panel__title">{title}</h2>
+          <button
+            className="flyout-panel__close-btn"
+            onClick={onClose}
+            aria-label="Close"
+            type="button"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flyout-panel__content">
+          {children}
+        </div>
       </div>
-      <div className="flyout-panel__content">
-        {children}
-      </div>
-    </div>
+    </>
   );
 }

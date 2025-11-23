@@ -27,7 +27,11 @@ const typeFields = {
   '4': ['pubSubName', 'topic'],
   '5': ['title', 'instructions', 'assignedTo', 'dueDate', 'reminderIntervalMinutes', 'escalationTimeoutMinutes', 'escalationAssignee'],
   '6': ['url', 'httpMethod', 'timeoutSeconds', 'validateSsl'],
-  '7': [] // Script task has no specific fields
+  '7': [], // Script task has no specific fields
+  '8': [], // Condition task - TBD
+  '9': [], // Timer task - TBD
+  '10': ['notificationMetadata'],
+  '11': ['triggerTaskType', 'triggerDomain', 'triggerFlow', 'triggerBody', 'triggerTransitionName', 'triggerInstanceId', 'triggerKey', 'triggerVersion', 'triggerExtensions']
 };
 
 // Binding-specific field mappings
@@ -86,6 +90,15 @@ function attachEventListeners() {
   if (bindingTypeSelector) {
     bindingTypeSelector.addEventListener('change', (e) => {
       showBindingFields(e.target.value);
+      markDirty();
+    });
+  }
+
+  // Trigger task type selector change (for Type 11)
+  const triggerTaskTypeSelector = document.getElementById('triggerTaskType');
+  if (triggerTaskTypeSelector) {
+    triggerTaskTypeSelector.addEventListener('change', (e) => {
+      showTriggerTaskFields(e.target.value);
       markDirty();
     });
   }
@@ -226,6 +239,25 @@ function ensureConfigForType(task, type) {
     case '7':
       // Script task - no specific fields required
       break;
+    case '8':
+      // Condition task - TBD
+      break;
+    case '9':
+      // Timer task - TBD
+      break;
+    case '10':
+      // Notification task
+      if (!config.metadata) {
+        config.metadata = {};
+      }
+      break;
+    case '11':
+      // Trigger task
+      config.type = config.type || 'Start';
+      config.domain = config.domain || '';
+      config.flow = config.flow || '';
+      config.body = config.body || {};
+      break;
   }
 }
 
@@ -357,6 +389,43 @@ function populateFields(task) {
         bodyEl.value = JSON.stringify(config.body, null, 2);
       }
     }
+  } else if (type === '10') {
+    // Type 10: Notification Task
+    if (config.metadata) {
+      const metadataEl = document.getElementById('notificationMetadata');
+      if (metadataEl) {
+        metadataEl.value = JSON.stringify(config.metadata, null, 2);
+      }
+    }
+  } else if (type === '11') {
+    // Type 11: Trigger Task
+    setFieldValue('triggerTaskType', config.type || '');
+    setFieldValue('triggerDomain', config.domain || '');
+    setFieldValue('triggerFlow', config.flow || '');
+
+    if (config.body) {
+      const bodyEl = document.getElementById('triggerBody');
+      if (bodyEl) {
+        bodyEl.value = JSON.stringify(config.body, null, 2);
+      }
+    }
+
+    setFieldValue('triggerTransitionName', config.transitionName || '');
+    setFieldValue('triggerInstanceId', config.instanceId || '');
+    setFieldValue('triggerKey', config.key || '');
+    setFieldValue('triggerVersion', config.version || '');
+
+    if (config.extensions) {
+      const extensionsEl = document.getElementById('triggerExtensions');
+      if (extensionsEl) {
+        extensionsEl.value = JSON.stringify(config.extensions, null, 2);
+      }
+    }
+
+    // Show SubProcess fields if type is SubProcess
+    if (config.type === 'SubProcess') {
+      showTriggerTaskFields('SubProcess');
+    }
   }
 }
 
@@ -436,6 +505,12 @@ function showTypeFields(type) {
     const bindingType = getFieldValue('bindingType') || '';
     showBindingFields(bindingType);
   }
+
+  // If Type 11 (Trigger Task), also handle trigger task type
+  if (type === '11') {
+    const triggerTaskType = getFieldValue('triggerTaskType') || '';
+    showTriggerTaskFields(triggerTaskType);
+  }
 }
 
 function showBindingFields(bindingType) {
@@ -450,6 +525,14 @@ function showBindingFields(bindingType) {
     if (bindingFieldsEl) {
       bindingFieldsEl.classList.remove('hidden');
     }
+  }
+}
+
+function showTriggerTaskFields(triggerTaskType) {
+  // Show/hide SubProcess-specific fields
+  const subProcessFields = document.getElementById('subProcessFields');
+  if (subProcessFields) {
+    subProcessFields.classList.toggle('hidden', triggerTaskType !== 'SubProcess');
   }
 }
 
@@ -685,6 +768,86 @@ function collectTaskData() {
       }
     } else {
       delete config.body;
+    }
+  } else if (type === '10') {
+    // Type 10: Notification Task
+    const metadataText = document.getElementById('notificationMetadata')?.value;
+    if (metadataText) {
+      try {
+        config.metadata = JSON.parse(metadataText);
+      } catch {
+        // Keep as is if invalid JSON
+      }
+    } else {
+      delete config.metadata;
+    }
+  } else if (type === '11') {
+    // Type 11: Trigger Task
+    const triggerTaskType = getFieldValue('triggerTaskType');
+    const triggerDomain = getFieldValue('triggerDomain');
+    const triggerFlow = getFieldValue('triggerFlow');
+    const triggerBodyText = document.getElementById('triggerBody')?.value;
+
+    if (triggerTaskType) config.type = triggerTaskType;
+    if (triggerDomain) config.domain = triggerDomain;
+    if (triggerFlow) config.flow = triggerFlow;
+
+    if (triggerBodyText) {
+      try {
+        config.body = JSON.parse(triggerBodyText);
+      } catch {
+        // Keep as is if invalid JSON
+      }
+    }
+
+    // Optional fields
+    const transitionName = getFieldValue('triggerTransitionName');
+    const instanceId = getFieldValue('triggerInstanceId');
+
+    if (transitionName) {
+      config.transitionName = transitionName;
+    } else {
+      delete config.transitionName;
+    }
+
+    if (instanceId) {
+      config.instanceId = instanceId;
+    } else {
+      delete config.instanceId;
+    }
+
+    // SubProcess-specific fields
+    if (triggerTaskType === 'SubProcess') {
+      const triggerKey = getFieldValue('triggerKey');
+      const triggerVersion = getFieldValue('triggerVersion');
+
+      if (triggerKey) {
+        config.key = triggerKey;
+      } else {
+        delete config.key;
+      }
+
+      if (triggerVersion) {
+        config.version = triggerVersion;
+      } else {
+        delete config.version;
+      }
+    } else {
+      // Not SubProcess, remove these fields if they exist
+      delete config.key;
+      delete config.version;
+    }
+
+    // Extensions
+    const extensionsText = document.getElementById('triggerExtensions')?.value;
+    if (extensionsText) {
+      try {
+        config.extensions = JSON.parse(extensionsText);
+      } catch {
+        // Keep as is if invalid JSON
+      }
+    } else {
+      delete config.extensions;
     }
   }
 

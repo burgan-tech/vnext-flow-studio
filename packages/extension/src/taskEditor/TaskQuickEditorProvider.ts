@@ -190,6 +190,10 @@ export class TaskQuickEditorProvider implements vscode.CustomTextEditorProvider 
                         <option value="5">Type 5 - Human Task</option>
                         <option value="6">Type 6 - HTTP Task</option>
                         <option value="7">Type 7 - Script Task</option>
+                        <option value="8">Type 8 - Condition Task</option>
+                        <option value="9">Type 9 - Timer Task</option>
+                        <option value="10">Type 10 - Notification Task</option>
+                        <option value="11">Type 11 - Trigger Task</option>
                     </select>
                 </div>
             </div>
@@ -416,6 +420,96 @@ export class TaskQuickEditorProvider implements vscode.CustomTextEditorProvider 
                             Script Task type is a placeholder for future extensions.
                             No specific configuration is required at this time.
                         </p>
+                    </div>
+                </div>
+
+                <!-- Type 8: Condition Task -->
+                <div id="type8Fields" class="type-fields hidden">
+                    <div class="form-group">
+                        <p style="color: var(--vscode-descriptionForeground);">
+                            Condition Task type. Configuration details to be defined.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Type 9: Timer Task -->
+                <div id="type9Fields" class="type-fields hidden">
+                    <div class="form-group">
+                        <p style="color: var(--vscode-descriptionForeground);">
+                            Timer Task type. Configuration details to be defined.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Type 10: Notification Task -->
+                <div id="type10Fields" class="type-fields hidden">
+                    <div class="form-group">
+                        <label for="notificationMetadata">Metadata (JSON) *</label>
+                        <textarea id="notificationMetadata" rows="6" placeholder='{"channel": "email", "to": "user@example.com"}' required></textarea>
+                        <small>Notification binding metadata configuration</small>
+                    </div>
+                </div>
+
+                <!-- Type 11: Trigger Task -->
+                <div id="type11Fields" class="type-fields hidden">
+                    <div class="form-group">
+                        <label for="triggerTaskType">Trigger Type *</label>
+                        <select id="triggerTaskType" required>
+                            <option value="">Select trigger type...</option>
+                            <option value="Start">Start - Start a new workflow instance</option>
+                            <option value="Trigger">Trigger - Trigger an existing workflow</option>
+                            <option value="SubProcess">SubProcess - Execute a subprocess</option>
+                            <option value="GetInstanceData">GetInstanceData - Retrieve instance data</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="triggerDomain">Domain *</label>
+                        <input type="text" id="triggerDomain" pattern="^[a-z0-9-]+$" placeholder="target-domain" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="triggerFlow">Flow *</label>
+                        <input type="text" id="triggerFlow" pattern="^[a-z0-9-]+$" placeholder="target-workflow" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="triggerBody">Body (JSON) *</label>
+                        <textarea id="triggerBody" rows="4" placeholder='{"data": "value"}' required></textarea>
+                        <small>Request body to send to the target workflow</small>
+                    </div>
+
+                    <!-- SubProcess-specific fields -->
+                    <div id="subProcessFields" class="hidden">
+                        <div class="form-group">
+                            <label for="triggerKey">Task Key *</label>
+                            <input type="text" id="triggerKey" placeholder="target-task-key">
+                            <small>Required for SubProcess type</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="triggerVersion">Task Version *</label>
+                            <input type="text" id="triggerVersion" pattern="^\\d+\\.\\d+\\.\\d+$" placeholder="1.0.0">
+                            <small>Required for SubProcess type</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="triggerTransitionName">Transition Name</label>
+                        <input type="text" id="triggerTransitionName" placeholder="transition-key">
+                        <small>Optional: Specific transition to trigger</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="triggerInstanceId">Instance ID</label>
+                        <input type="text" id="triggerInstanceId" placeholder="instance-id">
+                        <small>Optional: Target a specific instance</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="triggerExtensions">Extensions (JSON Array)</label>
+                        <textarea id="triggerExtensions" rows="2" placeholder='["extension1", "extension2"]'></textarea>
+                        <small>Optional: Extension strings</small>
                     </div>
                 </div>
             </div>

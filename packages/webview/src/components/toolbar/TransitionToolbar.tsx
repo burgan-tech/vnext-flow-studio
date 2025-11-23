@@ -61,7 +61,7 @@ export function TransitionToolbar({
   onDelete,
 }: TransitionToolbarProps) {
   // Schema validation and mapping only for manual (0) and event (3) transitions
-  const supportsSchema = triggerType === 0 || triggerType === 3;
+  const _supportsSchema = triggerType === 0 || triggerType === 3;
   const supportsMapping = triggerType === 0 || triggerType === 3;
   const isAuto = triggerType === 1;
   const isTimeout = triggerType === 2;
@@ -165,7 +165,7 @@ export function TransitionToolbar({
           </>
         )}
 
-        {supportsSchema && onEditSchema && (
+        {onEditSchema && (
           <>
             <div className="state-toolbar__divider" />
             <button

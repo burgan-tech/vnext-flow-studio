@@ -24,7 +24,7 @@ import {
   reconnectEdge
 } from '@xyflow/react';
 import { toSvg } from 'html-to-image';
-import { Boxes, Rocket, BookOpen, Network, Settings } from 'lucide-react';
+import { Boxes, Rocket, BookOpen, Network, Settings, PlayCircle } from 'lucide-react';
 import { PluggableStateNode } from './nodes/PluggableStateNode';
 import { LayerControlButton } from './LayerControlButton';
 import { DocumentationViewer } from './DocumentationViewer';
@@ -133,6 +133,9 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [deployStatus, setDeployStatus] = useState<{ ready: boolean; configured: boolean; environment?: { id: string; name?: string; baseUrl: string; domain: string }; apiReachable: boolean; error?: string } | null>(null);
   const [deployProgress, setDeployProgress] = useState<{ step: string; current: number; total: number; workflow?: { key: string; domain: string; filePath: string }; message: string; percentage: number } | null>(null);
   const [deployResult, setDeployResult] = useState<{ success: boolean; message: string; results?: Array<{ success: boolean; key: string; domain: string; error?: string }> } | null>(null);
+  const [highlightedState, setHighlightedState] = useState<string | null>(null);
+  const [_connectedInstanceId, setConnectedInstanceId] = useState<string | null>(null);
+  const [highlightedHistory, setHighlightedHistory] = useState<string[]>([]);
 
   // Task Mapping Popup state
   const [taskPopupState, setTaskPopupState] = useState<{
@@ -577,6 +580,67 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             setCatalogs(message.catalogs);
           }
           break;
+        case 'script:updated':
+          // Lightweight script update - update only the specific script
+          console.log('[Canvas] ⚡ Received lightweight script update:', {
+            location: message.script?.location,
+            type: message.scriptType,
+            size: message.script?.content?.length || 0
+          });
+
+          // Update the script in the appropriate catalog
+          if (message.script && message.scriptType) {
+            setCatalogs(prevCatalogs => {
+              const newCatalogs = { ...prevCatalogs };
+
+              if (message.scriptType === 'mapper' && newCatalogs.mapper) {
+                // Update mapper in catalog
+                const mapperIndex = newCatalogs.mapper.findIndex(
+                  (m: any) => m.absolutePath === message.script.absolutePath || m.location === message.script.location
+                );
+
+                if (mapperIndex >= 0) {
+                  // Replace existing mapper
+                  newCatalogs.mapper = [...newCatalogs.mapper];
+                  newCatalogs.mapper[mapperIndex] = message.script;
+                  console.log('[Canvas] ✓ Updated mapper in catalog:', message.script.location);
+                } else {
+                  // Add new mapper
+                  newCatalogs.mapper = [...newCatalogs.mapper, message.script];
+                  console.log('[Canvas] ✓ Added new mapper to catalog:', message.script.location);
+                }
+              } else if (message.scriptType === 'rule' && newCatalogs.rule) {
+                // Update rule in catalog
+                const ruleIndex = newCatalogs.rule.findIndex(
+                  (r: any) => r.absolutePath === message.script.absolutePath || r.location === message.script.location
+                );
+
+                if (ruleIndex >= 0) {
+                  // Replace existing rule
+                  newCatalogs.rule = [...newCatalogs.rule];
+                  newCatalogs.rule[ruleIndex] = message.script;
+                  console.log('[Canvas] ✓ Updated rule in catalog:', message.script.location);
+                } else {
+                  // Add new rule
+                  newCatalogs.rule = [...newCatalogs.rule, message.script];
+                  console.log('[Canvas] ✓ Added new rule to catalog:', message.script.location);
+                }
+              }
+
+              return newCatalogs;
+            });
+          }
+          break;
+        case 'component:updated':
+          // Lightweight component update - cache already invalidated, just log
+          console.log('[Canvas] ⚡ Received lightweight component update:', {
+            type: message.componentType,
+            key: message.component?.key,
+            domain: message.component?.domain,
+            version: message.component?.version
+          });
+          // ComponentResolver cache is already invalidated - next request will get fresh data
+          break;
         case 'select:node': {
           // Find the node and select it
           const nodeToSelect = nodes.find(n => n.id === message.nodeId);
@@ -638,9 +702,56 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             handleEditTransitionKey(message.transitionId);
           }
           break;
+        case 'instance:highlight':
+          console.log('[Canvas] Highlighting state for instance:', message.instanceId, 'stateKey:', message.stateKey);
+          console.log('[Canvas] Current nodes:', nodes.map(n => n.id));
+          setHighlightedState(message.stateKey);
+          setConnectedInstanceId(message.instanceId);
+          break;
+        case 'instance:clearHighlight':
+          console.log('[Canvas] Clearing instance highlight');
+          setHighlightedState(null);
+          setConnectedInstanceId(null);
+          setHighlightedHistory([]);
+          break;
+        case 'instance:highlightHistory':
+          console.log('[Canvas] Highlighting history:', message.history, 'currentState:', message.currentState);
+          setHighlightedHistory(message.history || []);
+          setHighlightedState(message.currentState);
+          // Focus on current state node
+          setTimeout(() => {
+            const node = nodes.find(n => n.id === message.currentState);
+            if (node && reactFlowInstance) {
+              console.log('[Canvas] Focusing on node:', message.currentState);
+              reactFlowInstance.fitView({
+                nodes: [node],
+                duration: 800,
+                padding: 0.5
+              });
+            }
+          }, 100);
+          break;
       }
     });
   }, [onMessage, reactFlowInstance, nodes, workflow, postMessage, enrichNodes, enrichEdges, handleEditTransitionKey]);
+
+  // Update node highlighting when highlightedState or history changes
+  useEffect(() => {
+    console.log('[Canvas] Updating node highlighting, highlightedState:', highlightedState, 'history:', highlightedHistory);
+    setNodes((nds) => {
+      const updated = nds.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          highlighted: node.id === highlightedState,
+          highlightedInHistory: highlightedHistory.length > 0 && highlightedHistory.includes(node.id)
+        }
+      }));
+      console.log('[Canvas] Updated nodes - highlighted:', updated.filter(n => n.data.highlighted).map(n => n.id));
+      console.log('[Canvas] Updated nodes - in history:', updated.filter(n => n.data.highlightedInHistory).map(n => n.id));
+      return updated;
+    });
+  }, [highlightedState, highlightedHistory]);
 
   // Check CLI status when deploy panel is opened
   useEffect(() => {
@@ -1069,6 +1180,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
   }, [postMessage, workflow]);
 
   const onDragOverCanvas = useCallback((event: React.DragEvent) => {
+    console.log('[Drag] onDragOver canvas - clientX:', event.clientX, 'clientY:', event.clientY);
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
   }, []);
@@ -1373,6 +1485,20 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             type: 'domain:updateSharedTransition',
             transitionKey,
             sharedTransition: updatedSharedTransition,
+          });
+        }
+      } else {
+        // Check if it's a start transition
+        const startMatch = /^t:start:(.+)$/.exec(edgeId);
+        if (startMatch && workflow.attributes?.startTransition) {
+          const updatedStartTransition = {
+            ...workflow.attributes.startTransition,
+            onExecutionTasks: updates.onExecutionTasks,
+          };
+
+          postMessage({
+            type: 'domain:updateStartTransition',
+            startTransition: updatedStartTransition,
           });
         }
       }
@@ -1998,10 +2124,75 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     handleEditStateKey(node.id);
   }, [handleEditStateKey]);
 
-  const handleEdgeDoubleClick = useCallback((_event: React.MouseEvent, edge: Edge) => {
-    // Open transition key edit popup on double-click
-    handleEditTransitionKey(edge.id);
-  }, [handleEditTransitionKey]);
+  const handleEdgeDoubleClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    if (!workflow) return;
+
+    // Only handle local and shared transitions (not start transitions)
+    const edgeId = edge.id;
+    if (!edgeId.startsWith('t:local:') && !edgeId.startsWith('t:shared:')) {
+      return;
+    }
+
+    // Parse the edge ID to get transition info
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+    const sharedMatch = /^t:shared:([^:]+):/.exec(edgeId);
+
+    let _fromState = '';
+    let _transitionKey = '';
+    let transition: any = null;
+
+    if (localMatch) {
+      const [, from, tKey] = localMatch;
+      _fromState = from;
+      _transitionKey = tKey;
+
+      // Find the transition
+      const state = workflow.attributes.states.find(s => s.key === from);
+      if (state?.transitions) {
+        transition = state.transitions.find(t => t.key === tKey);
+      }
+    } else if (sharedMatch) {
+      const [, tKey] = sharedMatch;
+      _transitionKey = tKey;
+      _fromState = 'shared';
+
+      // Find the shared transition
+      transition = workflow.attributes.sharedTransitions?.find(st => st.key === tKey);
+    }
+
+    if (!transition) return;
+
+    // Route based on transition triggerType:
+    // 0 = Manual -> open task editor
+    // 1 = Automatic -> open rule file or rule editor
+    // 2 = Scheduled (Timer) -> open timer configuration popup
+    //    NOTE: Schema requires timer.code and timer.location (script-based),
+    //    but runtime doesn't support this yet. Currently using legacy duration/reset config.
+    // 3 = Event -> open task editor (treating like manual for now)
+    const triggerType = transition.triggerType ?? 0;
+
+    if (triggerType === 1) {
+      // Automatic transition - handle rule editing
+      const rule = transition.rule;
+      if (rule && rule.location && rule.location.trim().length > 0) {
+        // Open the rule file in VS Code
+        postMessage({
+          type: 'editor:openInVSCode',
+          location: rule.location
+        });
+      } else {
+        // Open the rule editor popup
+        setTransitionRuleEditPopup({ transitionId: edgeId });
+      }
+    } else if (triggerType === 0 || triggerType === 3) {
+      // Manual or Event transition - open task editor
+      handleOpenTransitionTaskPopup(edgeId);
+    } else if (triggerType === 2) {
+      // Scheduled (Timer) transition - open timer configuration popup
+      // NOTE: Using legacy duration/reset config until runtime supports script-based timers
+      handleEditTransitionTimeout(edgeId);
+    }
+  }, [workflow, postMessage, handleOpenTransitionTaskPopup, handleEditTransitionTimeout]);
 
   // Handle escape key to cancel reconnection mode
   useEffect(() => {
@@ -2096,6 +2287,23 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               isActive={activePanel === 'settings'}
               onClick={() => setActivePanel(activePanel === 'settings' ? null : 'settings')}
             />
+            <ToolbarIconButton
+              icon={PlayCircle}
+              label="Test & Run"
+              isActive={false}
+              onClick={() => {
+                if (workflow) {
+                  postMessage({
+                    type: 'test:openPanel',
+                    workflow: {
+                      key: workflow.key,
+                      domain: workflow.domain,
+                      version: workflow.version
+                    }
+                  });
+                }
+              }}
+            />
           </div>
 
           {/* Flyout Panel for States */}
@@ -2103,6 +2311,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             title="States"
             isOpen={activePanel === 'states'}
             onClose={() => setActivePanel(null)}
+            closeOnClickOutside={false}
           >
             <div className="flyout-panel__palette">
               {plugins.map((plugin) => {
@@ -2111,8 +2320,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
                   'Intermediate': 'state-node--intermediate',
                   'Final': 'state-node--final',
                   'SubFlow': 'state-node--subflow',
-                  'Wizard': 'state-node--wizard',
-                  'ServiceTask': 'state-node--service-task'
+                  'Wizard': 'state-node--wizard'
                 };
                 const pluginStateClass = pluginClassMap[plugin.id] || 'state-node--intermediate';
                 const hasVariants = pluginVariants.get(plugin.id) && pluginVariants.get(plugin.id)!.length > 0;
@@ -2125,6 +2333,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
                         className="flow-canvas__palette-item"
                         draggable
                         onDragStart={(e) => {
+                          console.log('[Drag] onDragStart triggered for plugin:', plugin.id);
                           e.dataTransfer.setData(
                             'application/reactflow',
                             JSON.stringify({
@@ -2133,6 +2342,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
                             })
                           );
                           e.dataTransfer.effectAllowed = 'copy';
+                          console.log('[Drag] Drag data set, effectAllowed:', e.dataTransfer.effectAllowed);
                         }}
                         onClick={() => handleAddPluginState(plugin)}
                         title={plugin.description}
@@ -2288,10 +2498,12 @@ ${documentation.split('\n').slice(1).join('\n')}`;
                           <span className="deploy-status__label">Base URL:</span>
                           <span className="deploy-status__value deploy-status__value--small">{deployStatus.environment.baseUrl}</span>
                         </div>
-                        <div className="deploy-status__item">
-                          <span className="deploy-status__label">Domain:</span>
-                          <span className="deploy-status__value">{deployStatus.environment.domain}</span>
-                        </div>
+                        {deployStatus.domain && (
+                          <div className="deploy-status__item">
+                            <span className="deploy-status__label">Domain:</span>
+                            <span className="deploy-status__value">{deployStatus.domain}</span>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -2391,7 +2603,12 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             isOpen={activePanel === 'settings'}
             onClose={() => setActivePanel(null)}
           >
-            <WorkflowSettingsPanel postMessage={postMessage} catalogs={catalogs} workflow={workflow} />
+            <WorkflowSettingsPanel
+              postMessage={postMessage}
+              catalogs={catalogs}
+              workflow={workflow}
+              onClose={() => setActivePanel(null)}
+            />
           </FlyoutPanel>
 
           <ReactFlow
@@ -2526,7 +2743,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               triggerType={triggerType}
               onEditKey={() => handleEditTransitionKey(edgeId)}
               onEditLabels={() => handleEditTransitionLabels(edgeId)}
-              onEditTasks={!isStart ? () => handleOpenTransitionTaskPopup(edgeId) : undefined}
+              onEditTasks={() => handleOpenTransitionTaskPopup(edgeId)}
               onEditMapping={() => handleOpenTransitionMappingPopup(edgeId)}
               onEditSchema={(supportsSchema || isStart) ? () => handleEditTransitionSchema(edgeId) : undefined}
               onEditRule={isAuto ? () => handleEditTransitionRule(edgeId) : undefined}
@@ -2635,6 +2852,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           const edgeId = taskPopupState.transitionId;
           const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
           const sharedMatch = /^t:shared:([^:]+):/.exec(edgeId);
+          const startMatch = /^t:start:(.+)$/.exec(edgeId);
 
           let transition: any = null;
           let transitionLabel = '';
@@ -2648,6 +2866,9 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             const [, transitionKey] = sharedMatch;
             transition = workflow.sharedTransitions?.find(t => t.key === transitionKey);
             transitionLabel = `Shared: ${transition?.target || '?'} (${transitionKey})`;
+          } else if (startMatch) {
+            transition = workflow.attributes?.startTransition;
+            transitionLabel = `Start → ${transition?.target || '?'}`;
           }
 
           if (!transition) return null;
@@ -2787,6 +3008,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           availableSchemas={catalogs.schema || []}
           onClose={() => setTransitionSchemaEditPopup(null)}
           onApply={handleApplyTransitionSchema}
+          postMessage={postMessage}
         />
       )}
 

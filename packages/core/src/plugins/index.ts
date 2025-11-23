@@ -18,7 +18,3 @@ export { FinalStatePlugin } from './final/index.js';
 export { SubFlowStatePlugin } from './subflow/index.js';
 export { WizardStatePlugin } from './wizard/index.js';
 
-// Export Service Task plugin
-export { ServiceTaskPlugin } from './serviceTask/index.js';
-export { ServiceTaskVariantProvider } from './serviceTask/variantProvider.js';
-export { serviceTaskLintRules } from './serviceTask/lints.js';

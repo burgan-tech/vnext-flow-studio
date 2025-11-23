@@ -74,7 +74,6 @@ export class SettingsEditorProvider {
           id: 'local',
           name: 'local',
           baseUrl: 'http://localhost:4201',
-          domain: 'core',
           database: {
             database: 'vNext_WorkflowDb',
             user: 'postgres',
@@ -615,8 +614,8 @@ export class SettingsEditorProvider {
             <div class="env-details">
               <div><strong>ID:</strong> \${env.id}</div>
               <div><strong>URL:</strong> \${env.baseUrl}</div>
-              <div><strong>Domain:</strong> \${env.domain}</div>
               <div><strong>Database:</strong> \${dbInfo}</div>
+              <div class="env-note">Domain is configured in vnext.config.json</div>
             </div>
             <div class="env-actions">
               \${!isActive ? \`<button onclick="setActive('\${id}')">Set Active</button>\` : ''}

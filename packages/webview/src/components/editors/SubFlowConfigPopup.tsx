@@ -17,11 +17,11 @@ interface SubFlowConfigPopupProps {
 const SUBFLOW_TYPES = [
   { value: 'C', label: 'Core', description: 'Core workflow type' },
   { value: 'F', label: 'Flow', description: 'Standard flow' },
-  { value: 'S', label: 'SubFlow', description: 'Reusable subflow' },
-  { value: 'P', label: 'Sub Process', description: 'Sub-process workflow' }
+  { value: 'S', label: 'SubFlow', description: 'Blocks parent until completion (synchronous execution)' },
+  { value: 'P', label: 'Sub Process', description: 'Runs in parallel without blocking parent (asynchronous execution)' }
 ] as const;
 
-type ActiveTab = 'settings' | 'input';
+type ActiveTab = 'settings' | 'mapping';
 
 /**
  * Convert Mapping to MappingData format
@@ -113,6 +113,34 @@ export function SubFlowConfigPopup({
 }: SubFlowConfigPopupProps) {
   const state = workflow.attributes?.states?.find(s => s.key === stateKey);
 
+  // Filter workflows to only show SubFlows (type 'S') and SubProcesses (type 'P')
+  const subflowWorkflows = useMemo(() => {
+    console.log('[SubFlowConfigPopup] Filtering workflows. Total:', availableWorkflows.length);
+    if (availableWorkflows.length > 0) {
+      console.log('[SubFlowConfigPopup] First workflow sample:', {
+        key: availableWorkflows[0]?.key,
+        type: availableWorkflows[0]?.attributes?.type,
+        hasAttributes: !!availableWorkflows[0]?.attributes
+      });
+    }
+
+    const filtered = availableWorkflows.filter((w: any) => {
+      const type = w.attributes?.type;
+      const isSubflow = type === 'S' || type === 'P';
+      if (!isSubflow && w.key) {
+        console.log('[SubFlowConfigPopup] Filtering OUT workflow:', w.key, 'type:', type);
+      }
+      return isSubflow;
+    });
+
+    console.log('[SubFlowConfigPopup] SubFlow/SubProcess workflows found:', filtered.length);
+    if (filtered.length > 0) {
+      console.log('[SubFlowConfigPopup] SubFlow keys:', filtered.map((w: any) => `${w.key} (${w.attributes?.type})`));
+    }
+
+    return filtered;
+  }, [availableWorkflows]);
+
   // Initialize from existing config or create new
   const [subFlowType, setSubFlowType] = useState<'C' | 'F' | 'S' | 'P'>(
     () => state?.subFlow?.type || 'S'
@@ -120,35 +148,122 @@ export function SubFlowConfigPopup({
   const [processRef, setProcessRef] = useState<string>(
     () => formatProcessRef(state?.subFlow?.process)
   );
-  const [inputMapping, setInputMapping] = useState<MappingData>(
-    () => mappingToData(state?.subFlow?.inputMapping)
-  );
-  const [_outputMapping, _setOutputMapping] = useState<MappingData>(
-    () => mappingToData(state?.subFlow?.outputMapping)
+  const [mapping, setMapping] = useState<MappingData>(
+    () => mappingToData(state?.subFlow?.mapping)
   );
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('settings');
   const [isDirty, setIsDirty] = useState(false);
 
+  // Filter available mappers based on subprocess type
+  const filteredMappers = useMemo(() => {
+    console.log('[SubFlowConfigPopup] Filtering mappers for type:', subFlowType);
+    console.log('[SubFlowConfigPopup] Available mappers:', availableMappers.length);
+    console.log('[SubFlowConfigPopup] First mapper sample:', {
+      location: availableMappers[0]?.location,
+      hasContent: !!availableMappers[0]?.content,
+      contentLength: availableMappers[0]?.content?.length || 0
+    });
+
+    if (subFlowType === 'P') {
+      // SubProcess type: only show ISubProcessMapping scripts
+      const filtered = availableMappers.filter(mapper => {
+        if (!mapper.content) {
+          console.log('[SubFlowConfigPopup] Mapper has no content:', mapper.location);
+          return false;
+        }
+        const content = mapper.content;
+        const matches = content.includes('ISubProcessMapping') ||
+                       content.includes(': ISubProcessMapping') ||
+                       content.includes(':ISubProcessMapping');
+        if (matches) {
+          console.log('[SubFlowConfigPopup] Found ISubProcessMapping:', mapper.location);
+        }
+        return matches;
+      });
+      console.log('[SubFlowConfigPopup] Filtered to', filtered.length, 'ISubProcessMapping scripts');
+      return filtered;
+    } else if (subFlowType === 'S') {
+      // SubFlow type: only show ISubFlowMapping scripts (strict)
+      const filtered = availableMappers.filter(mapper => {
+        if (!mapper.content) return false;
+        const content = mapper.content;
+        // Only include ISubFlowMapping scripts
+        const matches = content.includes('ISubFlowMapping') ||
+                       content.includes(': ISubFlowMapping') ||
+                       content.includes(':ISubFlowMapping');
+        if (matches) {
+          console.log('[SubFlowConfigPopup] Found ISubFlowMapping:', mapper.location);
+        }
+        return matches;
+      });
+      console.log('[SubFlowConfigPopup] Filtered to', filtered.length, 'ISubFlowMapping scripts');
+      return filtered;
+    }
+    // For other types (C, F), show all mappers
+    console.log('[SubFlowConfigPopup] No filtering, showing all', availableMappers.length, 'mappers');
+    return availableMappers;
+  }, [subFlowType, availableMappers]);
+
+  // Clear mapping if it's no longer valid for the selected type
+  useEffect(() => {
+    if (mapping.mode === 'code' && mapping.location) {
+      // Find the current mapper in filtered list
+      const currentMapper = filteredMappers.find(m => m.location === mapping.location);
+      if (!currentMapper) {
+        // Current mapping is not valid for this type, clear it
+        setMapping({ mode: 'none' });
+      }
+    }
+  }, [subFlowType, filteredMappers, mapping]);
+
+  // Update mapping code when catalog script is updated (for readonly display)
+  useEffect(() => {
+    // Get the location to check (either from mapperRef or location)
+    const scriptLocation = mapping.mapperRef || mapping.location;
+
+    // Check if this is any script file (.mapper.json, .csx, .cs, .js)
+    const isScriptFile = scriptLocation && (
+      scriptLocation.endsWith('.mapper.json') ||
+      scriptLocation.endsWith('.csx') ||
+      scriptLocation.endsWith('.cs') ||
+      scriptLocation.endsWith('.js')
+    );
+
+    if (isScriptFile && mapping.code) {
+      // Find the script in the catalog
+      const catalogScript = availableMappers.find(m => m.location === scriptLocation);
+      if (catalogScript && catalogScript.base64 && catalogScript.base64 !== mapping.code) {
+        // Script was updated in catalog, refresh the readonly display
+        console.log('[SubFlowConfigPopup] Updating readonly script display for:', scriptLocation);
+        console.log('[SubFlowConfigPopup] Old code length:', mapping.code?.length, 'New code length:', catalogScript.base64.length);
+        setMapping(prev => ({
+          ...prev,
+          code: catalogScript.base64
+        }));
+      }
+    }
+  }, [availableMappers, mapping.mapperRef, mapping.location, mapping.code]);
+
   // Track changes
   useEffect(() => {
     setIsDirty(true);
-  }, [subFlowType, processRef, inputMapping]);
+  }, [subFlowType, processRef, mapping]);
 
   const handleApply = useCallback(() => {
     const parsedProcessRef = parseProcessRef(processRef);
+    const mappingData = dataToMapping(mapping);
 
     // Build SubFlowConfig
     const config: SubFlowConfig = {
       type: subFlowType,
       process: parsedProcessRef || { key: '', domain: '', flow: 'sys-flows', version: '' },
-      inputMapping: dataToMapping(inputMapping),
-      outputMapping: null // Output mapping not supported yet
+      mapping: mappingData || { location: '', code: '' }
     };
 
     onApply(stateKey, config);
     onClose();
-  }, [stateKey, subFlowType, processRef, inputMapping, onApply, onClose]);
+  }, [stateKey, subFlowType, processRef, mapping, onApply, onClose]);
 
   const handleCancel = useCallback(() => {
     onClose();
@@ -184,8 +299,7 @@ export function SubFlowConfigPopup({
   }
 
   return (
-    <>
-      <div className="subflow-config-popup-overlay" onClick={onClose} />
+    <div className="subflow-config-popup-overlay" onClick={onClose}>
       <div className="subflow-config-popup" onClick={(e) => e.stopPropagation()}>
         <div className="subflow-config-popup__header">
           <h2 className="subflow-config-popup__title">
@@ -211,11 +325,11 @@ export function SubFlowConfigPopup({
             Settings
           </button>
           <button
-            className={`subflow-config-popup__tab ${activeTab === 'input' ? 'active' : ''}`}
-            onClick={() => setActiveTab('input')}
+            className={`subflow-config-popup__tab ${activeTab === 'mapping' ? 'active' : ''}`}
+            onClick={() => setActiveTab('mapping')}
           >
             <ArrowDownToLine size={16} />
-            Input Mapping
+            Mapping
           </button>
         </div>
 
@@ -245,7 +359,7 @@ export function SubFlowConfigPopup({
 
               <div className="subflow-settings__section">
                 <WorkflowSearchPanel
-                  availableWorkflows={availableWorkflows}
+                  availableWorkflows={subflowWorkflows}
                   selectedWorkflowRef={processRef}
                   onSelectWorkflow={setProcessRef}
                 />
@@ -259,15 +373,46 @@ export function SubFlowConfigPopup({
             </div>
           )}
 
-          {activeTab === 'input' && (
-            <MappingSection
-              type="input"
-              value={inputMapping}
-              onChange={setInputMapping}
-              availableMappers={availableMappers}
-              stateKey={stateKey}
-              workflowName={workflow.key}
-            />
+          {activeTab === 'mapping' && (
+            <div className="subflow-mapping-section">
+              {subFlowType === 'P' && (
+                <div className="subflow-mapping-hint" style={{
+                  padding: '8px 12px',
+                  marginBottom: '12px',
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '4px',
+                  fontSize: '13px',
+                  color: '#1e40af'
+                }}>
+                  <strong>SubProcess Mapping:</strong> Only scripts implementing <code>ISubProcessMapping</code> are shown.
+                  SubProcess runs in parallel and only uses <code>InputHandler</code>.
+                </div>
+              )}
+              {subFlowType === 'S' && (
+                <div className="subflow-mapping-hint" style={{
+                  padding: '8px 12px',
+                  marginBottom: '12px',
+                  backgroundColor: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '4px',
+                  fontSize: '13px',
+                  color: '#15803d'
+                }}>
+                  <strong>SubFlow Mapping:</strong> Only scripts implementing <code>ISubFlowMapping</code> are shown.
+                  SubFlow blocks parent workflow and uses both <code>InputHandler</code> and <code>OutputHandler</code>.
+                </div>
+              )}
+              <MappingSection
+                type="input"
+                value={mapping}
+                onChange={setMapping}
+                availableMappers={filteredMappers}
+                stateKey={stateKey}
+                workflowName={workflow.key}
+                interfaceType={subFlowType === 'S' ? 'ISubFlowMapping' : subFlowType === 'P' ? 'ISubProcessMapping' : 'none'}
+              />
+            </div>
           )}
         </div>
 
@@ -297,6 +442,6 @@ export function SubFlowConfigPopup({
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }

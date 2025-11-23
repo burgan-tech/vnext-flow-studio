@@ -98,6 +98,33 @@ export function TaskDetailsPanel({
     }
   }, [task, taskIndex]);
 
+  // Update mapping code when catalog script is updated (for readonly display)
+  useEffect(() => {
+    const scriptLocation = inputMapping.location;
+
+    // Check if this is any script file (.mapper.json, .csx, .cs, .js)
+    const isScriptFile = scriptLocation && (
+      scriptLocation.endsWith('.mapper.json') ||
+      scriptLocation.endsWith('.csx') ||
+      scriptLocation.endsWith('.cs') ||
+      scriptLocation.endsWith('.js')
+    );
+
+    if (isScriptFile && inputMapping.code) {
+      // Find the script in the catalog
+      const catalogScript = catalogs.mapper?.find(m => m.location === scriptLocation);
+      if (catalogScript && catalogScript.base64 && catalogScript.base64 !== inputMapping.code) {
+        // Script was updated in catalog, refresh the readonly display
+        console.log('[TaskDetailsPanel] Updating readonly script display for:', scriptLocation);
+        console.log('[TaskDetailsPanel] Old code length:', inputMapping.code?.length, 'New code length:', catalogScript.base64.length);
+        setInputMapping(prev => ({
+          ...prev,
+          code: catalogScript.base64
+        }));
+      }
+    }
+  }, [catalogs.mapper, inputMapping.location, inputMapping.code]);
+
   if (!task || taskIndex === null) {
     return (
       <div className="task-details-panel">

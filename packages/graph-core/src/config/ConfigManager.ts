@@ -273,8 +273,8 @@ export class ConfigManager {
       const config: EnvironmentConfig = {
         id: envId,
         name: env[`${prefix}NAME`] || envId,
-        baseUrl: env[`${prefix}URL`] || '',
-        domain: env[`${prefix}DOMAIN`] || 'core'
+        baseUrl: env[`${prefix}URL`] || ''
+        // Note: domain is now read from vnext.config.json, not from environment config
       };
 
       // Add auth if present
@@ -398,7 +398,6 @@ export class ConfigManager {
 
       lines.push(`# ${envConfig.name || envId}`);
       lines.push(`${prefix}URL=${envConfig.baseUrl}`);
-      lines.push(`${prefix}DOMAIN=${envConfig.domain}`);
 
       if (envConfig.auth) {
         if (envConfig.auth.type === 'bearer' && envConfig.auth.token) {

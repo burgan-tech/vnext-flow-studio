@@ -98,7 +98,7 @@ const initialStateHooks: PluginHooks = {
     // Check if there are multiple initial states in the workflow
     if (workflow) {
       const initialStates = workflow.attributes.states.filter((s: State) =>
-        s.stateType === 1 || s.xProfile === 'Initial'
+        s.stateType === 1
       );
       if (initialStates.length > 1) {
         problems.push({
@@ -187,7 +187,6 @@ export const InitialStatePlugin: StatePlugin = {
     return {
       key: stateKey,
       stateType: 1, // Initial
-      xProfile: 'Initial',
       versionStrategy: 'Minor',
       labels: [
         {

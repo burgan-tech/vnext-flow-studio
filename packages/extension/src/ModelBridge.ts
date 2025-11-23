@@ -16,7 +16,6 @@ import {
   FinalStatePlugin,
   SubFlowStatePlugin,
   WizardStatePlugin,
-  ServiceTaskPlugin,
   DesignHintsManager,
   DEFAULT_COMPONENT_SEARCH_PATHS,
   ComponentResolverManager,
@@ -102,19 +101,15 @@ export class ModelBridge {
     pluginManager.register(SubFlowStatePlugin);
     pluginManager.register(WizardStatePlugin);
 
-    // Register Service Task plugin
-    pluginManager.register(ServiceTaskPlugin);
-
     // Set default profile
     pluginManager.setActiveProfile('Default');
 
-    // Activate all core plugins and Service Task plugin
+    // Activate all core plugins
     pluginManager.activate('Initial');
     pluginManager.activate('Intermediate');
     pluginManager.activate('Final');
     pluginManager.activate('SubFlow');
     pluginManager.activate('Wizard');
-    pluginManager.activate('ServiceTask');
 
     // Refresh variants for active plugins
     this.refreshPluginVariants();
@@ -201,32 +196,69 @@ export class ModelBridge {
       this.componentWatcherLogger.info('=== Component Watcher Starting ===');
       this.componentWatcherLogger.info(`Workspace: ${workspaceRoot}`);
 
-      // Dynamically find all component directories in the workspace
-      const findComponentDirs = async (dirName: string): Promise<string[]> => {
-        const fg = await import('fast-glob');
-        const paths = await fg.default(`**/${dirName}`, {
-          cwd: workspaceRoot,
-          onlyDirectories: true,
-          ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'],
-          deep: 3 // Limit depth to avoid performance issues
-        });
-        return paths;
-      };
+      let tasksDirs: string[] = [];
+      let schemasDirs: string[] = [];
+      let viewsDirs: string[] = [];
+      let functionsDirs: string[] = [];
+      let extensionsDirs: string[] = [];
 
-      const [tasksDirs, schemasDirs, viewsDirs, functionsDirs, extensionsDirs] = await Promise.all([
-        findComponentDirs('Tasks'),
-        findComponentDirs('Schemas'),
-        findComponentDirs('Views'),
-        findComponentDirs('Functions'),
-        findComponentDirs('Extensions')
-      ]);
+      // Try to load vnext.config.json first
+      const { loadVNextConfig, resolveComponentPaths } = await import('@amorphie-flow-studio/core');
+      const configResult = await loadVNextConfig(workspaceRoot);
 
-      this.componentWatcherLogger.info(`Found component directories:`);
-      this.componentWatcherLogger.info(`  Tasks: ${tasksDirs.join(', ')}`);
-      this.componentWatcherLogger.info(`  Schemas: ${schemasDirs.join(', ')}`);
-      this.componentWatcherLogger.info(`  Views: ${viewsDirs.join(', ')}`);
-      this.componentWatcherLogger.info(`  Functions: ${functionsDirs.join(', ')}`);
-      this.componentWatcherLogger.info(`  Extensions: ${extensionsDirs.join(', ')}`);
+      if (configResult.success && configResult.config) {
+        this.componentWatcherLogger.info('✅ Found vnext.config.json - using config-based discovery');
+        this.componentWatcherLogger.info(`Domain: ${configResult.config.domain}`);
+        this.componentWatcherLogger.info(`Components Root: ${configResult.config.paths.componentsRoot}`);
+
+        // Resolve absolute paths from config
+        const _componentPaths = resolveComponentPaths(workspaceRoot, configResult.config);
+
+        // Use relative paths for the resolver
+        const componentsRoot = configResult.config.paths.componentsRoot;
+        tasksDirs = [path.join(componentsRoot, configResult.config.paths.tasks)];
+        schemasDirs = [path.join(componentsRoot, configResult.config.paths.schemas)];
+        viewsDirs = [path.join(componentsRoot, configResult.config.paths.views)];
+        functionsDirs = [path.join(componentsRoot, configResult.config.paths.functions)];
+        extensionsDirs = [path.join(componentsRoot, configResult.config.paths.extensions)];
+
+        this.componentWatcherLogger.info(`Config-based component directories:`);
+        this.componentWatcherLogger.info(`  Tasks: ${tasksDirs.join(', ')}`);
+        this.componentWatcherLogger.info(`  Schemas: ${schemasDirs.join(', ')}`);
+        this.componentWatcherLogger.info(`  Views: ${viewsDirs.join(', ')}`);
+        this.componentWatcherLogger.info(`  Functions: ${functionsDirs.join(', ')}`);
+        this.componentWatcherLogger.info(`  Extensions: ${extensionsDirs.join(', ')}`);
+      } else {
+        this.componentWatcherLogger.warn('⚠️  vnext.config.json not found - falling back to glob-based discovery');
+        this.componentWatcherLogger.info(`Reason: ${configResult.error}`);
+
+        // Fallback: Dynamically find all component directories in the workspace
+        const findComponentDirs = async (dirName: string): Promise<string[]> => {
+          const fg = await import('fast-glob');
+          const paths = await fg.default(`**/${dirName}`, {
+            cwd: workspaceRoot,
+            onlyDirectories: true,
+            ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'],
+            deep: 3 // Limit depth to avoid performance issues
+          });
+          return paths;
+        };
+
+        [tasksDirs, schemasDirs, viewsDirs, functionsDirs, extensionsDirs] = await Promise.all([
+          findComponentDirs('Tasks'),
+          findComponentDirs('Schemas'),
+          findComponentDirs('Views'),
+          findComponentDirs('Functions'),
+          findComponentDirs('Extensions')
+        ]);
+
+        this.componentWatcherLogger.info(`Found component directories via glob:`);
+        this.componentWatcherLogger.info(`  Tasks: ${tasksDirs.join(', ')}`);
+        this.componentWatcherLogger.info(`  Schemas: ${schemasDirs.join(', ')}`);
+        this.componentWatcherLogger.info(`  Views: ${viewsDirs.join(', ')}`);
+        this.componentWatcherLogger.info(`  Functions: ${functionsDirs.join(', ')}`);
+        this.componentWatcherLogger.info(`  Extensions: ${extensionsDirs.join(', ')}`);
+      }
 
       // Get or create a global component resolver using ComponentResolverManager
       // This ensures proper lifecycle management and cleanup
@@ -265,8 +297,20 @@ export class ModelBridge {
       this.componentWatcher.on('change', async (event: FileChangeEvent) => {
         this.componentWatcherLogger?.info(`Component file changed: ${event.type} ${event.componentType} - ${path.basename(event.path)}`);
 
-        // Notify all open webviews about catalog update
-        await this.notifyAllPanelsAboutCatalogUpdate();
+        // Skip reload if this is a workflow file we just saved (prevents reload loop)
+        if (event.componentType === 'workflow' && this.isRecentlySaved(event.path)) {
+          console.log('[ModelBridge] Skipping reload for recently saved workflow:', path.basename(event.path));
+          return;
+        }
+
+        // Use lightweight refresh for all component types (no full reload needed)
+        if (event.componentType === 'script' as any) {
+          console.log('[ModelBridge] Script file changed, using lightweight refresh:', event.path);
+          await this.notifyPanelsAboutScriptUpdate(event.path);
+        } else {
+          console.log(`[ModelBridge] ${event.componentType} file changed, using lightweight refresh:`, event.path);
+          await this.notifyPanelsAboutComponentUpdate(event.path, event.componentType);
+        }
       });
 
       this.componentWatcher.on('componentAdded', (data: { path: string; type: string }) => {
@@ -308,6 +352,109 @@ export class ModelBridge {
   }
 
   /**
+   * Notify panels about a single script update (lightweight, no full reload)
+   */
+  private async notifyPanelsAboutScriptUpdate(scriptPath: string): Promise<void> {
+    console.log('[ModelBridge] ⚡ Lightweight script update starting for:', scriptPath);
+
+    for (const [panelKey, panel] of this.config.activePanels) {
+      const model = this.panelModelMap.get(panelKey);
+      if (!model) continue;
+
+      try {
+        // Use lightweight refresh instead of full model reload
+        const result = await model.refreshScript(scriptPath);
+
+        if (!result) {
+          console.log('[ModelBridge] Script refresh returned null, skipping panel:', panelKey);
+          continue;
+        }
+
+        const { script, type } = result;
+
+        // Transform script location to be relative to workflow file
+        const workflowDir = path.dirname(model.getModelState().metadata.workflowPath);
+        let relativePath = path.relative(workflowDir, script.absolutePath);
+        if (!relativePath.startsWith('./') && !relativePath.startsWith('../')) {
+          relativePath = `./${relativePath}`;
+        }
+
+        const transformedScript = {
+          ...script,
+          location: relativePath
+        };
+
+        console.log('[ModelBridge] ✓ Script refreshed:', {
+          path: relativePath,
+          type,
+          size: script.content.length
+        });
+
+        // Send incremental update to webview
+        panel.webview.postMessage({
+          type: 'script:updated',
+          script: transformedScript,
+          scriptType: type
+        });
+
+        console.log('[ModelBridge] ✓ Sent script:updated message to panel:', panelKey);
+
+        // Schedule autosave if model was updated (embedded base64 content changed)
+        if (model.isDirty()) {
+          console.log('[ModelBridge] ✓ Model is dirty, scheduling autosave');
+          this.scheduleAutosave(model, 100); // Immediate save for script content changes
+        }
+      } catch (error) {
+        console.error('[ModelBridge] Failed to refresh script for panel:', panelKey, error);
+      }
+    }
+
+    console.log('[ModelBridge] ⚡ Lightweight script update complete');
+  }
+
+  /**
+   * Notify panels about a single component update (lightweight, no full reload)
+   * Handles task, schema, view, function, extension, workflow updates
+   */
+  private async notifyPanelsAboutComponentUpdate(componentPath: string, componentType: string): Promise<void> {
+    console.log('[ModelBridge] ⚡ Lightweight component update starting for:', componentPath);
+
+    try {
+      // Read and parse the component file
+      const fs = await import('fs/promises');
+      const content = await fs.readFile(componentPath, 'utf-8');
+      const component = JSON.parse(content);
+
+      // Validate basic structure
+      if (!component.key || !component.domain || !component.version) {
+        console.log('[ModelBridge] Invalid component structure, skipping update');
+        return;
+      }
+
+      console.log('[ModelBridge] ✓ Component loaded:', {
+        type: componentType,
+        key: component.key,
+        domain: component.domain,
+        version: component.version
+      });
+
+      // Send incremental update to all panels
+      for (const [_panelKey, panel] of this.config.activePanels) {
+        panel.webview.postMessage({
+          type: 'component:updated',
+          componentType,
+          component
+        });
+      }
+
+      console.log('[ModelBridge] ⚡ Lightweight component update complete');
+    } catch (error) {
+      console.error('[ModelBridge] Failed to load component:', error);
+      // Fall back to logging, but don't fail - ComponentResolver cache is already invalidated
+    }
+  }
+
+  /**
    * Notify all open panels about catalog update
    */
   private async notifyAllPanelsAboutCatalogUpdate(): Promise<void> {
@@ -316,15 +463,24 @@ export class ModelBridge {
       if (!model) continue;
 
       try {
+        console.log('[ModelBridge] Reloading model components for panel:', panelKey);
+
         // Reload components for this model
         await model.load({
           preloadComponents: true,
           basePath: model.getModelState().metadata.basePath
         });
 
+        console.log('[ModelBridge] Model reloaded, getting updated catalogs');
+
         // Get updated catalogs and tasks
         const catalogs = this.getCatalogsFromModel(model);
         const tasks = this.getTasksFromModel(model);
+
+        console.log('[ModelBridge] Retrieved catalogs:', {
+          mappers: catalogs.mapper?.length || 0,
+          rules: catalogs.rule?.length || 0
+        });
 
         // Refresh plugin variants
         await this.refreshPluginVariants(model);
@@ -337,6 +493,18 @@ export class ModelBridge {
           if (variants.length > 0) {
             pluginVariants[plugin.id] = variants;
           }
+        }
+
+        // Debug: Check mapper content before sending
+        if (catalogs.mapper && catalogs.mapper.length > 0) {
+          console.log('[ModelBridge] Sending catalog:update with mappers:', {
+            count: catalogs.mapper.length,
+            firstMapper: {
+              location: catalogs.mapper[0]?.location,
+              hasContent: !!catalogs.mapper[0]?.content,
+              contentLength: catalogs.mapper[0]?.content?.length || 0
+            }
+          });
         }
 
         // Send update to webview
@@ -359,19 +527,29 @@ export class ModelBridge {
    * Find the project-specific base path for component discovery.
    *
    * For multi-project workspaces (e.g., workspace/loans/, workspace/credit-cards/),
-   * this finds the project root by looking for component directories.
+   * this finds the project root by looking for vnext.config.json or component directories.
    *
-   * Searches upward from the workflow file to find a directory that contains
-   * typical component folders (Tasks, Workflows, etc.)
+   * Searches upward from the workflow file to find:
+   * 1. vnext.config.json (preferred)
+   * 2. Typical component folders (Tasks, Workflows, etc.) as fallback
    */
   private async findProjectBasePath(workflowPath: string, workspaceRoot?: string): Promise<string> {
     const fs = await import('fs/promises');
+    const { findVNextConfig } = await import('@amorphie-flow-studio/core');
 
     // Start from workflow's parent directory
     let currentDir = path.dirname(workflowPath);
     const workspaceRootNormalized = workspaceRoot ? path.normalize(workspaceRoot) : null;
 
-    // Component directories to look for
+    // First, try to find vnext.config.json by searching upward
+    const configResult = await findVNextConfig(currentDir);
+    if (configResult.success && configResult.configPath) {
+      const projectRoot = path.dirname(configResult.configPath);
+      console.log(`[ModelBridge] Found project root via vnext.config.json at: ${projectRoot}`);
+      return projectRoot;
+    }
+
+    // Fallback: Component directories to look for
     const componentDirs = ['Tasks', 'tasks', 'Workflows', 'workflows', 'Flows', 'flows'];
 
     // Search upward until we find a directory with component folders
@@ -536,20 +714,6 @@ export class ModelBridge {
       let diagram = model.getDiagram();
 
       console.log('[ModelBridge] Initial diagram check:', diagram ? 'exists' : 'UNDEFINED');
-
-      // Check if any states have xProfile and activate corresponding plugins
-      const xProfiles = new Set(
-        workflow.attributes.states
-          .filter(state => state.xProfile && state.xProfile !== 'Default')
-          .map(state => state.xProfile!)
-      );
-
-      // Activate plugins for any xProfiles found
-      for (const profile of xProfiles) {
-        if (pluginManager.isRegistered(profile)) {
-          pluginManager.activate(profile);
-        }
-      }
 
       // Generate diagram if it doesn't exist (but not for git URIs which are read-only)
       let generatedDiagram = false;
@@ -875,6 +1039,10 @@ export class ModelBridge {
           await this.createScriptFile(model, message.content, message.location, message.scriptType, panel);
           break;
 
+        case 'editor:createOrBindScript':
+          await this.createOrBindScriptFile(model, message.content, message.location, message.scriptType, message.mode, panel);
+          break;
+
         case 'dependency:open':
           await this.openDependency(model, message.dependency);
           break;
@@ -889,6 +1057,10 @@ export class ModelBridge {
 
         case 'workflow:updateSettings':
           await this.updateWorkflowSettings(model, message.data, panel);
+          break;
+
+        case 'test:openPanel':
+          await vscode.commands.executeCommand('amorphie.openTestPanel', message.workflow);
           break;
 
         case 'request:lint':
@@ -1286,9 +1458,6 @@ export class ModelBridge {
     }
 
     const sharedTransition = workflow.attributes.sharedTransitions.splice(index, 1)[0];
-    if (workflow.attributes.sharedTransitions.length === 0) {
-      delete workflow.attributes.sharedTransitions;
-    }
 
     // Add as regular transition
     const state = workflow.attributes.states.find(s => s.key === targetState);
@@ -1361,10 +1530,6 @@ export class ModelBridge {
 
         console.log('[ModelBridge] After deletion, length:', workflow.attributes.sharedTransitions.length);
 
-        if (workflow.attributes.sharedTransitions.length === 0) {
-          delete workflow.attributes.sharedTransitions;
-          console.log('[ModelBridge] Deleted sharedTransitions array (was empty)');
-        }
         return true;
       } else {
         // User cancelled
@@ -1390,8 +1555,6 @@ export class ModelBridge {
     hints?: DesignHints
   ): Promise<void> {
     model.addState(state);
-
-    // The state already has xProfile set by the plugin's createState method
 
     // Update diagram
     const diagram = model.getDiagram() || { nodePos: {} };
@@ -1898,6 +2061,120 @@ export class ModelBridge {
         error: errorMessage
       });
       vscode.window.showErrorMessage(`Failed to create script file: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Create or override a script file with support for override mode
+   * Handles both creating new files and overriding existing files based on mode
+   */
+  private async createOrBindScriptFile(
+    model: WorkflowModel,
+    content: string,
+    location: string,
+    scriptType: 'mapping' | 'rule',
+    mode: 'create' | 'override',
+    panel: vscode.WebviewPanel
+  ): Promise<void> {
+    try {
+      // Validate the location path (same security checks as createScriptFile)
+      if (location.includes('..') || path.isAbsolute(location)) {
+        panel.webview.postMessage({
+          type: 'editor:scriptOperationResult',
+          success: false,
+          error: 'Script files must use relative paths within the project directory.',
+          action: 'failed'
+        });
+        vscode.window.showErrorMessage(
+          `Invalid file location: ${location}\nScript files must use relative paths within the project directory.`
+        );
+        return;
+      }
+
+      // Get the absolute path
+      const basePath = path.dirname(model.getModelState().metadata.workflowPath);
+      const absolutePath = path.resolve(basePath, location);
+
+      // Ensure the path is within the project directory (security check)
+      const normalizedBasePath = path.normalize(basePath);
+      const normalizedAbsolutePath = path.normalize(absolutePath);
+      if (!normalizedAbsolutePath.startsWith(normalizedBasePath)) {
+        panel.webview.postMessage({
+          type: 'editor:scriptOperationResult',
+          success: false,
+          error: 'Cannot create files outside of project directory.',
+          action: 'failed'
+        });
+        vscode.window.showErrorMessage(
+          `Security Error: Cannot create files outside of project directory.\nAttempted path: ${absolutePath}`
+        );
+        return;
+      }
+
+      // Check if file already exists
+      const script = model.getScript(location);
+
+      if (mode === 'create' && script?.exists) {
+        // File exists but mode is 'create' → error (force user to choose different name)
+        panel.webview.postMessage({
+          type: 'editor:scriptOperationResult',
+          success: false,
+          error: 'File already exists. Please choose a different name.',
+          action: 'failed'
+        });
+        vscode.window.showErrorMessage(
+          `File already exists: ${location}\nPlease choose a different filename.`
+        );
+        return;
+      }
+
+      // Create or override the script file
+      let action: 'created' | 'overridden';
+      if (mode === 'override') {
+        // Override mode → always write (even if file doesn't exist, treat as create)
+        await model.updateScript(location, content);
+        action = script?.exists ? 'overridden' : 'created';
+      } else {
+        // Create mode → write new file
+        await model.updateScript(location, content);
+        action = 'created';
+      }
+
+      await this.saveModel(model);
+
+      // Reload model to pick up the new/updated script
+      await model.load({
+        preloadComponents: true,
+        basePath: model.getModelState().metadata.basePath
+      });
+
+      // Send updated catalogs to webview
+      const catalogs = this.getCatalogsFromModel(model);
+      const tasks = Array.from(model.getModelState().components.tasks.values());
+      panel.webview.postMessage({
+        type: 'catalog:update',
+        tasks,
+        catalogs
+      });
+
+      // Send success response with action
+      panel.webview.postMessage({
+        type: 'editor:scriptOperationResult',
+        success: true,
+        location,
+        action
+      });
+
+      console.log(`[ModelBridge] Script ${action}: ${location}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      panel.webview.postMessage({
+        type: 'editor:scriptOperationResult',
+        success: false,
+        error: errorMessage,
+        action: 'failed'
+      });
+      vscode.window.showErrorMessage(`Failed to ${mode} script file: ${errorMessage}`);
     }
   }
 
@@ -2876,15 +3153,19 @@ export class ModelBridge {
       };
     };
 
+    // Use globalResolver's catalog if available (workspace-wide discovery)
+    // Otherwise fallback to model's own state (per-workflow discovery)
+    const globalState = this.globalResolver?.['cache'];
+
     const catalogs = {
-      task: Array.from(state.components.tasks.values()),
-      schema: Array.from(state.components.schemas.values()),
-      view: Array.from(state.components.views.values()),
-      function: Array.from(state.resolvedFunctions.values()),
-      extension: Array.from(state.resolvedExtensions.values()),
+      task: globalState?.tasks ? Array.from(globalState.tasks.values()) : Array.from(state.components.tasks.values()),
+      schema: globalState?.schemas ? Array.from(globalState.schemas.values()) : Array.from(state.components.schemas.values()),
+      view: globalState?.views ? Array.from(globalState.views.values()) : Array.from(state.components.views.values()),
+      function: globalState?.functions ? Array.from(globalState.functions.values()) : Array.from(state.resolvedFunctions.values()),
+      extension: globalState?.extensions ? Array.from(globalState.extensions.values()) : Array.from(state.resolvedExtensions.values()),
       mapper: Array.from(state.mappers.values()).map(transformScriptLocation),
       rule: Array.from(state.rules.values()).map(transformScriptLocation),
-      workflow: Array.from(state.components.workflows.values())
+      workflow: globalState?.workflows ? Array.from(globalState.workflows.values()) : Array.from(state.components.workflows.values())
     };
     console.log('[ModelBridge] getCatalogsFromModel:', {
       tasks: catalogs.task.length,
@@ -2897,9 +3178,30 @@ export class ModelBridge {
       workflows: catalogs.workflow.length
     });
 
+    // Debug: Log workflow details
+    if (catalogs.workflow.length > 0) {
+      console.log('[ModelBridge] Workflows in catalog:', catalogs.workflow.map(w => ({
+        key: w.key,
+        type: w.attributes?.type,
+        domain: w.domain,
+        version: w.version
+      })));
+      const subflows = catalogs.workflow.filter(w => w.attributes?.type === 'S' || w.attributes?.type === 'P');
+      console.log('[ModelBridge] SubFlows/SubProcesses found:', subflows.length);
+      if (subflows.length > 0) {
+        console.log('[ModelBridge] SubFlow details:', subflows.map(w => `${w.key} (type: ${w.attributes?.type})`));
+      }
+    }
+
     // Debug: Log mapper details
     if (catalogs.mapper.length > 0) {
       console.log('[ModelBridge] Mapper files found:', catalogs.mapper.map(m => m.location));
+      console.log('[ModelBridge] First mapper sample:', {
+        location: catalogs.mapper[0]?.location,
+        hasContent: !!catalogs.mapper[0]?.content,
+        contentLength: catalogs.mapper[0]?.content?.length || 0,
+        contentPreview: catalogs.mapper[0]?.content?.substring(0, 200)
+      });
     }
     return catalogs;
   }
@@ -3241,6 +3543,16 @@ export class ModelBridge {
     // Check deployment status
     const status = await EnvironmentManager.checkDeploymentStatus();
 
+    // Get domain from vnext.config.json
+    let domain: string | undefined;
+    if (this.workspaceRoot) {
+      const { loadVNextConfig } = await import('@amorphie-flow-studio/core');
+      const configResult = await loadVNextConfig(this.workspaceRoot);
+      if (configResult.success && configResult.config) {
+        domain = configResult.config.domain;
+      }
+    }
+
     // Send status back to webview
     panel.webview.postMessage({
       type: 'deploy:status',
@@ -3249,9 +3561,9 @@ export class ModelBridge {
       environment: status.environment ? {
         id: status.environment.id,
         name: status.environment.name,
-        baseUrl: status.environment.baseUrl,
-        domain: status.environment.domain
+        baseUrl: status.environment.baseUrl
       } : undefined,
+      domain, // Domain from vnext.config.json
       apiReachable: status.apiReachable,
       error: status.error
     });
@@ -3364,6 +3676,327 @@ export class ModelBridge {
     }
   }
 
+  /**
+   * Broadcast instance highlight to all workflow editor panels
+   * Used by test panel to highlight the current state on canvas
+   */
+  public broadcastInstanceHighlight(instanceId: string, workflowKey: string, stateKey: string): void {
+    for (const [panelKey, panel] of this.config.activePanels) {
+      const model = this.panelModelMap.get(panelKey);
+
+      // Only highlight if panel shows the same workflow
+      if (model) {
+        const workflowState = model.getModelState();
+        const currentWorkflowKey = workflowState.workflow.key;
+
+        if (currentWorkflowKey === workflowKey) {
+          panel.webview.postMessage({
+            type: 'instance:highlight',
+            instanceId,
+            workflowKey,
+            stateKey
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Clear instance highlighting from all workflow editor panels
+   */
+  public clearInstanceHighlight(): void {
+    for (const [_panelKey, panel] of this.config.activePanels) {
+      panel.webview.postMessage({
+        type: 'instance:clearHighlight'
+      });
+    }
+  }
+
+  /**
+   * Broadcast history-based highlighting to workflow editor panels
+   */
+  public broadcastHistoryHighlight(workflowKey: string, history: string[], currentState: string): void {
+    for (const [panelKey, panel] of this.config.activePanels) {
+      const model = this.panelModelMap.get(panelKey);
+
+      // Only highlight if panel shows the same workflow
+      if (model) {
+        const workflowState = model.getModelState();
+        const currentWorkflowKey = workflowState.workflow.key;
+
+        if (currentWorkflowKey === workflowKey) {
+          panel.webview.postMessage({
+            type: 'instance:highlightHistory',
+            workflowKey,
+            history,
+            currentState
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Resolve a schema using the component resolver
+   */
+  public async resolveSchema(schemaRef: { key: string; domain?: string; flow?: string; version?: string }): Promise<any | null> {
+    if (!this.globalResolver) {
+      console.warn('[ModelBridge] Global resolver not initialized');
+      return null;
+    }
+
+    try {
+      const ref = {
+        key: schemaRef.key,
+        domain: schemaRef.domain || '',
+        flow: schemaRef.flow || 'sys-schemas',
+        version: schemaRef.version || '1.0.0'
+      };
+
+      const schemaDefinition = await this.globalResolver.resolveSchema(ref);
+
+      if (!schemaDefinition) {
+        console.warn('[ModelBridge] Schema not found:', ref);
+        return null;
+      }
+
+      // Extract the actual JSON Schema from the SchemaDefinition
+      // SchemaDefinition has structure: { key, domain, attributes: { schema: {...} } }
+      return (schemaDefinition as any).attributes?.schema || schemaDefinition;
+    } catch (error: any) {
+      console.error('[ModelBridge] Error resolving schema:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get transitions from the workflow model for a given state
+   */
+  /**
+   * Get start transition schema from workflow
+   */
+  public async getStartTransitionSchema(workflowKey: string): Promise<{key: string; schema: any} | null> {
+    console.log('[ModelBridge] Getting start transition schema for workflow:', workflowKey);
+    console.log('[ModelBridge] Active panels:', this.config.activePanels.size);
+
+    // Find the panel/model for this workflow
+    for (const [_panelKey, _panel] of this.config.activePanels) {
+      const model = this.panelModelMap.get(_panelKey);
+      if (model) {
+        const workflowState = model.getModelState();
+        console.log('[ModelBridge] Checking workflow:', workflowState.workflow.key);
+
+        if (workflowState.workflow.key === workflowKey) {
+          console.log('[ModelBridge] Found matching workflow!');
+
+          const startTransition = (workflowState.workflow as any).attributes?.startTransition;
+          if (!startTransition) {
+            console.log('[ModelBridge] No start transition found');
+            return null;
+          }
+
+          const result = {
+            key: startTransition.key || 'start',
+            schema: startTransition.schema ? {
+              key: startTransition.schema.key,
+              domain: startTransition.schema.domain,
+              flow: startTransition.schema.flow,
+              version: startTransition.schema.version
+            } : null
+          };
+
+          console.log('[ModelBridge] Returning start transition:', result);
+          return result;
+        }
+      }
+    }
+
+    console.log('[ModelBridge] Workflow not found in active panels');
+    return null;
+  }
+
+  public async getModelTransitions(workflowKey: string, stateKey: string): Promise<Array<{key: string; schema: any}>> {
+    console.log('[ModelBridge] Getting model transitions for workflow:', workflowKey, 'state:', stateKey);
+    console.log('[ModelBridge] Active panels:', this.config.activePanels.size);
+
+    // Find the panel/model for this workflow
+    for (const [_panelKey, _panel] of this.config.activePanels) {
+      const model = this.panelModelMap.get(_panelKey);
+      if (model) {
+        const workflowState = model.getModelState();
+        console.log('[ModelBridge] Checking workflow:', workflowState.workflow.key);
+
+        if (workflowState.workflow.key === workflowKey) {
+          console.log('[ModelBridge] Found matching workflow!');
+
+          // States are in workflow.attributes.states
+          const states = (workflowState.workflow as any).attributes?.states;
+          console.log('[ModelBridge] Available states:', states?.map((s: any) => s.key));
+
+          // Get the state from the workflow
+          const state = states?.find((s: any) => s.key === stateKey);
+          console.log('[ModelBridge] Found state:', state?.key, 'transitions:', state?.transitions?.length);
+
+          if (state && state.transitions) {
+            // Return the transition objects with schema info
+            const transitions = state.transitions.map((t: any) => ({
+              key: t.key,
+              schema: t.schema ? {
+                key: t.schema.key,
+                domain: t.schema.domain,
+                flow: t.schema.flow,
+                version: t.schema.version
+              } : null
+            }));
+            console.log('[ModelBridge] Returning transitions:', transitions);
+            return transitions;
+          }
+        }
+      }
+    }
+    console.log('[ModelBridge] No transitions found, returning empty array');
+    return [];
+  }
+
+  /**
+   * Resolve a subflow workflow from a ProcessRef
+   */
+  public async resolveSubFlowWorkflow(processRef: any): Promise<Workflow | null> {
+    if (!this.globalResolver) {
+      console.warn('[ModelBridge] Global resolver not initialized');
+      return null;
+    }
+
+    try {
+      console.log('[ModelBridge] Resolving subflow workflow from ProcessRef:', processRef);
+
+      // Normalize ProcessRef to ComponentRef format
+      let ref: any;
+      if ('ref' in processRef) {
+        // Simple ref-style reference
+        ref = { ref: processRef.ref };
+      } else {
+        // Explicit reference with key, domain, flow, version
+        ref = {
+          key: processRef.key,
+          domain: processRef.domain || '',
+          flow: processRef.flow || 'sys-flows',
+          version: processRef.version || '1.0.0'
+        };
+      }
+
+      // Use ComponentResolver to find the workflow file path
+      const workflowPath = await this.globalResolver.resolveComponentPath(ref, 'workflows');
+
+      if (!workflowPath) {
+        console.warn('[ModelBridge] Subflow workflow file not found:', ref);
+        return null;
+      }
+
+      console.log('[ModelBridge] Found subflow workflow file:', workflowPath);
+
+      // Read and parse the workflow file
+      const fs = await import('fs/promises');
+      const content = await fs.readFile(workflowPath, 'utf-8');
+      const workflow = JSON.parse(content) as Workflow;
+
+      console.log('[ModelBridge] Loaded subflow workflow:', workflow.key);
+      return workflow;
+    } catch (error: any) {
+      console.error('[ModelBridge] Error resolving subflow workflow:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get subflow model with info from parent state
+   * Returns the subflow workflow and the initial state (usually "initial-state" or from startTransition)
+   */
+  public async getSubFlowModel(workflowKey: string, stateKey: string): Promise<{ subFlowWorkflow: Workflow | null; subFlowInfo: any; error?: string }> {
+    console.log('[ModelBridge] Getting subflow model for workflow:', workflowKey, 'state:', stateKey);
+
+    try {
+      // Find the parent workflow model
+      for (const [_panelKey, _panel] of this.config.activePanels) {
+        const model = this.panelModelMap.get(_panelKey);
+        if (model) {
+          const workflowState = model.getModelState();
+
+          if (workflowState.workflow.key === workflowKey) {
+            console.log('[ModelBridge] Found parent workflow');
+
+            // Get the state from the workflow
+            const states = (workflowState.workflow as any).attributes?.states;
+            const state = states?.find((s: any) => s.key === stateKey);
+
+            if (!state) {
+              return {
+                subFlowWorkflow: null,
+                subFlowInfo: { stateKey },
+                error: 'State not found'
+              };
+            }
+
+            // Check if this is a SubFlow state (stateType === 4)
+            if (state.stateType !== 4 || !state.subFlow) {
+              return {
+                subFlowWorkflow: null,
+                subFlowInfo: { stateKey },
+                error: 'Not a SubFlow state'
+              };
+            }
+
+            console.log('[ModelBridge] State is a SubFlow, resolving workflow...');
+
+            // Resolve the subflow workflow
+            const subFlowWorkflow = await this.resolveSubFlowWorkflow(state.subFlow.process);
+
+            if (!subFlowWorkflow) {
+              return {
+                subFlowWorkflow: null,
+                subFlowInfo: { stateKey, type: state.subFlow.type },
+                error: 'SubFlow workflow not found'
+              };
+            }
+
+            // Get the initial state from the subflow workflow
+            // Usually it's determined by the startTransition
+            const startTransition = (subFlowWorkflow as any).attributes?.startTransition;
+            const initialState = startTransition?.to || 'initial-state';
+
+            console.log('[ModelBridge] SubFlow resolved:', {
+              key: subFlowWorkflow.key,
+              initialState
+            });
+
+            return {
+              subFlowWorkflow,
+              subFlowInfo: {
+                stateKey,
+                type: state.subFlow.type,
+                workflowKey: subFlowWorkflow.key,
+                domain: subFlowWorkflow.domain,
+                initialState // Include the initial state for transition lookup
+              }
+            };
+          }
+        }
+      }
+
+      return {
+        subFlowWorkflow: null,
+        subFlowInfo: { stateKey },
+        error: 'Parent workflow not found'
+      };
+    } catch (error: any) {
+      console.error('[ModelBridge] Error getting subflow model:', error);
+      return {
+        subFlowWorkflow: null,
+        subFlowInfo: { stateKey },
+        error: error.message
+      };
+    }
+  }
 
   dispose(): void {
     // Clear all autosave timers

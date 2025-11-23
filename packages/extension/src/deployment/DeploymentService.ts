@@ -39,6 +39,7 @@ import { filterDesignTimeAttributes } from './DesignTimeFilter.js';
 export class DeploymentService {
   private adapter: AmorphieRuntimeAdapter;
   private normalizer: DeploymentNormalizer;
+  private componentsPreloaded: boolean = false;
 
   constructor(
     private componentResolver: ComponentResolver,
@@ -352,6 +353,46 @@ export class DeploymentService {
         percentage: 10
       });
 
+      // Find the project root (where vnext.config.json is located)
+      // This ensures we search for components in the correct project
+      const { findVNextConfig } = await import('@amorphie-flow-studio/core');
+      const configResult = await findVNextConfig(path.dirname(request.filePath));
+
+      let projectRoot = workspaceRoot;
+      if (configResult.success && configResult.configPath) {
+        projectRoot = path.dirname(configResult.configPath);
+        this.log(`Found project root via vnext.config.json: ${projectRoot}`);
+
+        // Update ComponentResolver basePath to the project root
+        this.componentResolver.setBasePath(projectRoot);
+
+        // Clear cache to force reload with new basePath
+        this.componentResolver.clearCache();
+        this.componentsPreloaded = false;
+        this.log('Cache cleared for new project root');
+      } else {
+        this.log(`No vnext.config.json found, using workspace root: ${projectRoot}`);
+      }
+
+      // Preload all components (tasks, schemas, views, functions, extensions) into resolver cache
+      // This is required for reference resolution during normalization
+      if (!this.componentsPreloaded) {
+        this.log('Preloading components for reference resolution...');
+        this.log(`ComponentResolver basePath: ${this.componentResolver.getOptions().basePath}`);
+        try {
+          const preloadedComponents = await this.componentResolver.preloadAllComponents();
+          this.log(`Preloaded components: ${preloadedComponents.tasks.length} tasks, ${preloadedComponents.schemas.length} schemas, ` +
+            `${preloadedComponents.views.length} views, ${preloadedComponents.functions.length} functions, ` +
+            `${preloadedComponents.extensions.length} extensions`);
+          this.componentsPreloaded = true;
+        } catch (error) {
+          this.logError('Failed to preload components', error);
+          // Continue anyway - normalization will report specific missing references
+        }
+      } else {
+        this.log('Components already preloaded, skipping...');
+      }
+
       // Normalize workflow
       this.log(`Normalizing workflow: ${request.component.key}`);
       const normalizeResult = await this.normalizer.normalize(request.component, {
@@ -643,6 +684,24 @@ export class DeploymentService {
     let failed = 0;
 
     this.log(`Starting batch deployment of ${request.components.length} workflows...`);
+
+    // Preload all components once before batch deployment
+    // This avoids reloading for each workflow in the batch
+    if (!this.componentsPreloaded) {
+      this.log('Preloading components for batch deployment...');
+      try {
+        const preloadedComponents = await this.componentResolver.preloadAllComponents();
+        this.log(`Preloaded components: ${preloadedComponents.tasks.length} tasks, ${preloadedComponents.schemas.length} schemas, ` +
+          `${preloadedComponents.views.length} views, ${preloadedComponents.functions.length} functions, ` +
+          `${preloadedComponents.extensions.length} extensions`);
+        this.componentsPreloaded = true;
+      } catch (error) {
+        this.logError('Failed to preload components', error);
+        // Continue anyway - normalization will report specific missing references
+      }
+    } else {
+      this.log('Components already preloaded, skipping...');
+    }
 
     for (let i = 0; i < request.components.length; i++) {
       const componentRequest = request.components[i];

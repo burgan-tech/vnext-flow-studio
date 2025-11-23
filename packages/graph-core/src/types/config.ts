@@ -47,6 +47,7 @@ export interface DatabaseConfig {
 
 /**
  * Environment configuration
+ * Note: Domain is now read from vnext.config.json, not from environment settings
  */
 export interface EnvironmentConfig {
   /** Unique environment identifier */
@@ -57,9 +58,6 @@ export interface EnvironmentConfig {
 
   /** Base URL for the runtime API */
   baseUrl: string;
-
-  /** Default domain to query */
-  domain: string;
 
   /** Authentication config */
   auth?: AuthConfig;

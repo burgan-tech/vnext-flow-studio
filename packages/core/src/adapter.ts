@@ -103,20 +103,17 @@ export function toReactFlow(
     // All states now use the plugin system
     const stateHints = designHints?.[state.key];
 
-    // Determine plugin ID - either from xProfile or based on state type for backward compatibility
-    let pluginId = state.xProfile;
-    if (!pluginId || pluginId === 'Default') {
-      // Auto-detect plugin for legacy states without xProfile
-      switch (state.stateType) {
-        case 1: pluginId = 'Initial'; break;
-        case 3: pluginId = 'Final'; break;
-        case 4: pluginId = 'SubFlow'; break;
-        case 2:
-        default:
-          // Regular intermediate state - ServiceTask should only be detected via xProfile
-          pluginId = 'Intermediate';
-          break;
-      }
+    // Determine plugin ID based on state type
+    let pluginId: string;
+    switch (state.stateType) {
+      case 1: pluginId = 'Initial'; break;
+      case 3: pluginId = 'Final'; break;
+      case 4: pluginId = 'SubFlow'; break;
+      case 5: pluginId = 'Wizard'; break;
+      case 2:
+      default:
+        pluginId = 'Intermediate';
+        break;
     }
 
     nodes.push({
@@ -127,7 +124,6 @@ export function toReactFlow(
         state: state,
         stateType: state.stateType,
         stateSubType: state.stateSubType,
-        xProfile: state.xProfile,
         width: calculatedWidth,
         height: 80,
         hints: stateHints,

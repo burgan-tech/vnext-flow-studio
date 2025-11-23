@@ -22,7 +22,10 @@ export function generateWorkflowTemplate(options: WorkflowTemplateOptions): Work
     domain,
     version = '1.0.0',
     type = 'F',
-    labels = [{ label: 'New Workflow', language: 'en' }],
+    labels = [
+      { label: 'New Workflow', language: 'en-US' },
+      { label: 'Yeni İş Akışı', language: 'tr-TR' }
+    ],
     tags = ['new']
   } = options;
 
@@ -44,14 +47,20 @@ export function generateWorkflowTemplate(options: WorkflowTemplateOptions): Work
         target: 'initial-state',
         triggerType: 0,
         versionStrategy: 'Minor',
-        labels: [{ label: 'Start', language: 'en' }]
+        labels: [
+          { label: 'Start', language: 'en-US' },
+          { label: 'Başla', language: 'tr-TR' }
+        ]
       },
       states: [
         {
           key: 'initial-state',
           stateType: 1,
           versionStrategy: 'Minor',
-          labels: [{ label: 'Initial State', language: 'en' }],
+          labels: [
+            { label: 'Initial State', language: 'en-US' },
+            { label: 'Başlangıç Durumu', language: 'tr-TR' }
+          ],
           transitions: []
         }
       ]
@@ -72,9 +81,12 @@ export function generateSubflowTemplate(options: WorkflowTemplateOptions): Workf
   baseWorkflow.attributes.states.push({
     key: 'final-state',
     stateType: 3,
-    stateSubType: 1,
+    // Note: stateSubType removed - runtime doesn't support it yet
     versionStrategy: 'Minor',
-    labels: [{ label: 'Complete', language: 'en' }],
+    labels: [
+      { label: 'Complete', language: 'en-US' },
+      { label: 'Tamamla', language: 'tr-TR' }
+    ],
     transitions: []
   });
 
@@ -83,9 +95,12 @@ export function generateSubflowTemplate(options: WorkflowTemplateOptions): Workf
     {
       key: 'complete',
       target: 'final-state',
-      triggerType: 1,
+      triggerType: 0, // Manual transition (0) instead of auto (1)
       versionStrategy: 'Minor',
-      labels: [{ label: 'Complete', language: 'en' }]
+      labels: [
+        { label: 'Complete', language: 'en-US' },
+        { label: 'Tamamla', language: 'tr-TR' }
+      ]
     }
   ];
 

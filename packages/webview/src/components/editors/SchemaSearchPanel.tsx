@@ -15,9 +15,12 @@ export function SchemaSearchPanel({
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  console.log('[SchemaSearchPanel] availableSchemas count:', availableSchemas?.length);
+  console.log('[SchemaSearchPanel] availableSchemas sample:', availableSchemas?.slice(0, 3));
+
   // Filter schemas based on search query
   const filteredSchemas = useMemo(() => {
-    if (!searchQuery) return availableSchemas.slice(0, 20);
+    if (!searchQuery) return availableSchemas.slice(0, 100);
 
     const query = searchQuery.toLowerCase();
     return availableSchemas.filter(schema => {
@@ -34,7 +37,7 @@ export function SchemaSearchPanel({
         title.includes(query) ||
         version.includes(query)
       );
-    }).slice(0, 20);
+    }).slice(0, 100);
   }, [availableSchemas, searchQuery]);
 
   // Format schema reference (domain/flow/key@version or just key)

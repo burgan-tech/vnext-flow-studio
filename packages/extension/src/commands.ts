@@ -116,7 +116,10 @@ export function registerCommands(context: vscode.ExtensionContext) {
         domain,
         version: '1.0.0',
         type: workflowType.value as 'F' | 'S' | 'P',
-        labels: [{ label, language: 'en' }],
+        labels: [
+          { label, language: 'en-US' },
+          { label, language: 'tr-TR' } // User can update Turkish label later
+        ],
         tags: ['new']
       });
 
