@@ -199,6 +199,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed regex pattern anchor stripping (^...$) for clean generated values
   - Custom CSS styling matching original clean design aesthetic
   - Enhanced form validation with HTML5 pattern attributes
+  - **Pattern Validation with Retry Logic**: Intelligent regex pattern matching with fallback
+    - Attempts up to 5 generations per pattern field to match regex requirements
+    - Validates each generated value against the pattern before accepting
+    - Falls back to simple generation if all retry attempts fail
+    - Detailed console logging for debugging pattern generation issues
+  - **Editable JSON View**: Manual JSON editing with apply-on-demand workflow
+    - Uncontrolled textarea allows free editing without React interference
+    - "Apply JSON Changes" button syncs JSON edits to form fields
+    - Real-time error display for invalid JSON syntax
+    - Two-way sync: edit form OR JSON, both stay in sync after apply
+  - **SubFlow Data Display**: Enhanced instance data viewer for subflows
+    - Separate panels for parent instance data and subflow instance data
+    - SubFlow correlation info showing subflow metadata (type, domain, version, state)
+    - Fetches and displays complete subflow instance data when subflow is active
+    - Automatic data refresh when transitioning between parent and subflow states
+  - **Form Data Management**: Robust state handling for schema-based forms
+    - Fixed race conditions between form initialization and data reset
+    - SchemaFormGenerator properly initializes with generated test data
+    - Form data correctly submitted for transitions with schemas
+    - No-schema transitions use JSON editor with empty object initialization
 
 ### Fixed
 
