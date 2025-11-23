@@ -8,6 +8,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Transition Double-Click Smart Navigation**: Double-clicking on a transition edge now routes to the appropriate editor based on transition type
+  - **Automatic transitions (triggerType 1)**:
+    - If rule has a file location → Opens the rule file in VS Code editor (right panel)
+    - If no rule or no file location → Opens the TransitionRuleEditPopup
+  - **Manual transitions (triggerType 0)**: Opens the task editor popup
+  - **Scheduled/Timer transitions (triggerType 2)**: Opens the timer configuration popup
+    - **Note**: Schema now requires `timer.code` and `timer.location` (script-based timers), but runtime doesn't support this yet. Editor currently uses legacy `duration`/`reset` configuration until runtime implementation catches up.
+  - **Event transitions (triggerType 3)**: Opens the task editor popup (same as manual)
+  - Works for both local and shared transitions
+  - Complements existing right-click context menu functionality
+  - Terminology aligned with workflow-definition.schema.json
+
+### Fixed
+- **Task Quick Editor Schema Alignment**: Updated task quick editor to support all task types defined in the schema
+  - Added **Type 8 - Condition Task** (configuration details TBD)
+  - Added **Type 9 - Timer Task** (configuration details TBD)
+  - Added **Type 10 - Notification Task** with metadata configuration
+  - Added **Type 11 - Trigger Task** with full support for subtypes:
+    - Start: Start a new workflow instance
+    - Trigger: Trigger an existing workflow
+    - SubProcess: Execute a subprocess (with required key and version fields)
+    - GetInstanceData: Retrieve instance data
+  - Type 11 includes dynamic form fields that show/hide based on selected subtype
+  - All new types properly integrated with field mapping, validation, and data collection
+
+- **Shared Transitions Array Preservation**: The `sharedTransitions` array now remains in the workflow model even when all shared transitions are removed, preserving the empty array instead of deleting the property
+  - Prevents model structure changes when the last shared transition is deleted or converted to a local transition
+  - Maintains consistent workflow schema structure
+
+- **Script Template Creation with Override Support**: Improved template creation flow with proper handling of existing files and bound scripts
+  - **Override Dialog**: When a script is already bound and user clicks a template, shows dialog offering to "Override Existing File" or "Create New File"
+  - **File Existence Checking**: Extension validates file existence and prevents accidental overwrites in all scenarios:
+    - "Create New File" mode → rejects if filename already exists on disk
+    - "Override" mode → allows overwriting the bound file
+    - User can change filename in override dialog → automatically switches to create mode with file existence check
+  - **Smart Mode Switching**: If user is in override mode but changes the filename, automatically switches to create mode to trigger file existence validation
+  - **Optimistic Binding with Rollback**: Webview optimistically binds new script but automatically rolls back if extension returns error
+  - **New Message Types**: Added `editor:createOrBindScript` with mode parameter ('create' | 'override') and `editor:scriptOperationResult` response
+  - **Mode-Aware Dialogs**: SaveScriptDialog shows "Override" vs "Create" based on mode, with contextual warnings and help text
+  - Fixes race condition where optimistic binding wasn't updated with newly created file reference
+  - Ensures mode is set to 'code' when creating script from template
+
+### Added
+- **vnext.config.json Support**: Project-based configuration for component discovery
+  - Created config loader with TypeScript types for vnext.config.json structure
+  - Config-based directory discovery replacing glob-based searching
+  - Finds project root by locating vnext.config.json in directory tree
+  - Supports configurable component directories via `paths.componentsRoot` and component-specific paths
+  - ModelBridge automatically detects and uses vnext.config.json when available
+  - Falls back to glob-based discovery for projects without configuration file
+
 - **Script File Watching**: Real-time monitoring and cache invalidation for script files
   - Watches .csx, .cs, .js, and .mapper.json files for changes
   - Automatic cache invalidation when scripts are added, changed, or deleted
@@ -58,7 +109,181 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Clickable Task References**: Task references in task detail panel now clickable to open in Quick Editor
 
+- **Schema File Viewer**: Added "Open Schema File" button to transition schema editor popup
+  - Button appears when a schema is configured on a transition
+  - Opens the schema JSON file in a new editor column to the right
+  - Displays current schema as "domain/flow/key@version" format
+  - Uses existing dependency:open infrastructure for file resolution
+  - Helps users reference schema structure while editing transitions
+
+- **ISubProcessMapping Support**: Added detection and template for subprocess mappings
+  - ScriptManager now detects `ISubProcessMapping` interface in script analysis
+  - Created subprocess mapping template with proper `InputHandler` structure
+  - Added `ISubProcessMapping` to spell checker dictionary
+  - Template accessible via `getTemplate('subprocess')` or `getTemplate('subprocessMapping')`
+  - **Smart Mapper Filtering**: SubFlow configuration now filters available mappers by type
+    - SubProcess (Type 'P'): Only shows scripts implementing `ISubProcessMapping`
+    - SubFlow (Type 'S'): Shows scripts implementing `ISubFlowMapping` or `IMapping` (excludes `ISubProcessMapping`)
+    - Automatically clears invalid mapping selection when type changes
+    - Helpful hints displayed explaining which interface types are expected
+    - Fixed double-filtering issue where MappingSection was re-filtering already filtered scripts
+
+### Changed
+
+- **Domain Configuration**: Domain is now exclusively configured in vnext.config.json (project-level) instead of environment settings
+  - **BREAKING**: Removed `domain` field from `EnvironmentConfig` type
+  - Environment settings no longer store domain - it's read from vnext.config.json
+  - Deploy panel displays domain from vnext.config.json
+  - Settings UI shows note that domain is configured in vnext.config.json
+  - RuntimeAdapter API updated to accept domain as parameter (from vnext.config.json)
+  - Environment validation no longer requires domain field
+  - Deployment operations use project domain from vnext.config.json
+  - Migration: Move domain from environment settings to vnext.config.json `domain` field
+
+- **Design-Time Attribute Filter**: Added `_comment` and `stateSubType` to design-time attributes
+  - `_comment` fields are now filtered out during deployment (editor-only inline comments)
+  - `stateSubType` is filtered out during deployment (not used by runtime engine)
+  - These attributes remain in workflow files for editor use but are stripped before API deployment
+
+### Removed
+
+- **Service Task Plugin**: Removed specialized service task plugin and xProfile attribute system
+  - Removed entire ServiceTask plugin (index.ts, lints.ts, variantProvider.ts)
+  - Removed ServiceTask registration and activation from ModelBridge
+  - Removed xProfile attribute from State and Workflow type definitions
+  - Removed xProfile-based plugin detection logic from PluginManager
+  - Removed xProfile checks from plugin deserialization hooks (Initial, Intermediate, Final, SubFlow, Wizard)
+  - Removed ServiceTaskProperties UI component
+  - Removed ServiceTask CSS styling rules from rf-theme.css
+  - Removed ServiceTask class mappings from Canvas and PluggableStateNode components
+  - Removed xProfile from design-time attribute filter
+  - Removed WorkflowAttributesWithProfile interface
+  - Removed test and example workflow files (test-service-task.flow.json, test-xprofile.flow.json, example-service-task.*)
+  - Plugin system now relies solely on stateType and plugin-specific deserialization hooks for state identification
+  - Simplified plugin architecture with cleaner separation of concerns
+
+### Improved
+
+- **Universal Lightweight Component Reloading**: Eliminated full component rescanning for ALL component types
+  - **ALL component changes now use incremental updates** - no more full directory rescans
+  - When ANY component file changes (task, schema, view, function, extension, script), only that component is reloaded
+  - ComponentResolver cache automatically invalidated for changed components only
+  - Lightweight messages sent to webview: `script:updated`, `component:updated`
+  - **Before**: Saved 1 task → Rescanned all directories → Reloaded all 75 scripts + all tasks + all schemas + all views → Full catalog rebuild
+  - **After**: Saved 1 task → Reloaded only that task → ComponentResolver cache updated → Next request gets fresh data
+  - **Script optimization**: ScriptManager.reloadScript() + WorkflowModel.refreshScript() for single-script refresh
+  - **Workflow save protection**: Auto-saved workflows skip reload (500ms window) to prevent reload loops
+  - Reduces reload time from ~2 seconds to ~50ms for typical workflows
+  - Console logs show `⚡ Lightweight [component type] update` for all component types
+
+- **Embedded Script Content Auto-Update**: Workflow model files automatically update when referenced scripts change
+  - When a script is saved, the workflow model searches for all references to that script
+  - Automatically updates base64-encoded `code` fields in mappings and rules that reference the script
+  - Searches all workflow locations: startTransition, sharedTransitions, state onEntries/onExits, transitions, subFlow mappings
+  - WorkflowModel.updateEmbeddedScriptContent() method for precise base64 updates
+  - Auto-save triggered after script content update (100ms delay)
+  - **Path normalization**: Script paths normalized to be relative to workflow file (not project root) for accurate matching
+  - **Smart reload prevention**: Skips full component rescan when workflow is auto-saved (prevents reload loop)
+  - **Readonly display auto-refresh**: Script viewers in popups (SubFlowConfigPopup, TransitionMappingPopup, TaskDetailsPanel) automatically refresh when catalog updates
+  - **Before**: Changed script → Needed to manually redeploy or run normalizer to update workflow model
+  - **After**: Changed script → Workflow model auto-updates with new base64 content → Auto-saved to disk → Readonly displays refresh → No unnecessary rescans
+  - Comprehensive logging for debugging: Shows original path, normalized path, workflow directory, and match results
+  - Matches deployment normalizer behavior: same base64 encoding, same search patterns, same relative path resolution
+
+- **Test Runner Form Generation**: Enhanced JSON Schema form rendering with industry-standard library
+  - Replaced custom form generator with React JSON Schema Form (@rjsf/core)
+  - Added full support for JSON Schema keywords: `oneOf`, `anyOf`, `enum`, `const`, `pattern`, `minLength`, `maxLength`
+  - Integrated @faker-js/faker for realistic test data generation
+  - Semantic field-based test data: email fields generate valid emails, names generate realistic names, etc.
+  - Fields with `const` values are pre-populated and marked read-only to prevent user modification
+  - Fixed regex pattern anchor stripping (^...$) for clean generated values
+  - Custom CSS styling matching original clean design aesthetic
+  - Enhanced form validation with HTML5 pattern attributes
+
 ### Fixed
+
+- **SubFlow/SubProcess Mapping Interface Enforcement**: Fixed mapping script selection to enforce strict interface requirements
+  - SubFlow (type 'S') now only shows scripts implementing `ISubFlowMapping` interface (strict filtering)
+  - SubProcess (type 'P') continues to only show scripts implementing `ISubProcessMapping` interface
+  - Removed generic `IMapping` scripts from SubFlow configuration - these are not valid for runtime execution
+  - Created new `ISubFlowMapping` template with both `InputHandler` and `OutputHandler` methods
+  - Added `ISubFlowMapping` template to ScriptManager's `getTemplate()` method (accessible via 'subflow' or 'subflowMapping')
+  - Updated MappingSection to hide Quick Templates when used in SubFlow/SubProcess context (interfaceType='none')
+  - Updated help text in SubFlowConfigPopup to accurately reflect strict interface requirements
+  - Ensures runtime compatibility - only valid mapping interfaces can be configured
+
+- **Workflow Settings Panel UI**: Enhanced user experience with multiple improvements
+  - Right-aligned Cancel and Apply buttons (renamed from "Save" to "Apply")
+  - Cancel button now properly closes the panel after discarding changes
+  - Apply button automatically closes panel after successful save with validation
+  - Dirty indicator displays on the left side of button group
+
+- **Global Component Catalog Sharing**: Fixed component discovery inconsistency across workflow files
+  - All workflows in the same workspace now share the global component catalog
+  - Previously, each workflow only saw components discovered relative to its own directory location
+  - `getCatalogsFromModel()` now uses `globalResolver` cache for workspace-wide component discovery
+  - Fixes issue where schemas, tasks, views, functions, and extensions weren't visible in all workflow files
+  - Solves "model manager not shared across tabs" problem
+
+- **Schema Editor Dropdown**: Increased schema display limit from 20 to 100 items
+  - Users can now see more schemas without needing to search
+  - Applies to both initial display and search results
+
+- **SubFlow Configuration Popup**: Fixed positioning to center in canvas
+  - Changed popup structure from siblings to proper parent-child relationship
+  - Overlay now properly contains and centers the popup modal
+  - Previously displayed in top-right corner instead of centered
+
+- **Click-Outside-to-Close**: Enhanced all popups and panels with smart click-outside behavior
+  - Added transparent backdrop to FlyoutPanel for reliable click-outside detection
+  - Deploy & Run, Workflow Settings, and Dependencies panels now close when clicking outside
+  - States panel excluded from click-outside behavior to preserve drag-and-drop functionality
+  - All modal popups already supported click-outside-to-close
+
+- **SubFlow Configuration Popup**: Fixed subflow selection not showing SubFlow/SubProcess workflows
+  - WorkflowSearchPanel now receives filtered `subflowWorkflows` list instead of all workflows
+  - Only workflows with type 'S' (SubFlow) or 'P' (SubProcess) are displayed in the workflow selector
+  - Previously, the filtering logic existed but wasn't being used when rendering the search panel
+  - Wrapped filter logic in `useMemo` for proper memoization and added enhanced debug logging
+  - Console logs now show which workflows are being filtered out and their types for debugging
+
+- **Workflow Template**: Fixed new workflow template generation issues
+  - Removed `stateSubType` field from final state (runtime doesn't support it yet)
+  - Changed subflow transition from auto (triggerType: 1) to manual (triggerType: 0)
+  - Auto transitions require rules; manual transitions are simpler for templates
+  - Updated language codes to use country codes (en-US, tr-TR) instead of just language (en)
+  - All states and transitions include bilingual labels (English and Turkish) by default
+
+- **Start Transition Editing**: Fixed task and schema editors for start transitions
+  - Task editor popup now opens and displays tasks when clicking "Edit Tasks" on start transitions
+  - Task changes are now properly saved to the workflow model via `domain:updateStartTransition` message
+  - Schema editor button now appears in context menu for start transitions regardless of trigger type
+  - Removed redundant `supportsSchema` check in TransitionToolbar that was hiding schema button
+  - Schema popup correctly retrieves and displays schema from `workflow.attributes.startTransition`
+  - Added safety check to ensure startTransition exists before accessing its properties
+  - Start transitions now have full feature parity with local and shared transitions for task and schema editing
+
+- **Dependencies Panel View Display**: Fixed view dependencies not showing in dependencies panel
+  - Panel now handles nested view configuration structure `{ view: {...}, loadData, extensions }`
+  - Correctly extracts view references from both state views and transition views
+  - Views now display with proper icon, key, domain, version, and context information
+  - Works with both direct ViewRef and nested view config formats
+
+- **Deployment View Resolution**: Fixed view component resolution during workflow deployment normalization
+  - Added component preloading before normalization to populate ComponentResolver cache
+  - DeploymentService now finds project root via vnext.config.json and sets correct basePath
+  - Cache is cleared and reloaded when deploying workflows from different projects
+  - Fixed ReferenceResolver to handle nested view configuration structure `{ view: {...}, loadData, extensions }`
+  - Fixed DeploymentValidator to validate inner view reference in nested configurations
+  - Both direct ViewRef and nested view config formats now supported in normalization and validation
+  - Resolves "Reference missing or unresolved" errors for view components during deployment
+
+- **Component Cache Persistence**: Fixed issue where catalog lists would become empty after file changes
+  - ComponentWatcher was clearing entire cache when a single file changed
+  - Now only invalidates the specific changed/deleted component
+  - Preserves all other components in cache, preventing empty dropdowns
+  - File additions and changes no longer trigger full cache clear
+
 - **Content-Based Component Type Detection**: ComponentWatcher now uses authoritative metadata
   - Component types determined by reading the `flow` field from JSON content
   - Maps flow values to component types (sys-tasks → Task, sys-schemas → Schema, etc.)
@@ -104,6 +329,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved performance by reducing duplicate file system operations
 
 ### Changed
+- **SubFlow Configuration Simplified**: Changed to single mapping attribute
+  - Removed separate `inputMapping` and `outputMapping` properties from `SubFlowConfig`
+  - Now uses single required `mapping: Mapping` field that matches JSON schema specification
+  - Updated `SubFlowConfigPopup` to use unified "Mapping" tab instead of separate "Input Mapping" tab
+  - Breaking change: Existing code using `inputMapping`/`outputMapping` needs to migrate to `mapping`
+
+- **SubFlow/SubProcess Execution Behavior Documentation**: Clarified blocking vs. parallel execution
+  - **SubFlow (Type 'S')**: Creates separate instance and blocks parent until completion (synchronous)
+  - **SubProcess (Type 'P')**: Creates separate instance and runs in parallel without blocking (asynchronous)
+  - Updated UI descriptions in SubFlow configuration popup
+  - Added TypeScript documentation to `SubFlowConfig` interface
+  - Enhanced subprocess mapping template with execution behavior comments
+
 - **Code Architecture Refactoring**: Comprehensive refactoring to eliminate duplication and improve maintainability
   - **Centralized Configuration** (~92 lines of duplicate code removed):
     - Exported DEFAULT_COMPONENT_SEARCH_PATHS from ComponentResolver
@@ -128,6 +366,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Users can still access visual editor via "Open With..." → "Amorphie Flow Studio"
   - "Amorphie: Open Workflow" command continues to open visual editor directly
   - Improved developer experience with standard git diff workflows
+
+## [2.2.0] - 2025-11-17
+
+### Added
+- **Schema Editing for Start Transitions**: Start transitions now support full schema configuration
+  - Schema editor popup accessible from start transition edge
+  - Allows defining input validation for workflow initialization
+  - Consistent with regular transition schema editing experience
+
+## [2.1.9] - 2025-11-16
+
+### Added
+- **Workflow Settings Panel Enhancements**: Comprehensive workflow-level configuration
+  - Multi-tab interface for general settings, labels & tags, timeout, and dependencies
+  - Multi-language label support with required languages (en-US, tr-TR)
+  - Real-time validation and immediate feedback
+
+### Improved
+- **ComponentWatcher Refactoring**: Eliminated code duplication and improved maintainability
+  - Unified normalization logic between LocalGraphBuilder and GraphDeployAdapter
+  - Shared caching infrastructure for improved performance
+  - Reduced memory footprint
+
+### Fixed
+- **Linting Errors**: Resolved unused variable warnings throughout codebase
 
 ## [2.0.0] - 2025-11-14
 
