@@ -39,10 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Shows subflow correlation metadata (type, domain, version, state)
     - Returns to parent transitions when subflow completes
     - Fetches and displays complete subflow instance data
-  - **Test Case Management**: Save and load test cases for repeatable testing
-    - Save workflow input data as named test cases with descriptions
-    - Load saved test cases to quickly re-run workflows
-    - Test cases stored per workflow in workspace storage
+  - **Test Case Management** (Backend): Infrastructure for saving and loading test cases
+    - TestCaseManager class with full CRUD operations
+    - Test cases stored per workflow in VS Code workspace state
+    - Backend message handlers for save/load/delete operations
+    - Timestamps for creation and last used tracking
+    - **Note**: UI for test case management not yet implemented
   - **Canvas Integration**: Visual feedback during testing
     - Highlight executed states on the canvas during test runs
     - Show transition history path with color-coded indicators
