@@ -20,6 +20,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Complements existing right-click context menu functionality
   - Terminology aligned with workflow-definition.schema.json
 
+- **Workflow Test Runner Panel**: Interactive testing panel for executing workflows against runtime API
+  - **Test Panel UI**: Side panel with workflow instance management and execution controls
+    - Start new workflow instances with input data
+    - Execute manual transitions with form-based or JSON input
+    - View current instance state, available transitions, and instance data
+    - Connect/disconnect from canvas for visual state highlighting during testing
+    - Transition history with request/response tracking and status indicators
+  - **API Integration**: Full workflow runtime API integration via WorkflowTestService
+    - Instance creation with `/instances/start` endpoint
+    - Transition execution with `/instances/{id}/transitions/{key}` endpoint and sync mode
+    - State querying with `/functions/state` endpoint for transitions and data
+    - Environment-based configuration with authentication support (bearer/basic)
+    - Comprehensive error handling and API response parsing
+  - **SubFlow Support**: Automatic detection and handling of SubFlow/SubProcess instances
+    - Displays parent and subflow instance data separately
+    - Automatically switches to subflow transitions when subflow activates
+    - Shows subflow correlation metadata (type, domain, version, state)
+    - Returns to parent transitions when subflow completes
+    - Fetches and displays complete subflow instance data
+  - **Test Case Management**: Save and load test cases for repeatable testing
+    - Save workflow input data as named test cases with descriptions
+    - Load saved test cases to quickly re-run workflows
+    - Test cases stored per workflow in workspace storage
+  - **Canvas Integration**: Visual feedback during testing
+    - Highlight executed states on the canvas during test runs
+    - Show transition history path with color-coded indicators
+    - Connect/disconnect toggle for on-demand visual feedback
+    - Instance state highlighting synced with current test state
+  - **Schema-Based Forms**: Auto-generated forms from transition schemas
+    - See "Test Runner Form Generation" below for form features
+
 ### Fixed
 - **Task Quick Editor Schema Alignment**: Updated task quick editor to support all task types defined in the schema
   - Added **Type 8 - Condition Task** (configuration details TBD)
@@ -140,9 +171,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Deployment operations use project domain from vnext.config.json
   - Migration: Move domain from environment settings to vnext.config.json `domain` field
 
-- **Design-Time Attribute Filter**: Added `_comment` and `stateSubType` to design-time attributes
+- **Design-Time Attribute Filter**: Added `_comment`, `stateSubType`, and `xProfile` to design-time attributes
   - `_comment` fields are now filtered out during deployment (editor-only inline comments)
   - `stateSubType` is filtered out during deployment (not used by runtime engine)
+  - `xProfile` is filtered out during deployment (plugin identification, editor-only, backward compatibility for old flows)
   - These attributes remain in workflow files for editor use but are stripped before API deployment
 
 ### Removed
@@ -255,10 +287,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Previously displayed in top-right corner instead of centered
 
 - **Click-Outside-to-Close**: Enhanced all popups and panels with smart click-outside behavior
-  - Added transparent backdrop to FlyoutPanel for reliable click-outside detection
+  - Added conditional transparent backdrop to FlyoutPanel for reliable click-outside detection
+  - Backdrop only renders when `closeOnClickOutside={true}` (default)
   - Deploy & Run, Workflow Settings, and Dependencies panels now close when clicking outside
-  - States panel excluded from click-outside behavior to preserve drag-and-drop functionality
+  - States panel excluded from click-outside behavior (`closeOnClickOutside={false}`) to preserve drag-and-drop functionality
+  - Backdrop intercepts ReactFlow's mousedown events, solving issue where canvas prevented click-outside detection
   - All modal popups already supported click-outside-to-close
+  - Added debug logging to track drag & drop event flow for future troubleshooting
 
 - **SubFlow Configuration Popup**: Fixed subflow selection not showing SubFlow/SubProcess workflows
   - WorkflowSearchPanel now receives filtered `subflowWorkflows` list instead of all workflows
