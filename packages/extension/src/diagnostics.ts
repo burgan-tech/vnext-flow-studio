@@ -258,12 +258,24 @@ export class FlowDiagnosticsProvider {
     // Convert validation errors to diagnostics
     for (const error of validationResult.errors) {
       let range = new vscode.Range(0, 0, 0, 0);
-      let ownerId = '__schema__';
+      // Use location field directly as ownerId (it contains the state key)
+      const ownerId = error.location || '__schema__';
 
-      if (document && jsonText && error.location) {
-        // Try to find position based on location
-        range = findPositionForPath(document, jsonText, error.path || '/');
-        ownerId = extractOwnerFromPath(error.path || '/', jsonText);
+      if (document && jsonText) {
+        if (error.path) {
+          // If we have JSON path, use it for precise line positioning
+          range = findPositionForPath(document, jsonText, error.path);
+        } else if (ownerId !== '__schema__') {
+          // Fallback: search for state key in document
+          const searchPattern = `"key"\\s*:\\s*"${ownerId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`;
+          const match = new RegExp(searchPattern).exec(jsonText);
+          if (match) {
+            range = new vscode.Range(
+              document.positionAt(match.index),
+              document.positionAt(match.index + match[0].length)
+            );
+          }
+        }
       }
 
       const diagnostic = new vscode.Diagnostic(
@@ -284,11 +296,24 @@ export class FlowDiagnosticsProvider {
     // Convert validation warnings to diagnostics
     for (const warning of validationResult.warnings) {
       let range = new vscode.Range(0, 0, 0, 0);
-      let ownerId = '__schema__';
+      // Use location field directly as ownerId (it contains the state key)
+      const ownerId = warning.location || '__schema__';
 
-      if (document && jsonText && warning.location) {
-        range = findPositionForPath(document, jsonText, warning.path || '/');
-        ownerId = extractOwnerFromPath(warning.path || '/', jsonText);
+      if (document && jsonText) {
+        if (warning.path) {
+          // If we have JSON path, use it for precise line positioning
+          range = findPositionForPath(document, jsonText, warning.path);
+        } else if (ownerId !== '__schema__') {
+          // Fallback: search for state key in document
+          const searchPattern = `"key"\\s*:\\s*"${ownerId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`;
+          const match = new RegExp(searchPattern).exec(jsonText);
+          if (match) {
+            range = new vscode.Range(
+              document.positionAt(match.index),
+              document.positionAt(match.index + match[0].length)
+            );
+          }
+        }
       }
 
       const diagnostic = new vscode.Diagnostic(

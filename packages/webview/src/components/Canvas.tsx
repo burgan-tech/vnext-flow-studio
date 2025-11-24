@@ -1297,6 +1297,48 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     setContextMenu(null);
   }, [postMessage]);
 
+  /**
+   * Create a transition template for a specific trigger type with required properties
+   */
+  const createTransitionTemplate = useCallback((triggerType: 0 | 1 | 2 | 3, sourceTransition: any) => {
+    // Base template with required properties
+    const template: any = {
+      key: sourceTransition.key,
+      target: sourceTransition.target,
+      versionStrategy: sourceTransition.versionStrategy || 'Minor',
+      triggerType
+    };
+
+    // Copy common properties that are always allowed
+    if (sourceTransition.from) template.from = sourceTransition.from;
+    if (sourceTransition.labels) template.labels = sourceTransition.labels;
+    if (sourceTransition.onExecutionTasks) template.onExecutionTasks = sourceTransition.onExecutionTasks;
+
+    // Add type-specific required properties and copy compatible ones
+    switch (triggerType) {
+      case 1: // Automatic - requires rule, forbids timer/schema/view/mapping
+        template.rule = sourceTransition.rule || { code: '', location: '' };
+        // Omit forbidden properties (timer, schema, view, mapping)
+        break;
+
+      case 2: // Timeout - requires timer, forbids rule/schema/view/mapping
+        template.timer = sourceTransition.timer || { code: '', location: '' };
+        // Omit forbidden properties (rule, schema, view, mapping)
+        break;
+
+      case 0: // Manual - forbids timer/rule, allows schema/view/mapping
+      case 3: // Event - forbids timer/rule, allows schema/view/mapping
+        // Omit forbidden properties (timer, rule)
+        // Copy allowed properties if they exist in source
+        if (sourceTransition.schema) template.schema = sourceTransition.schema;
+        if (sourceTransition.view) template.view = sourceTransition.view;
+        if (sourceTransition.mapping) template.mapping = sourceTransition.mapping;
+        break;
+    }
+
+    return template;
+  }, []);
+
   const handleConvertTransitionType = useCallback((edgeId: string, newTriggerType: 0 | 1 | 2 | 3) => {
     if (!workflow) return;
 
@@ -1309,7 +1351,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       const state = workflow.attributes?.states?.find(s => s.key === from);
       const transition = state?.transitions?.find(t => t.key === transitionKey);
       if (transition) {
-        const updatedTransition = { ...transition, triggerType: newTriggerType };
+        const updatedTransition = createTransitionTemplate(newTriggerType, transition);
         postMessage({
           type: 'domain:updateTransition',
           from,
@@ -1321,7 +1363,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       const [, transitionKey] = sharedMatch;
       const transition = workflow.attributes?.sharedTransitions?.find(t => t.key === transitionKey);
       if (transition) {
-        const updatedTransition = { ...transition, triggerType: newTriggerType };
+        const updatedTransition = createTransitionTemplate(newTriggerType, transition);
         postMessage({
           type: 'domain:updateSharedTransition',
           transitionKey,
@@ -1331,7 +1373,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     } else if (startMatch) {
       const transition = workflow.attributes?.startTransition;
       if (transition) {
-        const updatedTransition = { ...transition, triggerType: newTriggerType };
+        const updatedTransition = createTransitionTemplate(newTriggerType, transition);
         postMessage({
           type: 'domain:updateStartTransition',
           startTransition: updatedTransition,
@@ -1339,7 +1381,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       }
     }
     setContextMenu(null);
-  }, [workflow, postMessage]);
+  }, [workflow, postMessage, createTransitionTemplate]);
 
   const handleAutoLayoutRequest = useCallback((direction: 'RIGHT' | 'DOWN' = 'RIGHT') => {
     // Collect measured node sizes from React Flow v12
@@ -1875,6 +1917,72 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     }
   }, [workflow, postMessage]);
 
+  /**
+   * Create a state template for a specific state type with required properties
+   */
+  const createStateTemplate = useCallback((stateType: 1 | 2 | 3 | 4 | 5, sourceState: any, subType?: any) => {
+    // Base template with common properties that are always allowed
+    const template: any = {
+      key: sourceState.key,
+      stateType,
+      versionStrategy: sourceState.versionStrategy || 'Minor',
+      labels: sourceState.labels || []
+    };
+
+    // Copy common properties that are always allowed
+    if (sourceState.view) template.view = sourceState.view;
+    if (sourceState.onEntries) template.onEntries = sourceState.onEntries;
+    if (sourceState.onExits) template.onExits = sourceState.onExits;
+    if (sourceState.xProfile) template.xProfile = sourceState.xProfile;
+
+    // Add type-specific required properties and copy compatible ones
+    switch (stateType) {
+      case 1: // Initial
+      case 2: // Intermediate - normal state, no special requirements
+        // Copy transitions if they exist
+        if (sourceState.transitions) template.transitions = sourceState.transitions;
+        // Omit: subFlow, stateSubType (type-specific to other states)
+        break;
+
+      case 3: // Final - requires stateSubType, no outgoing transitions
+        template.stateSubType = subType || 1; // Default to Success
+        template.transitions = []; // Finals cannot have transitions
+        // Omit: subFlow (specific to SubFlow states)
+        break;
+
+      case 4: // SubFlow - requires subFlow configuration
+        template.subFlow = sourceState.subFlow || {
+          type: 'S',
+          process: {
+            key: '',
+            domain: workflow?.domain || '',
+            flow: workflow?.flow || '',
+            version: ''
+          },
+          mapping: {
+            code: '',
+            location: ''
+          }
+        };
+        // Copy transitions if they exist
+        if (sourceState.transitions) template.transitions = sourceState.transitions;
+        // Omit: stateSubType (specific to Final states)
+        break;
+
+      case 5: // Wizard - can only have 1 transition
+        // Keep first transition if exists, otherwise empty array
+        if (sourceState.transitions && sourceState.transitions.length > 0) {
+          template.transitions = [sourceState.transitions[0]];
+        } else {
+          template.transitions = [];
+        }
+        // Omit: subFlow, stateSubType (specific to other states)
+        break;
+    }
+
+    return template;
+  }, [workflow]);
+
   // State type conversion handlers
   const handleConvertToFinal = useCallback((stateKey: string, subType: any) => {
     const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
@@ -1883,10 +1991,10 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: { ...state, stateType: 3, stateSubType: subType, transitions: [] }
+      state: createStateTemplate(3, state, subType)
     });
     setContextMenu(null);
-  }, [workflow, postMessage]);
+  }, [workflow, postMessage, createStateTemplate]);
 
   const handleConvertToIntermediate = useCallback((stateKey: string) => {
     const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
@@ -1895,10 +2003,10 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: { ...state, stateType: 2, stateSubType: undefined }
+      state: createStateTemplate(2, state)
     });
     setContextMenu(null);
-  }, [workflow, postMessage]);
+  }, [workflow, postMessage, createStateTemplate]);
 
   const handleConvertToSubFlow = useCallback((stateKey: string) => {
     const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
@@ -1907,10 +2015,10 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: { ...state, stateType: 4 }
+      state: createStateTemplate(4, state)
     });
     setContextMenu(null);
-  }, [workflow, postMessage]);
+  }, [workflow, postMessage, createStateTemplate]);
 
   const handleConvertToWizard = useCallback((stateKey: string) => {
     const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
@@ -1919,10 +2027,10 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: { ...state, stateType: 5 }
+      state: createStateTemplate(5, state)
     });
     setContextMenu(null);
-  }, [workflow, postMessage]);
+  }, [workflow, postMessage, createStateTemplate]);
 
   const handleSetFinalSubType = useCallback((stateKey: string, subType: any) => {
     const state = workflow?.attributes?.states?.find(s => s.key === stateKey);

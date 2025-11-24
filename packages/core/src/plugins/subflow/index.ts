@@ -91,9 +91,16 @@ const subflowStateHooks: PluginHooks = {
     // Initialize subflow configuration if not present
     if (!state.subFlow) {
       state.subFlow = {
-        type: 'C', // Default to 'C' type
+        type: 'S', // Default to 'S' type (SubFlow)
         process: {
-          ref: '' // To be configured
+          key: '',
+          domain: '',
+          flow: '',
+          version: ''
+        },
+        mapping: {
+          code: '',
+          location: ''
         }
       } as SubFlowConfig;
     }
@@ -326,9 +333,16 @@ export const SubFlowStatePlugin: StatePlugin = {
         }
       ],
       subFlow: {
-        type: 'C',
+        type: 'S', // SubFlow type
         process: {
-          ref: '' // To be configured
+          key: '',
+          domain: '',
+          flow: '',
+          version: ''
+        },
+        mapping: {
+          code: '',
+          location: ''
         }
       } as SubFlowConfig,
       transitions: []

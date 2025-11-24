@@ -432,7 +432,10 @@ export class ComponentResolver implements IComponentResolver {
 
     try {
       const content = await fs.readFile(fullPath, 'utf-8');
-      return JSON.parse(content) as T;
+      const component = JSON.parse(content) as any;
+      // Attach file path for editor operations (opening, editing, etc.)
+      component.__filePath = fullPath;
+      return component as T;
     } catch (error) {
       console.warn(`Failed to resolve ref path: ${refPath}`, error);
       return null;
@@ -487,6 +490,8 @@ export class ComponentResolver implements IComponentResolver {
             if (ref.flow && component.flow && component.flow !== ref.flow) {
               continue; // Flow mismatch, try next file
             }
+            // Attach file path for editor operations (opening, editing, etc.)
+            component.__filePath = fullPath;
             return component as T;
           }
         } catch {
@@ -537,6 +542,8 @@ export class ComponentResolver implements IComponentResolver {
               component.version === ref.version &&
               component.flow === ref.flow
             ) {
+              // Attach file path for editor operations (opening, editing, etc.)
+              component.__filePath = file;
               return component as T;
             }
           } catch {

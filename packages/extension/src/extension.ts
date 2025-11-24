@@ -110,10 +110,22 @@ async function openFlowEditor(
 
     // Load the workflow using the model bridge
     // Pass the TextDocument for proper git virtual URI support
-    const model = await modelBridge.openWorkflow(flowUri, panel, document);
+    console.log('[extension.ts] About to call modelBridge.openWorkflow for:', flowUri.fsPath);
+    let model;
+    try {
+      console.log('[extension.ts] Calling modelBridge.openWorkflow...');
+      model = await modelBridge.openWorkflow(flowUri, panel, document);
+      console.log('[extension.ts] modelBridge.openWorkflow completed');
+    } catch (error) {
+      console.error('[extension.ts] Failed to load workflow:', error);
+      vscode.window.showErrorMessage(`Failed to load workflow: ${error instanceof Error ? error.message : String(error)}`);
+      panel.dispose();
+      return;
+    }
 
     // Handle messages from webview using the model bridge
     panel.webview.onDidReceiveMessage(async (message) => {
+      console.log('[extension.ts] onDidReceiveMessage called with type:', message.type);
       try {
         await modelBridge.handleWebviewMessage(message, model, panel);
       } catch (error) {
@@ -331,88 +343,169 @@ async function openFlowEditor(
 /**
  * Register JSON schemas for validation
  */
-function registerJsonSchemas(context: vscode.ExtensionContext) {
+async function registerJsonSchemas(context: vscode.ExtensionContext) {
   // Get current JSON schemas configuration
   const config = vscode.workspace.getConfiguration('json');
   const schemas = config.get<any[]>('schemas') || [];
+
+  // Try to load vnext.config.json to get configured paths
+  let configuredPaths: any = null;
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+  if (workspaceFolder) {
+    try {
+      const { loadVNextConfig } = await import('@amorphie-flow-studio/core');
+      const configResult = await loadVNextConfig(workspaceFolder.uri.fsPath);
+      if (configResult.success && configResult.config) {
+        configuredPaths = configResult.config.paths;
+        console.log('[Schema Registration] Using paths from vnext.config.json:', configuredPaths);
+      }
+    } catch (error) {
+      console.warn('[Schema Registration] Failed to load vnext.config.json:', error);
+    }
+  }
+
+  // Build file patterns based on config or use defaults
+  const getPatterns = (configPath: string | undefined, ...fallbackPatterns: string[]) => {
+    if (configuredPaths && configPath) {
+      // Use configured path with component root
+      const componentRoot = configuredPaths.componentsRoot || '';
+      const relativePath = configPath;
+      return [
+        `**/${componentRoot}/${relativePath}/*.json`,
+        `**/${componentRoot}/${relativePath}/**/*.json`,
+        ...fallbackPatterns // Keep fallbacks for compatibility
+      ];
+    }
+    return fallbackPatterns;
+  };
 
   // Define all schema types with their file patterns
   const schemaDefinitions = [
     {
       name: 'workflow-definition.schema.json',
-      fileMatch: [
+      fileMatch: getPatterns(
+        configuredPaths?.workflows,
         '**/*.flow.json',
         '**/*-subflow.json',
         '**/*-workflow.json',
         '**/workflows/**/*.json',
         '**/Workflows/**/*.json'
-      ]
+      )
     },
     {
       name: 'task-definition.schema.json',
-      fileMatch: [
+      fileMatch: getPatterns(
+        configuredPaths?.tasks,
         '**/Tasks/*.json',
         '**/Tasks/**/*.json',
         '**/sys-tasks/**/*.json'
-      ]
+      )
     },
     {
       name: 'schema-definition.schema.json',
-      fileMatch: [
+      fileMatch: getPatterns(
+        configuredPaths?.schemas,
         '**/Schemas/*.json',
         '**/Schemas/**/*.json',
         '**/schemas/**/*.json',
         '**/sys-schemas/**/*.json'
-      ]
+      )
     },
     {
       name: 'view-definition.schema.json',
-      fileMatch: [
+      fileMatch: getPatterns(
+        configuredPaths?.views,
         '**/Views/*.json',
         '**/Views/**/*.json',
         '**/views/**/*.json',
         '**/sys-views/**/*.json'
-      ]
+      )
     },
     {
       name: 'function-definition.schema.json',
-      fileMatch: [
+      fileMatch: getPatterns(
+        configuredPaths?.functions,
         '**/Functions/*.json',
         '**/Functions/**/*.json',
         '**/functions/**/*.json',
         '**/sys-functions/**/*.json'
-      ]
+      )
     },
     {
       name: 'extension-definition.schema.json',
-      fileMatch: [
+      fileMatch: getPatterns(
+        configuredPaths?.extensions,
         '**/Extensions/*.json',
         '**/Extensions/**/*.json',
         '**/extensions/**/*.json',
         '**/sys-extensions/**/*.json'
-      ]
+      )
     }
   ];
 
-  let updated = false;
+  // Remove old schema registrations from previous versions of this extension
+  // Check for any schema URLs that reference this extension (any version) or are malformed
+  const extensionPublisher = 'your-org';
+  const extensionName = 'amorphie-flow-studio';
 
-  // Register each schema type
+  // Match both versioned paths and relative/malformed paths for our schemas
+  const schemaNames = schemaDefinitions.map(s => s.name);
+
+  const cleanedSchemas = schemas.filter(s => {
+    // Remove if it matches old extension versions
+    if (new RegExp(`${extensionPublisher}\\.${extensionName}-\\d+\\.\\d+\\.\\d+/schemas/`).test(s.url)) {
+      console.log('[Schema Registration] Removing old extension schema:', s.url);
+      return false;
+    }
+
+    // Remove if it's a relative/malformed path to one of our schema files
+    for (const schemaName of schemaNames) {
+      if (s.url.includes(schemaName) && (s.url.startsWith('file:///./') || s.url.includes('/./schemas/'))) {
+        console.log('[Schema Registration] Removing malformed schema path:', s.url);
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const removedCount = schemas.length - cleanedSchemas.length;
+
+  if (removedCount > 0) {
+    console.log(`[Schema Registration] Removed ${removedCount} old/malformed schema registrations`);
+  }
+
+  let updated = removedCount > 0;
+
+  // Register each schema type with current version
   for (const schemaDef of schemaDefinitions) {
-    const schemaPath = vscode.Uri.joinPath(context.extensionUri, 'schemas', schemaDef.name).toString();
-    const hasSchema = schemas.some(s => s.url === schemaPath);
+    const schemaUri = vscode.Uri.joinPath(context.extensionUri, 'schemas', schemaDef.name);
+
+    // Debug: Log the schema URI construction
+    console.log('[Schema Registration] Extension URI:', context.extensionUri.toString());
+    console.log('[Schema Registration] Schema URI:', schemaUri.toString());
+    console.log('[Schema Registration] Schema fsPath:', schemaUri.fsPath);
+
+    // Use the full URI string (should be file:///.../schemas/...)
+    const schemaPath = schemaUri.toString();
+    const hasSchema = cleanedSchemas.some(s => s.url === schemaPath);
 
     if (!hasSchema) {
-      schemas.push({
+      cleanedSchemas.push({
         fileMatch: schemaDef.fileMatch,
         url: schemaPath
       });
       updated = true;
+      console.log('[Schema Registration] Registered schema:', schemaDef.name, 'at', schemaPath);
+    } else {
+      console.log('[Schema Registration] Schema already registered:', schemaDef.name);
     }
   }
 
   // Update configuration if needed
   if (updated) {
-    config.update('schemas', schemas, vscode.ConfigurationTarget.Global).then(
+    config.update('schemas', cleanedSchemas, vscode.ConfigurationTarget.Global).then(
       () => console.log('JSON schemas registered successfully for all component types'),
       (error) => console.error('Failed to register JSON schemas:', error)
     );
@@ -545,8 +638,10 @@ class FlowEditorProvider implements vscode.CustomTextEditorProvider {
 export function activate(context: vscode.ExtensionContext) {
   vscode.window.showInformationMessage('Amorphie Flow Studio extension activated!');
 
-  // Register JSON schemas for validation
-  registerJsonSchemas(context);
+  // Register JSON schemas for validation (async, runs in background)
+  registerJsonSchemas(context).catch(error => {
+    console.error('[Extension] Failed to register JSON schemas:', error);
+  });
 
   // Configure cSpell for workflow files
   configureCSpell(context);

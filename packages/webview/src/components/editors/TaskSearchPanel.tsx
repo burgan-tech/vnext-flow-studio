@@ -15,7 +15,9 @@ export function TaskSearchPanel({
   onSelectTask,
   onCreateNewTask,
 }: TaskSearchPanelProps) {
+  console.log('[TaskSearchPanel] Component rendering');
   const { postMessage } = useBridge();
+  console.log('[TaskSearchPanel] useBridge postMessage type:', typeof postMessage);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -75,7 +77,12 @@ export function TaskSearchPanel({
   };
 
   const handleOpenTask = () => {
-    if (!selectedTaskRef) return;
+    console.log('[TaskSearchPanel] handleOpenTask called, selectedTaskRef:', selectedTaskRef);
+
+    if (!selectedTaskRef) {
+      console.log('[TaskSearchPanel] No selectedTaskRef, returning early');
+      return;
+    }
 
     // Find the task in available tasks to get complete info
     const task = availableTasks.find(t => {
@@ -83,22 +90,28 @@ export function TaskSearchPanel({
       return fullRef === selectedTaskRef || t.key === selectedTaskRef;
     });
 
+    console.log('[TaskSearchPanel] Found task:', task);
+
     if (task) {
       // Send complete task reference info
-      postMessage({
+      const message = {
         type: 'task:open',
         taskRef: selectedTaskRef,
         domain: task.domain,
         flow: task.flow || 'sys-tasks',
         key: task.key,
         version: task.version || '1.0.0'
-      });
+      };
+      console.log('[TaskSearchPanel] Sending task:open message:', message);
+      postMessage(message);
     } else {
       // Fallback: send just the ref string
-      postMessage({
+      const message = {
         type: 'task:open',
         taskRef: selectedTaskRef
-      });
+      };
+      console.log('[TaskSearchPanel] Sending task:open message (fallback):', message);
+      postMessage(message);
     }
   };
 

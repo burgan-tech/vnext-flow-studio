@@ -256,6 +256,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Task Open Button**: Fixed "Open Task" button in task details panel to properly open referenced tasks in Quick Task Editor
+  - Added `__filePath` property attachment in all three component resolution paths (`resolveExplicitRef`, `resolveRefPath`, `searchForComponent`)
+  - Previously, file path was only set in one resolution path, causing button to fail depending on how task was resolved
+  - Now consistently opens tasks regardless of reference format (ref-style, explicit reference, or pattern-based search)
+
+- **Message Handler Registration for Subflow Panels**: Fixed message handling in subflow editor panels opened via navigate:subflow
+  - Subflow panels now properly register message handlers for all message types (task:open, domain:*, etc.)
+  - Previously, only a temporary 'ready' message handler was registered, which disposed itself immediately
+  - All subsequent messages to subflow panels were silently dropped, breaking features like task opening
+  - Now uses same message handler registration pattern as main workflow panels
+
+- **Diagnostic Links to Canvas**: Fixed validation error links to navigate to correct canvas elements
+  - Updated to use `error.location` field directly as ownerId instead of extracting from `error.path`
+  - Diagnostic links now correctly jump to the appropriate state/component when clicked in Problems panel
+  - Improved fallback logic for positioning when JSON path is not available
+
+- **Component Catalog Architecture Refactoring**: Eliminated redundant component data copying for improved performance and reliability
+  - Removed duplicate storage of components in both global resolver cache and model state
+  - Model now reads directly from ComponentResolver cache (single source of truth)
+  - `ModelValidator` and `WorkflowModel.validate()` now access catalogs via `getComponentResolver()` method
+  - Removed ~30 lines of copying code and eliminated need for redundant second `model.load()` call
+  - Fixes synchronization issues where linter saw different component counts than UI
+  - Reduces memory usage and simplifies architecture
+
+- **Workflow Loading Timeout Protection**: Added 30-second timeout protection for workflow loading operations
+  - Prevents indefinite hangs when filesystem operations are slow or unresponsive
+  - Uses `Promise.race()` to timeout model loading and component preloading
+  - Shows clear error message when timeout occurs
+  - Fixes intermittent "Loading workflow..." hangs on slow filesystems
+
+- **Empty Workflows List in SubFlow Configuration**: Fixed catalog access to use correct ComponentResolver method
+  - Changed from non-existent `this.globalResolver?.['cache']` to proper `getCachedComponents()` method
+  - SubFlow configuration popup now correctly displays available workflows for selection
+  - Fixed intermittent empty workflows list issue
+
 - **SubFlow/SubProcess Mapping Interface Enforcement**: Fixed mapping script selection to enforce strict interface requirements
   - SubFlow (type 'S') now only shows scripts implementing `ISubFlowMapping` interface (strict filtering)
   - SubProcess (type 'P') continues to only show scripts implementing `ISubProcessMapping` interface

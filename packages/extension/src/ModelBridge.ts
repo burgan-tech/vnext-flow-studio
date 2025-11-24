@@ -7,8 +7,8 @@ import * as path from 'path';
 import {
   VSCodeModelIntegration,
   WorkflowModel,
+  ModelValidator,
   toReactFlow,
-  lint,
   autoLayout,
   pluginManager,
   InitialStatePlugin,
@@ -272,7 +272,8 @@ export class ModelBridge {
           schemas: [...DEFAULT_COMPONENT_SEARCH_PATHS.schema, ...schemasDirs],
           views: [...DEFAULT_COMPONENT_SEARCH_PATHS.view, ...viewsDirs],
           functions: [...DEFAULT_COMPONENT_SEARCH_PATHS.function, ...functionsDirs],
-          extensions: [...DEFAULT_COMPONENT_SEARCH_PATHS.extension, ...extensionsDirs]
+          extensions: [...DEFAULT_COMPONENT_SEARCH_PATHS.extension, ...extensionsDirs],
+          workflows: [...DEFAULT_COMPONENT_SEARCH_PATHS.workflow] // Include workflows for catalog validation
         },
         enableWatching: false, // We'll enable watching manually to set up custom event handlers
         lifecycle: {
@@ -438,16 +439,23 @@ export class ModelBridge {
         version: component.version
       });
 
-      // Send incremental update to all panels
-      for (const [_panelKey, panel] of this.config.activePanels) {
+      // Send incremental update to all panels AND re-validate workflows
+      for (const [panelKey, panel] of this.config.activePanels) {
         panel.webview.postMessage({
           type: 'component:updated',
           componentType,
           component
         });
+
+        // Re-validate workflow with updated catalog
+        // (component changes might affect workflow validation - e.g., missing task reference)
+        const model = this.panelModelMap.get(panelKey);
+        if (model) {
+          await this.performLinting(model, panel);
+        }
       }
 
-      console.log('[ModelBridge] ⚡ Lightweight component update complete');
+      console.log('[ModelBridge] ⚡ Lightweight component update and re-validation complete');
     } catch (error) {
       console.error('[ModelBridge] Failed to load component:', error);
       // Fall back to logging, but don't fail - ComponentResolver cache is already invalidated
@@ -465,11 +473,15 @@ export class ModelBridge {
       try {
         console.log('[ModelBridge] Reloading model components for panel:', panelKey);
 
-        // Reload components for this model
-        await model.load({
+        // Reload components for this model with timeout protection
+        const loadPromise = model.load({
           preloadComponents: true,
           basePath: model.getModelState().metadata.basePath
         });
+        const loadTimeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Model reload timeout after 30s')), 30000)
+        );
+        await Promise.race([loadPromise, loadTimeout]);
 
         console.log('[ModelBridge] Model reloaded, getting updated catalogs');
 
@@ -653,38 +665,35 @@ export class ModelBridge {
       const modelStartTime = Date.now();
       // Pass full URI (not just fsPath) to support separate instances for git:// vs file:// URIs
       // Also pass fsPath explicitly for file operations (handles complex git:// URI formats)
-      const model = await this.integration.openWorkflow(
-        flowUri.toString(),  // URI for caching
-        flowUri.fsPath,      // fsPath for file operations
-        {
-          resolveReferences: true,
-          loadScripts: true,
-          validate: true,
-          preloadComponents: true, // This will scan and load all tasks, schemas, views, etc.
-          basePath: basePath, // Use VS Code workspace folder as base path
-          content: content, // Pass content from TextDocument for git virtual URIs
-          diagramContent: diagramContent, // Pass diagram content from git commit
-          componentResolver: this.globalResolver // Share global component resolver
-        }
-      );
-      console.log(`[ModelBridge] Model opened in ${Date.now() - modelStartTime}ms`);
+      let model;
+      try {
+        const modelPromise = this.integration.openWorkflow(
+          flowUri.toString(),  // URI for caching
+          flowUri.fsPath,      // fsPath for file operations
+          {
+            resolveReferences: true,
+            loadScripts: true,
+            validate: true,
+            preloadComponents: true, // This will scan and load all tasks, schemas, views, etc.
+            basePath: basePath, // Use VS Code workspace folder as base path
+            content: content, // Pass content from TextDocument for git virtual URIs
+            diagramContent: diagramContent, // Pass diagram content from git commit
+            componentResolver: this.globalResolver // Share global component resolver
+          }
+        );
+        const modelTimeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Model load timeout after 30s - filesystem may be slow or unresponsive')), 30000)
+        );
+        model = await Promise.race([modelPromise, modelTimeout]);
+        console.log(`[ModelBridge] Model opened in ${Date.now() - modelStartTime}ms`);
+      } catch (error) {
+        console.error('[ModelBridge] Model load failed or timed out:', error);
+        throw error;
+      }
       console.log('[ModelBridge] Model URI:', flowUri.toString(), '| fsPath:', flowUri.fsPath, '| Scheme:', flowUri.scheme);
 
-      // CRITICAL: Force reload from disk even if model was cached
-      // The cache is needed for cross-model queries (subflows, references)
-      // But we must refresh the content from disk when opening in editor
-      console.log('[ModelBridge] Reloading model from disk to ensure fresh content');
-      const reloadStartTime = Date.now();
-      await model.load({
-        resolveReferences: true,
-        loadScripts: true,
-        validate: true,
-        preloadComponents: false, // Skip preload - components already loaded via shared resolver
-        basePath: basePath,
-        content: content, // Pass content from TextDocument for git virtual URIs
-        diagramContent: diagramContent // Pass diagram content from git commit
-      });
-      console.log(`[ModelBridge] Model reloaded in ${Date.now() - reloadStartTime}ms`);
+      // No need for second load - components are in resolver cache (single source of truth)
+      // Model reads directly from resolver, not from its own state
 
       // Track the association between panel and model using the flow URI as the key
       const panelKey = flowUri.toString();
@@ -904,6 +913,8 @@ export class ModelBridge {
     panel: vscode.WebviewPanel
   ): Promise<void> {
     try {
+      console.log('[ModelBridge] handleWebviewMessage received:', message.type);
+
       // Check if this panel is read-only (git diff view)
       const panelUri = this.getUriForPanel(panel);
       const isReadOnly = panelUri?.scheme === 'git';
@@ -2348,6 +2359,8 @@ export class ModelBridge {
   private async handleOpenTask(message: any, _panel: vscode.WebviewPanel): Promise<void> {
     const { taskRef, domain, flow, key, version } = message;
 
+    console.log('[ModelBridge] handleOpenTask called with message:', message);
+
     try {
       let componentRef: any;
 
@@ -2364,27 +2377,45 @@ export class ModelBridge {
         componentRef = this.parseTaskReference(taskRef);
       }
 
+      console.log('[ModelBridge] Resolving task with componentRef:', componentRef);
+
       // Use the global component resolver to find the task
       const task = await this.globalResolver.resolveTask(componentRef);
 
+      console.log('[ModelBridge] Task resolved:', task ? 'YES' : 'NO');
+      if (task) {
+        console.log('[ModelBridge] Task keys:', Object.keys(task));
+        console.log('[ModelBridge] Task __filePath:', (task as any).__filePath);
+      }
+
       if (!task) {
-        vscode.window.showErrorMessage(`Task not found: ${key || taskRef}`);
+        const errorMsg = `Task not found: ${key || taskRef}`;
+        console.error('[ModelBridge]', errorMsg);
+        vscode.window.showErrorMessage(errorMsg);
         return;
       }
 
       // Check if the task has a file path
       const filePath = (task as any).__filePath;
       if (!filePath) {
-        vscode.window.showErrorMessage(`No file path found for task: ${key || taskRef}`);
+        const errorMsg = `No file path found for task: ${key || taskRef}`;
+        console.error('[ModelBridge]', errorMsg);
+        console.error('[ModelBridge] Task object:', JSON.stringify(task, null, 2));
+        vscode.window.showErrorMessage(errorMsg);
         return;
       }
+
+      console.log('[ModelBridge] Opening task file:', filePath);
 
       // Open the task file in the Quick Task Editor
       const uri = vscode.Uri.file(filePath);
       await vscode.commands.executeCommand('vscode.openWith', uri, 'vnext.taskQuickEditor', vscode.ViewColumn.Beside);
 
+      console.log('[ModelBridge] Task file opened successfully');
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[ModelBridge] Error opening task:', error);
       vscode.window.showErrorMessage(`Failed to open task: ${errorMessage}`);
     }
   }
@@ -2650,9 +2681,10 @@ export class ModelBridge {
     // Handle ref-style reference
     if ('ref' in subflowRef && subflowRef.ref) {
       console.log('[ModelBridge] Using ref-style reference:', subflowRef.ref);
-      // For ref-style, we need to resolve the file path
-      const basePath = modelState.metadata.basePath;
-      const fullPath = path.resolve(basePath, subflowRef.ref);
+      // For ref-style, resolve relative to the workflow file's directory (not project root)
+      const workflowDir = path.dirname(modelState.metadata.workflowPath);
+      const fullPath = path.resolve(workflowDir, subflowRef.ref);
+      console.log('[ModelBridge] Workflow directory:', workflowDir);
       console.log('[ModelBridge] Resolved path:', fullPath);
 
       try {
@@ -2665,7 +2697,7 @@ export class ModelBridge {
           return;
         } catch {
           console.error('[ModelBridge] File does not exist:', fullPath);
-          vscode.window.showWarningMessage(`Subflow file not found at: ${subflowRef.ref}`);
+          vscode.window.showWarningMessage(`Subflow file not found at: ${subflowRef.ref}\nResolved to: ${fullPath}`);
           return;
         }
       } catch (error) {
@@ -2823,7 +2855,18 @@ export class ModelBridge {
     }
 
     // Open the subflow using the model bridge
-    await this.openWorkflow(workflowUri, panel);
+    const model = await this.openWorkflow(workflowUri, panel);
+
+    // Register message handler for this panel (same as extension.ts)
+    panel.webview.onDidReceiveMessage(async (message) => {
+      console.log('[ModelBridge/openSubflowInNewPanel] onDidReceiveMessage called with type:', message.type);
+      try {
+        await this.handleWebviewMessage(message, model, panel);
+      } catch (error) {
+        console.error(`Error handling message ${message.type}:`, error);
+        vscode.window.showErrorMessage(`Error: ${error}`);
+      }
+    });
   }
 
   /**
@@ -3089,34 +3132,52 @@ export class ModelBridge {
 
   /**
    * Get lint problems from model
+   * Uses ModelValidator as single source of truth to avoid redundant lint() calls
    */
   private async getLintProblems(model: WorkflowModel): Promise<Record<string, Problem[]>> {
-    // Use both ModelValidator and traditional linting for comprehensive checks
-    const workflow = model.getWorkflow();
-    const tasks = this.getTasksFromModel(model);
-    const modelState = model.getModelState();
+    // Use ModelValidator.validate() which calls lint() internally
+    // This avoids redundant lint() calls since diagnostics also uses ModelValidator
+    const validationResult = await ModelValidator.validate(model);
 
-    // Build scripts context for the linter
-    const scripts = new Map<string, { exists: boolean }>();
-    for (const [absolutePath, script] of modelState.scripts) {
-      scripts.set(absolutePath, { exists: script.exists });
+    // Convert ValidationResult to Problem[] format for webview
+    const problems: Record<string, Problem[]> = {};
+
+    // Add errors
+    for (const error of validationResult.errors) {
+      const ownerId = error.location || '__schema__';
+      if (!problems[ownerId]) {
+        problems[ownerId] = [];
+      }
+      problems[ownerId].push({
+        id: error.type,
+        message: error.message,
+        severity: 'error',
+        path: error.path
+      });
     }
 
-    // Get traditional lint problems for UI display
-    const lintProblems = lint(workflow, {
-      tasks,
-      workflowPath: modelState.metadata.workflowPath,
-      scripts
-    });
+    // Add warnings
+    for (const warning of validationResult.warnings) {
+      const ownerId = warning.location || '__schema__';
+      if (!problems[ownerId]) {
+        problems[ownerId] = [];
+      }
+      problems[ownerId].push({
+        id: warning.type,
+        message: warning.message,
+        severity: 'warning',
+        path: warning.path
+      });
+    }
 
-    // Also update VS Code diagnostics using ModelValidator if diagnosticsProvider has the new method
+    // Update VS Code diagnostics using the same ValidationResult
     const workflowPath = model.getModelState().metadata.workflowPath;
     if (!workflowPath.startsWith('memory://') && this.config.diagnosticsProvider?.updateDiagnosticsFromModel) {
       const uri = vscode.Uri.file(workflowPath);
       await this.config.diagnosticsProvider.updateDiagnosticsFromModel(uri, model);
     }
 
-    return lintProblems;
+    return problems;
   }
 
   /**
@@ -3155,17 +3216,17 @@ export class ModelBridge {
 
     // Use globalResolver's catalog if available (workspace-wide discovery)
     // Otherwise fallback to model's own state (per-workflow discovery)
-    const globalState = this.globalResolver?.['cache'];
+    const globalCatalogs = this.globalResolver?.getCachedComponents();
 
     const catalogs = {
-      task: globalState?.tasks ? Array.from(globalState.tasks.values()) : Array.from(state.components.tasks.values()),
-      schema: globalState?.schemas ? Array.from(globalState.schemas.values()) : Array.from(state.components.schemas.values()),
-      view: globalState?.views ? Array.from(globalState.views.values()) : Array.from(state.components.views.values()),
-      function: globalState?.functions ? Array.from(globalState.functions.values()) : Array.from(state.resolvedFunctions.values()),
-      extension: globalState?.extensions ? Array.from(globalState.extensions.values()) : Array.from(state.resolvedExtensions.values()),
+      task: (globalCatalogs?.tasks && globalCatalogs.tasks.length > 0) ? globalCatalogs.tasks : Array.from(state.components.tasks.values()),
+      schema: (globalCatalogs?.schemas && globalCatalogs.schemas.length > 0) ? globalCatalogs.schemas : Array.from(state.components.schemas.values()),
+      view: (globalCatalogs?.views && globalCatalogs.views.length > 0) ? globalCatalogs.views : Array.from(state.components.views.values()),
+      function: (globalCatalogs?.functions && globalCatalogs.functions.length > 0) ? globalCatalogs.functions : Array.from(state.resolvedFunctions.values()),
+      extension: (globalCatalogs?.extensions && globalCatalogs.extensions.length > 0) ? globalCatalogs.extensions : Array.from(state.resolvedExtensions.values()),
       mapper: Array.from(state.mappers.values()).map(transformScriptLocation),
       rule: Array.from(state.rules.values()).map(transformScriptLocation),
-      workflow: globalState?.workflows ? Array.from(globalState.workflows.values()) : Array.from(state.components.workflows.values())
+      workflow: (globalCatalogs?.workflows && globalCatalogs.workflows.length > 0) ? globalCatalogs.workflows : Array.from(state.components.workflows.values())
     };
     console.log('[ModelBridge] getCatalogsFromModel:', {
       tasks: catalogs.task.length,

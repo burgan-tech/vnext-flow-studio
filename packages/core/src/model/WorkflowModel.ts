@@ -94,7 +94,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
       if (preloadComponents) {
         console.log('[WorkflowModel] Preloading components from filesystem...');
         const components = await this.componentResolver.preloadAllComponents();
-        console.log('[WorkflowModel] Preload complete:', {
+        console.log('[WorkflowModel] Preload complete (cached in resolver):', {
           tasks: components.tasks.length,
           schemas: components.schemas.length,
           views: components.views.length,
@@ -102,33 +102,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
           extensions: components.extensions.length,
           workflows: components.workflows.length
         });
-
-        // Store preloaded components in the state
-        for (const task of components.tasks) {
-          const key = `${task.domain}/${task.flow || 'sys-tasks'}/${task.key}@${task.version}`;
-          this.state.components.tasks.set(key, task);
-        }
-        for (const schema of components.schemas) {
-          const key = `${schema.domain}/${schema.flow || 'sys-schemas'}/${schema.key}@${schema.version}`;
-          this.state.components.schemas.set(key, schema);
-        }
-        for (const view of components.views) {
-          const key = `${view.domain}/${view.flow || 'sys-views'}/${view.key}@${view.version}`;
-          this.state.components.views.set(key, view);
-        }
-        for (const func of components.functions) {
-          const key = `${func.domain}/${func.flow || 'sys-functions'}/${func.key}@${func.version}`;
-          this.state.resolvedFunctions.set(key, func);
-        }
-        for (const ext of components.extensions) {
-          const key = `${ext.domain}/${ext.flow || 'sys-extensions'}/${ext.key}@${ext.version}`;
-          this.state.resolvedExtensions.set(key, ext);
-        }
-        for (const workflow of components.workflows) {
-          const key = `${workflow.domain}/${workflow.flow || 'sys-flows'}/${workflow.key}@${workflow.version}`;
-          this.state.components.workflows.set(key, workflow);
-        }
-        console.log('[WorkflowModel] Components stored in state');
+        // Components are now in resolver's cache - no need to copy to model state
 
         // Preload all scripts from the filesystem
         console.log('[WorkflowModel] Preloading scripts from filesystem...');
@@ -448,6 +422,13 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
    */
   getDiagram(): Diagram | undefined {
     return this.state.diagram;
+  }
+
+  /**
+   * Get the component resolver (for reading cached components)
+   */
+  getComponentResolver(): ComponentResolver {
+    return this.componentResolver;
   }
 
   /**
@@ -1018,7 +999,14 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
    * Validate the model
    */
   async validate(): Promise<ValidationResult> {
-    const tasks = Array.from(this.state.components.tasks.values());
+    // Get all component catalogs directly from resolver (single source of truth)
+    const cachedComponents = this.componentResolver.getCachedComponents();
+    const tasks = cachedComponents.tasks;
+    const schemas = cachedComponents.schemas;
+    const views = cachedComponents.views;
+    const functions = cachedComponents.functions;
+    const extensions = cachedComponents.extensions;
+    const workflows = cachedComponents.workflows;
 
     // Build scripts context for the linter
     const scripts = new Map<string, { exists: boolean }>();
@@ -1028,6 +1016,11 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
 
     const lintResult = lint(this.state.workflow, {
       tasks,
+      schemas,
+      views,
+      functions,
+      extensions,
+      workflows,
       workflowPath: this.state.metadata.workflowPath,
       scripts
     });

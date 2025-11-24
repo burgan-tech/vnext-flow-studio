@@ -19,8 +19,16 @@ let vscodeApi: VSCodeAPI | null = null;
 
 function getVSCodeAPI(): VSCodeAPI {
   if (!vscodeApi) {
-    vscodeApi = window.acquireVsCodeApi?.() ?? {
-      postMessage: (msg: any) => console.log('WebView -> Host:', msg),
+    console.log('[useBridge] Acquiring VS Code API...');
+    console.log('[useBridge] window.acquireVsCodeApi exists?', typeof window.acquireVsCodeApi);
+    const api = window.acquireVsCodeApi?.();
+    console.log('[useBridge] acquireVsCodeApi() returned:', api ? 'VS Code API' : 'null/undefined');
+
+    vscodeApi = api ?? {
+      postMessage: (msg: any) => {
+        console.warn('[useBridge] FALLBACK: Message not sent to VS Code (API not available):', msg);
+        console.log('WebView -> Host:', msg);
+      },
       getState: () => null,
       setState: () => {}
     };
@@ -32,7 +40,15 @@ export function useBridge() {
   const vscode = getVSCodeAPI();
 
   const postMessage = useCallback((message: MsgFromWebview) => {
-    vscode.postMessage(message);
+    console.log('[useBridge] postMessage called with:', message.type, message);
+    console.log('[useBridge] vscode object:', vscode);
+    console.log('[useBridge] vscode.postMessage type:', typeof vscode.postMessage);
+    try {
+      vscode.postMessage(message);
+      console.log('[useBridge] postMessage executed successfully');
+    } catch (error) {
+      console.error('[useBridge] postMessage threw error:', error);
+    }
   }, [vscode]);
 
   const onMessage = useCallback((handler: (message: MsgToWebview) => void) => {

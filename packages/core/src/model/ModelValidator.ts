@@ -342,17 +342,48 @@ export class ModelValidator {
       scripts.set(absolutePath, { exists: script.exists });
     }
 
+    // Get all component catalogs directly from resolver (single source of truth)
+    const cachedComponents = model.getComponentResolver().getCachedComponents();
+    const tasks = cachedComponents.tasks;
+    const schemas = cachedComponents.schemas;
+    const views = cachedComponents.views;
+    const functions = cachedComponents.functions;
+    const extensions = cachedComponents.extensions;
+    const workflows = cachedComponents.workflows;
+
+    console.log('[ModelValidator] Passing catalogs to linter (from resolver cache):', {
+      tasks: tasks.length,
+      schemas: schemas.length,
+      views: views.length,
+      functions: functions.length,
+      extensions: extensions.length,
+      workflows: workflows.length
+    });
+
     // Use the linter for transition validation
     const lintResult = lint(workflow, {
+      tasks,
+      schemas,
+      views,
+      functions,
+      extensions,
+      workflows,
       workflowPath: modelState.metadata.workflowPath,
       scripts
     });
 
     for (const [location, problems] of Object.entries(lintResult)) {
       for (const problem of problems) {
-        if (problem.id === 'E_MISSING_RULE') {
+        // Extract all lint errors, not just specific ones
+        if (problem.severity === 'error') {
           errors.push({
-            type: 'transitions',
+            type: problem.id,
+            message: problem.message,
+            location
+          });
+        } else {
+          warnings.push({
+            type: problem.id,
             message: problem.message,
             location
           });
@@ -412,8 +443,20 @@ export class ModelValidator {
       scripts.set(absolutePath, { exists: script.exists });
     }
 
+    // Get all component catalogs for comprehensive validation
+    const schemas = Array.from(modelState.components.schemas.values());
+    const views = Array.from(modelState.components.views.values());
+    const functions = Array.from(modelState.resolvedFunctions.values());
+    const extensions = Array.from(modelState.resolvedExtensions.values());
+    const workflows = Array.from(modelState.components.workflows.values());
+
     const lintResult = lint(workflow, {
       tasks: taskCatalog,
+      schemas,
+      views,
+      functions,
+      extensions,
+      workflows,
       workflowPath: modelState.metadata.workflowPath,
       scripts
     });
@@ -422,9 +465,16 @@ export class ModelValidator {
 
     for (const [location, problems] of Object.entries(lintResult)) {
       for (const problem of problems) {
-        if (problem.id === 'E_TASK_MISSING') {
+        // Extract all lint errors, not just specific ones
+        if (problem.severity === 'error') {
           errors.push({
-            type: 'tasks',
+            type: problem.id,
+            message: problem.message,
+            location
+          });
+        } else {
+          warnings.push({
+            type: problem.id,
             message: problem.message,
             location
           });

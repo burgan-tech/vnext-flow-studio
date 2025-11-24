@@ -344,11 +344,117 @@ export function registerCommands(context: vscode.ExtensionContext) {
     }
   );
 
+  // Command to show schema registrations
+  const showSchemaRegistrationsCommand = vscode.commands.registerCommand(
+    'flowEditor.showSchemaRegistrations',
+    async () => {
+      const config = vscode.workspace.getConfiguration('json');
+      const schemas = config.get<any[]>('schemas') || [];
+
+      // Filter Amorphie schemas
+      const extensionSchemas = schemas.filter(s =>
+        s.url.includes('amorphie-flow-studio') ||
+        s.url.includes('workflow-definition.schema.json') ||
+        s.url.includes('task-definition.schema.json') ||
+        s.url.includes('schema-definition.schema.json') ||
+        s.url.includes('view-definition.schema.json') ||
+        s.url.includes('function-definition.schema.json') ||
+        s.url.includes('extension-definition.schema.json')
+      );
+
+      if (extensionSchemas.length === 0) {
+        vscode.window.showWarningMessage('No Amorphie schemas registered!');
+        return;
+      }
+
+      // Create detailed output
+      const output = extensionSchemas.map((s, i) => {
+        const schemaName = s.url.split('/').pop();
+        return `${i + 1}. ${schemaName}\n   URL: ${s.url}\n   Patterns: ${s.fileMatch.join(', ')}`;
+      }).join('\n\n');
+
+      // Show in output channel
+      const channel = vscode.window.createOutputChannel('Schema Registrations');
+      channel.clear();
+      channel.appendLine('=== Amorphie Schema Registrations ===\n');
+      channel.appendLine(output);
+      channel.show();
+
+      vscode.window.showInformationMessage(`Found ${extensionSchemas.length} registered schemas. Check Output panel.`);
+    }
+  );
+
+  // Command to fix schema registrations
+  const fixSchemaRegistrationsCommand = vscode.commands.registerCommand(
+    'flowEditor.fixSchemaRegistrations',
+    async () => {
+      try {
+        const config = vscode.workspace.getConfiguration('json');
+        const schemas = config.get<any[]>('schemas') || [];
+
+        // Show current schemas
+        const extensionSchemas = schemas.filter(s =>
+          s.url.includes('amorphie-flow-studio') ||
+          s.url.includes('workflow-definition.schema.json') ||
+          s.url.includes('task-definition.schema.json') ||
+          s.url.includes('schema-definition.schema.json') ||
+          s.url.includes('view-definition.schema.json') ||
+          s.url.includes('function-definition.schema.json') ||
+          s.url.includes('extension-definition.schema.json')
+        );
+
+        if (extensionSchemas.length === 0) {
+          vscode.window.showInformationMessage('No Amorphie extension schemas found in settings');
+          return;
+        }
+
+        // Ask for confirmation
+        const answer = await vscode.window.showWarningMessage(
+          `Found ${extensionSchemas.length} Amorphie schema registrations. Remove all and re-register?`,
+          'Yes', 'No'
+        );
+
+        if (answer !== 'Yes') {
+          return;
+        }
+
+        // Remove all extension schemas
+        const cleanedSchemas = schemas.filter(s =>
+          !s.url.includes('amorphie-flow-studio') &&
+          !s.url.includes('workflow-definition.schema.json') &&
+          !s.url.includes('task-definition.schema.json') &&
+          !s.url.includes('schema-definition.schema.json') &&
+          !s.url.includes('view-definition.schema.json') &&
+          !s.url.includes('function-definition.schema.json') &&
+          !s.url.includes('extension-definition.schema.json')
+        );
+
+        await config.update('schemas', cleanedSchemas, vscode.ConfigurationTarget.Global);
+
+        vscode.window.showInformationMessage(
+          `Removed ${extensionSchemas.length} old schema registrations. Please reload the window to re-register schemas.`,
+          'Reload Window'
+        ).then(choice => {
+          if (choice === 'Reload Window') {
+            vscode.commands.executeCommand('workbench.action.reloadWindow');
+          }
+        });
+
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          `Failed to fix schema registrations: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+  );
+
   context.subscriptions.push(
     createWorkflowCommand,
     freezeVersionsCommand,
     createMapperCommand,
     showWatcherStatsCommand,
-    openVisualDiffCommand
+    openVisualDiffCommand,
+    showSchemaRegistrationsCommand,
+    fixSchemaRegistrationsCommand
   );
 }
