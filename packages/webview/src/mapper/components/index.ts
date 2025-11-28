@@ -11,3 +11,7 @@ export * from './PartManagerPanel';
 export * from './SchemaUpdateWarningDialog';
 export * from './Tooltip';
 export * from './functoidIcons';
+
+// Contract mapping components
+export * from './HandlerTabBar';
+export * from './ContractSelector';

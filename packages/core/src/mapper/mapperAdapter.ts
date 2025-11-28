@@ -519,3 +519,157 @@ export function applyGraphLayoutToNodes(nodes: Node[], layout: GraphLayout | nul
     };
   });
 }
+
+/**
+ * Load platform schemas for part definitions
+ * Resolves platform:// schema references to actual JSON schemas
+ */
+export function loadPlatformSchemas(schemaParts: import('./types').SchemaParts): import('./types').SchemaParts {
+  const { resolvePlatformSchema } = require('./platformSchemas');
+
+  const loadedParts = { ...schemaParts };
+
+  // Load source schemas
+  if (loadedParts.source) {
+    for (const [partName, partDef] of Object.entries(loadedParts.source)) {
+      if (partDef.schemaRef?.startsWith('platform://')) {
+        const schema = resolvePlatformSchema(partDef.schemaRef);
+        if (schema) {
+          loadedParts.source[partName] = {
+            ...partDef,
+            schema
+          };
+        }
+      }
+    }
+  }
+
+  // Load target schemas
+  if (loadedParts.target) {
+    for (const [partName, partDef] of Object.entries(loadedParts.target)) {
+      if (partDef.schemaRef?.startsWith('platform://')) {
+        const schema = resolvePlatformSchema(partDef.schemaRef);
+        if (schema) {
+          loadedParts.target[partName] = {
+            ...partDef,
+            schema
+          };
+        }
+      }
+    }
+  }
+
+  return loadedParts;
+}
+
+/**
+ * Convert ContractMapSpec to React Flow format with handler support
+ * For multi-handler contracts, you must specify which handler to display
+ */
+export function contractMapSpecToReactFlow(
+  mapSpec: import('./contractTypes').ContractMapSpec,
+  activeHandler?: string,
+  sourceSchema?: JSONSchema,
+  targetSchema?: JSONSchema,
+  schemaOverlays?: SchemaOverlays
+): { nodes: Node[]; edges: ReactFlowEdge[] } {
+  // If this is a multi-handler contract, we need an active handler
+  if (mapSpec.handlers && !activeHandler) {
+    // Default to first handler if not specified
+    const handlerNames = Object.keys(mapSpec.handlers);
+    activeHandler = handlerNames[0];
+  }
+
+  // Get handler-specific data
+  let handlerNodes: MapSpecNode[] = [];
+  let handlerEdges: Edge[] = [];
+  let handlerSchemaParts: import('./types').SchemaParts | undefined;
+
+  if (mapSpec.handlers && activeHandler) {
+    // Multi-handler contract: use handler-specific data
+    const handler = mapSpec.handlers[activeHandler];
+    if (handler) {
+      handlerNodes = handler.nodes || [];
+      handlerEdges = handler.edges || [];
+      handlerSchemaParts = handler.schemaParts;
+    }
+  } else {
+    // Single-handler or legacy contract: use base MapSpec data
+    handlerNodes = mapSpec.nodes || [];
+    handlerEdges = mapSpec.edges || [];
+    handlerSchemaParts = mapSpec.schemaParts;
+  }
+
+  // Load platform schemas if present
+  if (handlerSchemaParts) {
+    handlerSchemaParts = loadPlatformSchemas(handlerSchemaParts);
+  }
+
+  // Create a temporary MapSpec with handler-specific data
+  const tempMapSpec: MapSpec = {
+    version: mapSpec.version,
+    metadata: {
+      name: mapSpec.metadata.name,
+      description: mapSpec.metadata.description,
+      source: mapSpec.metadata.key,
+      target: activeHandler || 'default'
+    },
+    schemaParts: handlerSchemaParts || { source: {}, target: {} },
+    schemaOverlays: mapSpec.schemaOverlays,
+    nodes: handlerNodes,
+    edges: handlerEdges,
+    tests: mapSpec.tests
+  };
+
+  // Convert using existing function
+  return mapSpecToReactFlow(tempMapSpec, sourceSchema, targetSchema, schemaOverlays);
+}
+
+/**
+ * Get handler names from a ContractMapSpec instance
+ */
+export function getMapSpecHandlers(mapSpec: import('./contractTypes').ContractMapSpec): string[] {
+  if (mapSpec.handlers) {
+    return Object.keys(mapSpec.handlers);
+  }
+  return [];
+}
+
+/**
+ * Update handler in ContractMapSpec with new nodes/edges
+ */
+export function updateHandlerInContract(
+  mapSpec: import('./contractTypes').ContractMapSpec,
+  handlerName: string,
+  nodes: Node[],
+  edges: ReactFlowEdge[]
+): import('./contractTypes').ContractMapSpec {
+  // Convert React Flow nodes/edges back to MapSpec format
+  const mapSpecNodes = nodes
+    .map(reactFlowToMapSpecNode)
+    .filter((n): n is MapSpecNode => n !== null);
+
+  const mapSpecEdges = edges.map(reactFlowToMapSpecEdge);
+
+  if (mapSpec.handlers) {
+    // Multi-handler contract
+    return {
+      ...mapSpec,
+      handlers: {
+        ...mapSpec.handlers,
+        [handlerName]: {
+          ...mapSpec.handlers[handlerName],
+          nodes: mapSpecNodes,
+          edges: mapSpecEdges
+        }
+      }
+    };
+  } else {
+    // Single-handler contract
+    return {
+      ...mapSpec,
+      nodes: mapSpecNodes,
+      edges: mapSpecEdges
+    };
+  }
+}

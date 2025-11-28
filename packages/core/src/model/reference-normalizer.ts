@@ -244,7 +244,8 @@ function getDefaultFlow(type: ComponentType): string {
     view: 'sys-views',
     function: 'sys-functions',
     extension: 'sys-extensions',
-    workflow: 'sys-flows'
+    workflow: 'sys-flows',
+    mapper: 'sys-mappers'
   };
   return flowMap[type] || 'sys-flows';
 }

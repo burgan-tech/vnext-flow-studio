@@ -1,0 +1,150 @@
+/* HandlerTabBar.css - Tab navigation for contract handlers */
+
+.handler-tab-bar {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: relative;
+  z-index: 10;
+}
+
+.handler-tab-bar.single-handler {
+  padding: 8px 16px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+/* Tab bar header */
+.tab-bar-header {
+  padding: 8px 16px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Contract info */
+.contract-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contract-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.handler-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+/* Tab list */
+.tab-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.tab-list::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tab-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tab-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.tab-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tab button */
+.tab-button {
+  position: relative;
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  white-space: nowrap;
+  outline: none;
+}
+
+.tab-button:hover {
+  color: #1e293b;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.tab-button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
+.tab-button.active {
+  color: #1e293b;
+  font-weight: 600;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.95) 100%);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.tab-button.active:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 1) 100%);
+}
+
+/* Tab label */
+.tab-label {
+  user-select: none;
+}
+
+/* Active tab indicator */
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 -1px 4px rgba(59, 130, 246, 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .tab-button {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+
+  .contract-type-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}

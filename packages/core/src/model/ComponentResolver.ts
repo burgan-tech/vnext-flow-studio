@@ -23,7 +23,7 @@ import { findJsonFiles, findDirectories } from '../utils/filesystem.js';
 /**
  * Component type identifier
  */
-export type ComponentType = 'task' | 'schema' | 'view' | 'function' | 'extension' | 'workflow';
+export type ComponentType = 'task' | 'schema' | 'view' | 'function' | 'extension' | 'workflow' | 'mapper';
 
 /**
  * Default search paths for each component type.
@@ -43,7 +43,8 @@ export const DEFAULT_COMPONENT_SEARCH_PATHS = {
   view: ['Views', 'views', 'sys-views'],
   function: ['Functions', 'functions', 'sys-functions'],
   extension: ['Extensions', 'extensions', 'sys-extensions'],
-  workflow: ['Workflows', 'workflows', 'flows', 'sys-flows', '.']
+  workflow: ['Workflows', 'workflows', 'flows', 'sys-flows', '.'],
+  mapper: ['Mappers', 'mappers', 'sys-mappers']
 } as const satisfies Record<ComponentType, readonly string[]>;
 
 /**
@@ -72,7 +73,8 @@ const DEFAULT_SEARCH_PATHS = {
   views: [...DEFAULT_COMPONENT_SEARCH_PATHS.view],
   functions: [...DEFAULT_COMPONENT_SEARCH_PATHS.function],
   extensions: [...DEFAULT_COMPONENT_SEARCH_PATHS.extension],
-  workflows: [...DEFAULT_COMPONENT_SEARCH_PATHS.workflow]
+  workflows: [...DEFAULT_COMPONENT_SEARCH_PATHS.workflow],
+  mappers: [...DEFAULT_COMPONENT_SEARCH_PATHS.mapper]
 };
 
 /**
@@ -89,6 +91,7 @@ export interface ComponentResolverOptions {
     functions?: string[];
     extensions?: string[];
     workflows?: string[];
+    mappers?: string[];
   };
   /** Whether to use caching */
   useCache?: boolean;
@@ -108,6 +111,7 @@ export class ComponentResolver implements IComponentResolver {
   private functionCache: Map<string, FunctionDefinition> = new Map();
   private extensionCache: Map<string, ExtensionDefinition> = new Map();
   private workflowCache: Map<string, Workflow> = new Map();
+  private mapperCache: Map<string, any> = new Map(); // Mapper definitions (ContractMapSpec)
 
   // File watcher (optional)
   private watcher?: ComponentWatcher;
@@ -229,6 +233,28 @@ export class ComponentResolver implements IComponentResolver {
     // Cache it
     if (component && this.options.useCache) {
       this.extensionCache.set(cacheKey, component);
+    }
+
+    return component;
+  }
+
+  /**
+   * Resolve a mapper reference
+   */
+  async resolveMapper(ref: ComponentRef | { ref: string }): Promise<any | null> {
+    const cacheKey = this.getCacheKey(ref);
+
+    // Check cache
+    if (this.options.useCache && this.mapperCache.has(cacheKey)) {
+      return this.mapperCache.get(cacheKey)!;
+    }
+
+    // Resolve the component
+    const component = await this.resolveComponent<any>(ref, 'mappers');
+
+    // Cache it
+    if (component && this.options.useCache) {
+      this.mapperCache.set(cacheKey, component);
     }
 
     return component;
@@ -412,7 +438,7 @@ export class ComponentResolver implements IComponentResolver {
    */
   private async resolveComponent<T>(
     ref: ComponentRef | { ref: string },
-    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions'
+    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'mappers'
   ): Promise<T | null> {
     // Handle ref-style reference
     if ('ref' in ref) {
@@ -447,7 +473,7 @@ export class ComponentResolver implements IComponentResolver {
    */
   private async resolveExplicitRef<T>(
     ref: ComponentRef,
-    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions'
+    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'mappers'
   ): Promise<T | null> {
     const basePath = this.options.basePath || process.cwd();
     const searchPaths = this.options.searchPaths![type] || [];
@@ -519,7 +545,7 @@ export class ComponentResolver implements IComponentResolver {
    */
   private async searchForComponent<T>(
     ref: ComponentRef,
-    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'workflows'
+    type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'workflows' | 'mappers'
   ): Promise<T | null> {
     const basePath = this.options.basePath || process.cwd();
     const searchPaths = this.options.searchPaths![type] || [];
@@ -585,6 +611,7 @@ export class ComponentResolver implements IComponentResolver {
     functions: FunctionDefinition[];
     extensions: ExtensionDefinition[];
     workflows: Workflow[];
+    mappers: any[];
   }> {
     const result = {
       tasks: [] as TaskComponentDefinition[],
@@ -592,7 +619,8 @@ export class ComponentResolver implements IComponentResolver {
       views: [] as ViewDefinition[],
       functions: [] as FunctionDefinition[],
       extensions: [] as ExtensionDefinition[],
-      workflows: [] as Workflow[]
+      workflows: [] as Workflow[],
+      mappers: [] as any[]
     };
 
     const basePath = this.options.basePath || process.cwd();
@@ -601,7 +629,7 @@ export class ComponentResolver implements IComponentResolver {
 
     // Helper function to scan a directory for components
     const scanForComponents = async <T>(
-      type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'workflows',
+      type: 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'workflows' | 'mappers',
       cache: Map<string, T>
     ): Promise<T[]> => {
       const components: T[] = [];
@@ -638,17 +666,24 @@ export class ComponentResolver implements IComponentResolver {
                   continue;
                 }
 
-                // Distinguish workflows from other components
+                // Distinguish workflows, mappers, and other components
                 // Workflows have an 'attributes' object with 'states' and 'startTransition'
                 const isWorkflow = component.attributes &&
                                    component.attributes.states &&
                                    component.attributes.startTransition;
 
+                // Mappers have 'schemaParts' and potentially 'contractType' or 'handlers'
+                const isMapper = component.schemaParts &&
+                                 (component.contractType || component.handlers || component.nodes);
+
                 // Skip if types don't match
                 if (type === 'workflows' && !isWorkflow) {
                   continue;
                 }
-                if (type !== 'workflows' && isWorkflow) {
+                if (type === 'mappers' && !isMapper) {
+                  continue;
+                }
+                if (type !== 'workflows' && type !== 'mappers' && (isWorkflow || isMapper)) {
                   continue;
                 }
 
@@ -681,13 +716,14 @@ export class ComponentResolver implements IComponentResolver {
     };
 
     // Scan all component types in parallel
-    const [tasks, schemas, views, functions, extensions, workflows] = await Promise.all([
+    const [tasks, schemas, views, functions, extensions, workflows, mappers] = await Promise.all([
       scanForComponents<TaskComponentDefinition>('tasks', this.taskCache),
       scanForComponents<SchemaDefinition>('schemas', this.schemaCache),
       scanForComponents<ViewDefinition>('views', this.viewCache),
       scanForComponents<FunctionDefinition>('functions', this.functionCache),
       scanForComponents<ExtensionDefinition>('extensions', this.extensionCache),
-      scanForComponents<Workflow>('workflows', this.workflowCache)
+      scanForComponents<Workflow>('workflows', this.workflowCache),
+      scanForComponents<any>('mappers', this.mapperCache)
     ]);
 
     result.tasks = tasks;
@@ -696,6 +732,7 @@ export class ComponentResolver implements IComponentResolver {
     result.functions = functions;
     result.extensions = extensions;
     result.workflows = workflows;
+    result.mappers = mappers;
 
     return result;
   }
@@ -710,6 +747,7 @@ export class ComponentResolver implements IComponentResolver {
     functions: FunctionDefinition[];
     extensions: ExtensionDefinition[];
     workflows: Workflow[];
+    mappers: any[];
   } {
     return {
       tasks: Array.from(this.taskCache.values()),
@@ -717,7 +755,8 @@ export class ComponentResolver implements IComponentResolver {
       views: Array.from(this.viewCache.values()),
       functions: Array.from(this.functionCache.values()),
       extensions: Array.from(this.extensionCache.values()),
-      workflows: Array.from(this.workflowCache.values())
+      workflows: Array.from(this.workflowCache.values()),
+      mappers: Array.from(this.mapperCache.values())
     };
   }
 

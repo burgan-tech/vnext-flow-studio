@@ -10,6 +10,27 @@ import { calculateSchemaHash } from '../../../core/src/mapper/schemaHashUtils';
  */
 
 /**
+ * Valid mapper file extensions (including contract-specific types)
+ */
+const MAPPER_FILE_PATTERNS = [
+  '.mapper.json',
+  '.mapping.json',
+  '.condition.json',
+  '.transition.json',
+  '.subflow.json',
+  '.subprocess.json',
+  '.timer.json'
+];
+
+/**
+ * Check if a file is a valid mapper file
+ */
+function isMapperFile(filePath: string): boolean {
+  const lowerPath = filePath.toLowerCase();
+  return MAPPER_FILE_PATTERNS.some(pattern => lowerPath.endsWith(pattern));
+}
+
+/**
  * Get the diagram file URI for a mapper file
  * Places diagram files in a .meta subdirectory
  */
@@ -45,8 +66,8 @@ async function openMapperEditor(
   console.log('[openMapperEditor] Called with:', mapperUri.toString(), 'providedPanel:', !!providedPanel);
   try {
     // Validate file extension
-    if (!mapperUri.path.endsWith('.mapper.json')) {
-      const errorMsg = `Mapper Editor can only open *.mapper.json files. File: ${mapperUri.path}`;
+    if (!isMapperFile(mapperUri.path)) {
+      const errorMsg = `Mapper Editor can only open mapper files (*.mapper.json, *.mapping.json, *.condition.json, etc.). File: ${mapperUri.path}`;
       console.error(errorMsg);
       vscode.window.showErrorMessage(errorMsg);
       return;
@@ -183,9 +204,23 @@ async function openMapperEditor(
       console.log('No GraphLayout file found (optional):', layoutUri.path);
     }
 
-    // Helper function to load schema from file reference
+    // Helper function to load schema from file reference or platform schema
     const loadSchemaFromPath = async (schemaPath: string) => {
       try {
+        // Check if this is a platform schema reference
+        if (schemaPath.startsWith('platform://')) {
+          console.log(`Loading platform schema: ${schemaPath}`);
+          const { resolvePlatformSchema } = require('../../../core/src/mapper/platformSchemas');
+          const platformSchema = resolvePlatformSchema(schemaPath);
+          if (platformSchema) {
+            console.log(`Platform schema loaded: ${schemaPath}`);
+            return platformSchema;
+          } else {
+            console.warn(`Platform schema not found: ${schemaPath}`);
+            return null;
+          }
+        }
+
         let schemaUri: vscode.Uri;
 
         // Handle relative paths relative to the workspace root or mapper file
@@ -339,9 +374,45 @@ async function openMapperEditor(
       loadedTargetSchema = mapSpec.schemas.targetSchema;
     }
 
+    // Load platform schemas for contract mappers (from schemaParts)
+    let activeHandler: string | undefined;
+    if (mapSpec.schemaParts || mapSpec.handlers) {
+      console.log('Detected contract mapper with schemaParts or handlers');
+      const { loadPlatformSchemas } = require('../../../core/src/mapper/mapperAdapter');
+
+      // If this is a contract mapper with handlers, load schemas for each handler
+      if (mapSpec.handlers) {
+        console.log('Loading schemas for contract handlers:', Object.keys(mapSpec.handlers));
+        const handlerNames = Object.keys(mapSpec.handlers);
+        activeHandler = handlerNames[0]; // Default to first handler
+
+        for (const [handlerName, handlerSpec] of Object.entries(mapSpec.handlers as any)) {
+          if (handlerSpec.schemaParts) {
+            console.log(`Loading platform schemas for handler: ${handlerName}`);
+            handlerSpec.schemaParts = loadPlatformSchemas(handlerSpec.schemaParts);
+          }
+        }
+
+        // Flatten the active handler's data to top level for MapperCanvas compatibility
+        const activeHandlerSpec = mapSpec.handlers[activeHandler];
+        if (activeHandlerSpec) {
+          console.log(`Flattening active handler '${activeHandler}' to top level`);
+          mapSpec.schemaParts = activeHandlerSpec.schemaParts;
+          mapSpec.nodes = activeHandlerSpec.nodes || [];
+          mapSpec.edges = activeHandlerSpec.edges || [];
+        }
+      } else if (mapSpec.schemaParts) {
+        // Single schemaParts structure (not handler-based)
+        console.log('Loading platform schemas for schemaParts');
+        mapSpec.schemaParts = loadPlatformSchemas(mapSpec.schemaParts);
+      }
+    }
+
     console.log('Prepared mapSpec with schemas:', {
       hasSource: !!loadedSourceSchema,
-      hasTarget: !!loadedTargetSchema
+      hasTarget: !!loadedTargetSchema,
+      hasHandlers: !!mapSpec.handlers,
+      hasSchemaParts: !!mapSpec.schemaParts
     });
 
     // Don't send init immediately - wait for webview to be ready
@@ -942,8 +1013,8 @@ export function registerMapperEditor(context: vscode.ExtensionContext, modelBrid
 
       console.log('[mapperEditor.open] Opening mapper:', mapperUri.toString());
 
-      if (!mapperUri.path.endsWith('.mapper.json')) {
-        vscode.window.showErrorMessage('Please select a *.mapper.json file');
+      if (!isMapperFile(mapperUri.path)) {
+        vscode.window.showErrorMessage('Please select a valid mapper file (*.mapper.json, *.mapping.json, *.condition.json, etc.)');
         return;
       }
 

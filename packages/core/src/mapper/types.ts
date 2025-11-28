@@ -497,3 +497,8 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
     target: {}
   }
 ];
+
+// Export contract-related types and utilities
+export * from './contractTypes';
+export * from './platformSchemas';
+export * from './contractTemplates';

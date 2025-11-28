@@ -205,6 +205,30 @@
         "selector": [
           {
             "filenamePattern": "*.mapper.json"
+          },
+          {
+            "filenamePattern": "*.mapping.json"
+          },
+          {
+            "filenamePattern": "*.condition.json"
+          },
+          {
+            "filenamePattern": "*.transition.json"
+          },
+          {
+            "filenamePattern": "*.subflow.json"
+          },
+          {
+            "filenamePattern": "*.subprocess.json"
+          },
+          {
+            "filenamePattern": "*.timer.json"
+          },
+          {
+            "filenamePattern": "**/Mappers/**/*.json"
+          },
+          {
+            "filenamePattern": "**/mappers/**/*.json"
           }
         ],
         "priority": "default"
