@@ -6,6 +6,7 @@
 
 import type { ContractType } from './contractTypes';
 import type { PartDefinition } from './types';
+import { resolvePlatformSchema } from './platformSchemas';
 
 /**
  * Handler schema template
@@ -283,9 +284,6 @@ export function createInitialSchemaParts(
     return undefined;
   }
 
-  // Import platform schemas dynamically
-  const { resolvePlatformSchema } = require('./platformSchemas');
-
   // Build source parts with loaded schemas
   const source: Record<string, PartDefinition> = {};
   for (const [partName, partDef] of Object.entries(handlerTemplate.source)) {
@@ -327,13 +325,13 @@ export function getDefaultReturnTypeSchema(contractType: ContractType): any {
         description: 'Dynamic object for transition data'
       };
 
-    case 'ITimerMapping':
+    case 'ITimerMapping': {
       // Use platform schema
-      const { resolvePlatformSchema } = require('./platformSchemas');
       return resolvePlatformSchema('TimerSchedule') || {
         type: 'object',
         additionalProperties: true
       };
+    }
 
     default:
       return {

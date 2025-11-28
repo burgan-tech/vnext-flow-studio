@@ -4,8 +4,8 @@
  * and that generated code will implement the contract correctly
  */
 
-import type { ContractMapSpec, ContractType, HandlerMapSpec } from './contractTypes';
-import { CONTRACT_DEFINITIONS, getContractDefinition, isMultiMethodContract } from './contractTypes';
+import type { ContractMapSpec, HandlerMapSpec } from './contractTypes';
+import { getContractDefinition, isMultiMethodContract } from './contractTypes';
 
 /**
  * Validation severity level

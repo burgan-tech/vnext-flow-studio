@@ -4,10 +4,9 @@
  * Wraps the existing IR-based C# generator with contract-specific scaffolding
  */
 
-import type { ContractMapSpec, ContractType, HandlerMapSpec } from './contractTypes';
+import type { ContractMapSpec, HandlerMapSpec } from './contractTypes';
 import type { MapSpec } from './types';
 import {
-  CONTRACT_DEFINITIONS,
   getContractDefinition,
   isMultiMethodContract
 } from './contractTypes';

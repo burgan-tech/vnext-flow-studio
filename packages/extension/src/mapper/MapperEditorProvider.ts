@@ -3,6 +3,8 @@ import * as path from 'path';
 import { autoLayoutMapper } from '../../../core/src/mapper/mapperLayout';
 import { ComponentResolverManager } from '../../../core/src/model/ComponentResolverManager';
 import { calculateSchemaHash } from '../../../core/src/mapper/schemaHashUtils';
+import { resolvePlatformSchema } from '../../../core/src/mapper/platformSchemas';
+import { loadPlatformSchemas } from '../../../core/src/mapper/mapperAdapter';
 
 /**
  * MapperEditorProvider - Custom editor for *.mapper.json files
@@ -210,7 +212,6 @@ async function openMapperEditor(
         // Check if this is a platform schema reference
         if (schemaPath.startsWith('platform://')) {
           console.log(`Loading platform schema: ${schemaPath}`);
-          const { resolvePlatformSchema } = require('../../../core/src/mapper/platformSchemas');
           const platformSchema = resolvePlatformSchema(schemaPath);
           if (platformSchema) {
             console.log(`Platform schema loaded: ${schemaPath}`);
@@ -378,7 +379,6 @@ async function openMapperEditor(
     let activeHandler: string | undefined;
     if (mapSpec.schemaParts || mapSpec.handlers) {
       console.log('Detected contract mapper with schemaParts or handlers');
-      const { loadPlatformSchemas } = require('../../../core/src/mapper/mapperAdapter');
 
       // If this is a contract mapper with handlers, load schemas for each handler
       if (mapSpec.handlers) {

@@ -7,6 +7,7 @@ import type { Node, Edge as ReactFlowEdge } from '@xyflow/react';
 import type { MapSpec, MapSpecNode, Edge, JSONSchema, NodeKind, GraphLayout, NodeLayout, SchemaOverlays } from './types';
 import { buildSchemaTree, applyOverlaysToSchema, extractUserAddedPaths } from './adapter';
 import { functoidRegistry } from './registry';
+import { resolvePlatformSchema } from './platformSchemas';
 
 
 /**
@@ -525,8 +526,6 @@ export function applyGraphLayoutToNodes(nodes: Node[], layout: GraphLayout | nul
  * Resolves platform:// schema references to actual JSON schemas
  */
 export function loadPlatformSchemas(schemaParts: import('./types').SchemaParts): import('./types').SchemaParts {
-  const { resolvePlatformSchema } = require('./platformSchemas');
-
   const loadedParts = { ...schemaParts };
 
   // Load source schemas
