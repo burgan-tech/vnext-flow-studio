@@ -1,0 +1,49 @@
+{
+  "key": "order-mapper",
+  "domain": "ecommerce",
+  "flow": "mappers",
+  "version": "1.0.0",
+  "contractType": "IMapping",
+  "namespace": "ECommerce.Mappers",
+  "className": "OrderMapper",
+  "handlers": {
+    "InputHandler": {
+      "schemaParts": {
+        "source": {
+          "context": {
+            "schemaRef": "platform://ScriptContext"
+          },
+          "task": {
+            "schemaRef": "platform://WorkflowTask"
+          }
+        },
+        "target": {
+          "response": {
+            "schemaRef": "platform://ScriptResponse"
+          }
+        }
+      },
+      "nodes": [],
+      "edges": []
+    },
+    "OutputHandler": {
+      "schemaParts": {
+        "source": {
+          "context": {
+            "schemaRef": "platform://ScriptContext"
+          },
+          "task": {
+            "schemaRef": "platform://WorkflowTask"
+          }
+        },
+        "target": {
+          "response": {
+            "schemaRef": "platform://ScriptResponse"
+          }
+        }
+      },
+      "nodes": [],
+      "edges": []
+    }
+  }
+}

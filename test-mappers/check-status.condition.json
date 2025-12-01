@@ -1,0 +1,30 @@
+{
+  "key": "check-status",
+  "domain": "core",
+  "flow": "mappers",
+  "version": "1.0.0",
+  "contractType": "IConditionMapping",
+  "namespace": "Core.Conditions",
+  "className": "CheckStatusCondition",
+  "handlers": {
+    "ConditionHandler": {
+      "schemaParts": {
+        "source": {
+          "context": {
+            "schemaRef": "platform://ScriptContext"
+          },
+          "task": {
+            "schemaRef": "platform://WorkflowTask"
+          }
+        },
+        "target": {
+          "result": {
+            "type": "boolean"
+          }
+        }
+      },
+      "nodes": [],
+      "edges": []
+    }
+  }
+}

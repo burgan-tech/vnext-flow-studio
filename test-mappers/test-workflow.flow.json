@@ -1,0 +1,32 @@
+{
+  "key": "test-workflow",
+  "domain": "ecommerce",
+  "flow": "core",
+  "version": "1.0.0",
+  "states": [
+    {
+      "name": "ProcessOrder",
+      "type": "task",
+      "task": {
+        "key": "http-task",
+        "domain": "core",
+        "flow": "sys-tasks",
+        "version": "1.0.0"
+      },
+      "transitions": [
+        {
+          "name": "ToComplete",
+          "to": "Complete",
+          "type": "direct",
+          "mapping": {
+            "ref": "ecommerce/mappers/order-mapper@1.0.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Complete",
+      "type": "final"
+    }
+  ]
+}

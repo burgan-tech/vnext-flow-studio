@@ -448,8 +448,36 @@ async function openMapperEditor(
               sourceSchema: loadedSourceSchema,
               targetSchema: loadedTargetSchema,
               graphLayout,
-              outdatedSchemas
+              outdatedSchemas,
+              // Handler metadata for contract mappers
+              contractType: mapSpec.contractType,
+              handlers: mapSpec.handlers ? Object.keys(mapSpec.handlers) : undefined,
+              activeHandler: activeHandler
             });
+            break;
+          }
+
+          case 'switchHandler': {
+            // Handle switching between handlers in contract mappers
+            const newHandler = message.handler;
+            console.log(`Switching to handler: ${newHandler}`);
+
+            if (mapSpec.handlers && mapSpec.handlers[newHandler]) {
+              activeHandler = newHandler;
+              const handlerSpec = mapSpec.handlers[newHandler];
+
+              // Flatten the new active handler's data
+              mapSpec.schemaParts = handlerSpec.schemaParts;
+              mapSpec.nodes = handlerSpec.nodes || [];
+              mapSpec.edges = handlerSpec.edges || [];
+
+              // Send updated mapSpec back to webview
+              panel.webview.postMessage({
+                type: 'handlerSwitched',
+                mapSpec,
+                activeHandler: newHandler
+              });
+            }
             break;
           }
 

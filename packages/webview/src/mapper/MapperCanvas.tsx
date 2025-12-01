@@ -33,7 +33,7 @@ import {
   calculateSchemaHash
 } from '../../../core/src/mapper';
 import type { JSONSchema, MapSpec, NodeKind, GraphLayout, SchemaOverlays, SchemaOverlay, PartDefinition } from '../../../core/src/mapper';
-import { SchemaNodeTreeView, FunctoidNode, SchemaInferenceDialog, FunctoidPalette, FunctoidConfigPanel, ExecutionPreviewPanel, PartManagerPanel, SchemaUpdateWarningDialog } from './components';
+import { SchemaNodeTreeView, FunctoidNode, SchemaInferenceDialog, FunctoidPalette, FunctoidConfigPanel, ExecutionPreviewPanel, PartManagerPanel, SchemaUpdateWarningDialog, HandlerTabBar } from './components';
 import { traceUpstreamDependencies } from './utils/highlightTracer';
 import { HighlightContext } from './contexts/HighlightContext';
 // Sample schemas removed - users must import or reference schemas explicitly
@@ -53,8 +53,9 @@ export interface OutdatedSchema {
  * Messages from extension to webview
  */
 type MsgFromExtension =
-  | { type: 'init'; mapSpec: MapSpec; fileUri: string; sourceSchema: any; targetSchema: any; graphLayout?: GraphLayout; outdatedSchemas?: OutdatedSchema[] }
+  | { type: 'init'; mapSpec: MapSpec; fileUri: string; sourceSchema: any; targetSchema: any; graphLayout?: GraphLayout; outdatedSchemas?: OutdatedSchema[]; contractType?: string; handlers?: string[]; activeHandler?: string }
   | { type: 'reload'; mapSpec: MapSpec; sourceSchema: any; targetSchema: any; graphLayout?: GraphLayout }
+  | { type: 'handlerSwitched'; mapSpec: MapSpec; activeHandler: string }
   | { type: 'layoutComputed'; graphLayout: GraphLayout }
   | { type: 'schemaLoaded'; schema: any; side: 'source' | 'target'; path: string; partName?: string; applyImmediately?: boolean }
   | { type: 'schemaFilePicked'; path: string; side: 'source' | 'target'; partName: string };
@@ -69,6 +70,7 @@ type MsgToExtension =
   | { type: 'autoLayout'; nodeSizes: Record<string, { width: number; height: number }>; currentPositions: Record<string, { x: number; y: number }>; handlePositions: Record<string, Record<string, number>> }
   | { type: 'loadSchema'; path: string; side: 'source' | 'target'; partName?: string; applyImmediately?: boolean }
   | { type: 'pickSchemaFile'; side: 'source' | 'target'; partName: string }
+  | { type: 'switchHandler'; handler: string }
   | { type: 'error'; message: string }
   | { type: 'info'; message: string };
 
@@ -125,6 +127,11 @@ function MapperCanvasInner() {
   const [targetSchema, setTargetSchema] = useState<JSONSchema | null>(null);
   const [schemaOverlays, setSchemaOverlays] = useState<SchemaOverlays>({});
   const [fileUri, setFileUri] = useState<string>('');
+
+  // Contract mapper handler state
+  const [contractType, setContractType] = useState<string | undefined>();
+  const [handlers, setHandlers] = useState<string[] | undefined>();
+  const [activeHandler, setActiveHandler] = useState<string | undefined>();
 
   // Schema inference dialog state
   const [inferenceDialogOpen, setInferenceDialogOpen] = useState(false);
@@ -512,6 +519,15 @@ function MapperCanvasInner() {
           console.log('Has graphLayout:', !!message.graphLayout);
 
           setFileUri(message.fileUri);
+
+          // Set handler state for contract mappers
+          if (message.contractType) {
+            console.log('Contract mapper detected:', message.contractType, 'handlers:', message.handlers);
+            setContractType(message.contractType);
+            setHandlers(message.handlers);
+            setActiveHandler(message.activeHandler);
+          }
+
           // Use schemas passed separately (not from mapSpec)
           const srcSchema = message.sourceSchema || null;
           const tgtSchema = message.targetSchema || null;
@@ -549,6 +565,16 @@ function MapperCanvasInner() {
           setTimeout(() => {
             isReloadingRef.current = false;
           }, 1000);
+          break;
+        }
+
+        case 'handlerSwitched': {
+          // Handler switched in contract mapper
+          console.log('Handler switched to:', message.activeHandler);
+          setActiveHandler(message.activeHandler);
+
+          // Reinitialize with the new handler's flattened data
+          initializeFromMapSpec(message.mapSpec, null, null, null);
           break;
         }
 
@@ -1825,6 +1851,21 @@ function MapperCanvasInner() {
 
       {/* Main Canvas Area */}
       <div className="mapper-main-area">
+        {/* Handler Tab Bar for Contract Mappers */}
+        {handlers && handlers.length > 1 && (
+          <HandlerTabBar
+            handlers={handlers}
+            activeHandler={activeHandler || handlers[0]}
+            onHandlerChange={(handler) => {
+              console.log('Switching handler to:', handler);
+              if (vscodeApi) {
+                vscodeApi.postMessage({ type: 'switchHandler', handler });
+              }
+            }}
+            contractType={contractType}
+          />
+        )}
+
         {/* Toolbar */}
         <div className="mapper-toolbar">
           <button

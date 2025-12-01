@@ -1,0 +1,27 @@
+{
+  "key": "daily-cleanup",
+  "domain": "core",
+  "flow": "mappers",
+  "version": "1.0.0",
+  "contractType": "ITimerMapping",
+  "namespace": "Core.Timers",
+  "className": "DailyCleanupTimer",
+  "handlers": {
+    "TimerHandler": {
+      "schemaParts": {
+        "source": {
+          "context": {
+            "schemaRef": "platform://ScriptContext"
+          }
+        },
+        "target": {
+          "schedule": {
+            "schemaRef": "platform://TimerSchedule"
+          }
+        }
+      },
+      "nodes": [],
+      "edges": []
+    }
+  }
+}
