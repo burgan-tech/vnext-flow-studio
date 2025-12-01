@@ -274,10 +274,11 @@ async function openMapperEditor(
       // Check source parts
       if (mapSpec.schemaParts?.source) {
         for (const [partName, partDef] of Object.entries(mapSpec.schemaParts.source)) {
-          if (partDef.schemaSourcePath && partDef.schemaHash) {
+          const part = partDef as any;
+          if (part.schemaSourcePath && part.schemaHash) {
             try {
               // Load current schema from file
-              let loadedSchema = await loadSchemaFromPath(partDef.schemaSourcePath);
+              let loadedSchema = await loadSchemaFromPath(part.schemaSourcePath);
               if (loadedSchema) {
                 // If this is a platform schema (SchemaDefinition), extract the actual schema
                 // Platform schemas have structure: { key, domain, attributes: { schema: {...} } }
@@ -288,12 +289,12 @@ async function openMapperEditor(
                 // Calculate current hash
                 const currentHash = await calculateSchemaHash(loadedSchema);
                 // Compare with stored hash
-                if (currentHash !== partDef.schemaHash) {
+                if (currentHash !== part.schemaHash) {
                   outdated.push({
                     side: 'source',
                     partName,
                     currentHash,
-                    storedHash: partDef.schemaHash
+                    storedHash: part.schemaHash
                   });
                 }
               }
@@ -307,10 +308,11 @@ async function openMapperEditor(
       // Check target parts
       if (mapSpec.schemaParts?.target) {
         for (const [partName, partDef] of Object.entries(mapSpec.schemaParts.target)) {
-          if (partDef.schemaSourcePath && partDef.schemaHash) {
+          const part = partDef as any;
+          if (part.schemaSourcePath && part.schemaHash) {
             try {
               // Load current schema from file
-              let loadedSchema = await loadSchemaFromPath(partDef.schemaSourcePath);
+              let loadedSchema = await loadSchemaFromPath(part.schemaSourcePath);
               if (loadedSchema) {
                 // If this is a platform schema (SchemaDefinition), extract the actual schema
                 // Platform schemas have structure: { key, domain, attributes: { schema: {...} } }
@@ -321,12 +323,12 @@ async function openMapperEditor(
                 // Calculate current hash
                 const currentHash = await calculateSchemaHash(loadedSchema);
                 // Compare with stored hash
-                if (currentHash !== partDef.schemaHash) {
+                if (currentHash !== part.schemaHash) {
                   outdated.push({
                     side: 'target',
                     partName,
                     currentHash,
-                    storedHash: partDef.schemaHash
+                    storedHash: part.schemaHash
                   });
                 }
               }
@@ -441,19 +443,23 @@ async function openMapperEditor(
               console.log('Detected outdated schemas:', outdatedSchemas);
             }
 
-            panel.webview.postMessage({
-              type: 'init',
-              mapSpec,
-              fileUri: mapperUri.toString(),
-              sourceSchema: loadedSourceSchema,
-              targetSchema: loadedTargetSchema,
-              graphLayout,
-              outdatedSchemas,
-              // Handler metadata for contract mappers
-              contractType: mapSpec.contractType,
-              handlers: mapSpec.handlers ? Object.keys(mapSpec.handlers) : undefined,
-              activeHandler: activeHandler
-            });
+            try {
+              panel.webview.postMessage({
+                type: 'init',
+                mapSpec,
+                fileUri: mapperUri.toString(),
+                sourceSchema: loadedSourceSchema,
+                targetSchema: loadedTargetSchema,
+                graphLayout,
+                outdatedSchemas,
+                // Handler metadata for contract mappers
+                contractType: mapSpec.contractType,
+                handlers: mapSpec.handlers ? Object.keys(mapSpec.handlers) : undefined,
+                activeHandler: activeHandler
+              });
+            } catch (error) {
+              console.error('Failed to send init message (webview may be disposed):', error);
+            }
             break;
           }
 
@@ -464,7 +470,7 @@ async function openMapperEditor(
 
             if (mapSpec.handlers && mapSpec.handlers[newHandler]) {
               activeHandler = newHandler;
-              const handlerSpec = mapSpec.handlers[newHandler];
+              const handlerSpec = mapSpec.handlers[newHandler] as any;
 
               // Flatten the new active handler's data
               mapSpec.schemaParts = handlerSpec.schemaParts;
@@ -472,11 +478,15 @@ async function openMapperEditor(
               mapSpec.edges = handlerSpec.edges || [];
 
               // Send updated mapSpec back to webview
-              panel.webview.postMessage({
-                type: 'handlerSwitched',
-                mapSpec,
-                activeHandler: newHandler
-              });
+              try {
+                panel.webview.postMessage({
+                  type: 'handlerSwitched',
+                  mapSpec,
+                  activeHandler: newHandler
+                });
+              } catch (error) {
+                console.error('Failed to send handlerSwitched message (webview may be disposed):', error);
+              }
             }
             break;
           }
