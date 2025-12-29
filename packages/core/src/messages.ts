@@ -53,6 +53,7 @@ export type MsgFromWebview =
   | { type: 'ready' }
   | { type: 'persist:diagram'; diagram: Diagram }
   | { type: 'domain:setStart'; target: string }
+  | { type: 'domain:setCancel'; target: string }
   | { type: 'domain:addTransition'; from: string; target: string; triggerType?: 1 | 3 }
   | { type: 'domain:moveTransition'; oldFrom: string; tKey: string; newFrom: string; newTarget: string }
   | { type: 'domain:removeTransition'; from: string; tKey: string }

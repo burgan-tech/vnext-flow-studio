@@ -28,21 +28,37 @@ export type ViewDisplayMode =
 // View animation type
 export type ViewAnimation = 'slide' | 'fade' | 'scale' | 'none';
 
-// View metadata
+// View metadata (design-time extension, not in schema)
 export interface ViewMetadata {
   dismissible?: boolean;
   backdrop?: boolean;
   animation?: ViewAnimation;
 }
 
+// Platform-specific view override
+export interface PlatformViewOverride {
+  type?: ViewType;
+  content: string;
+  display: ViewDisplayMode;
+}
+
+// Platform overrides for views
+export interface ViewPlatformOverrides {
+  android?: PlatformViewOverride | null;
+  ios?: PlatformViewOverride | null;
+  web?: PlatformViewOverride | null;
+}
+
 // View attributes
 export interface ViewAttributes {
   type: ViewType;
-  target: ViewTarget;
+  target?: ViewTarget; // Optional design-time field
   content: string;
   labels?: Label[];
   display?: ViewDisplayMode;
-  metadata?: ViewMetadata;
+  platformOverrides?: ViewPlatformOverrides | null;
+  metadata?: ViewMetadata; // Optional design-time extension
+  _comment?: string;
 }
 
 // Main view definition interface

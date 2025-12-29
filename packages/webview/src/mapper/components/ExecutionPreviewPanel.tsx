@@ -11,12 +11,14 @@ export interface ExecutionPreviewPanelProps {
   isOpen: boolean;
   onClose: () => void;
   mapSpec: MapSpec;
+  activeHandler?: string;
 }
 
 export function ExecutionPreviewPanel({
   isOpen,
   onClose,
-  mapSpec
+  mapSpec,
+  activeHandler
 }: ExecutionPreviewPanelProps) {
   const [selectedLanguage, setSelectedLanguage] = useState<'jsonata' | 'csharp'>('jsonata');
   const [jsonataCode, setJsonataCode] = useState<string>('');
@@ -33,8 +35,21 @@ export function ExecutionPreviewPanel({
   useEffect(() => {
     if (isOpen) {
       try {
-        const jsonata = generateJSONata(mapSpec);
-        const csharp = generateCSharp(mapSpec);
+        // For contract mappers, flatten the MapSpec for the active handler
+        let targetMapSpec = mapSpec;
+        if (activeHandler && (mapSpec as any).handlers?.[activeHandler]) {
+          const handler = (mapSpec as any).handlers[activeHandler];
+          targetMapSpec = {
+            ...mapSpec,
+            nodes: handler.nodes || [],
+            edges: handler.edges || [],
+            schemaParts: handler.schemaParts,
+            schemaOverlays: handler.schemaOverlays
+          };
+        }
+
+        const jsonata = generateJSONata(targetMapSpec);
+        const csharp = generateCSharp(mapSpec); // C# generator handles contract mappers internally
         setJsonataCode(jsonata);
         setCsharpCode(csharp);
         setError('');
@@ -44,15 +59,28 @@ export function ExecutionPreviewPanel({
         setCsharpCode('');
       }
     }
-  }, [isOpen, mapSpec]);
+  }, [isOpen, mapSpec, activeHandler]);
 
   /**
    * Load example input data generated from source schema
    */
   const handleLoadExample = async () => {
     try {
+      // For contract mappers, flatten the MapSpec for the active handler
+      let targetMapSpec = mapSpec;
+      if (activeHandler && (mapSpec as any).handlers?.[activeHandler]) {
+        const handler = (mapSpec as any).handlers[activeHandler];
+        targetMapSpec = {
+          ...mapSpec,
+          nodes: handler.nodes || [],
+          edges: handler.edges || [],
+          schemaParts: handler.schemaParts,
+          schemaOverlays: handler.schemaOverlays
+        };
+      }
+
       // Generate fake data matching the source schema structure
-      const fakeData = await generateFakeDataForMapSpec(mapSpec, 'source', { seed: 12345 });
+      const fakeData = await generateFakeDataForMapSpec(targetMapSpec, 'source', { seed: 12345 });
       setInputJSON(JSON.stringify(fakeData, null, 2));
       setError('');
     } catch (err) {

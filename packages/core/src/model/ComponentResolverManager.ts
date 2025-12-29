@@ -74,11 +74,13 @@ export interface GlobalResolverOptions extends ComponentResolverOptions {
  */
 export class ComponentResolverManager {
   private static instance?: ComponentResolverManager;
+  private static instanceId = Math.random().toString(36).substring(7);
 
   /**
    * Map of workspace ID to global resolver instance
    */
   private globalResolvers: Map<string, ComponentResolver> = new Map();
+  private instanceId: string;
 
   /**
    * Map of workspace ID to lifecycle callbacks
@@ -88,15 +90,20 @@ export class ComponentResolverManager {
   /**
    * Private constructor for singleton pattern
    */
-  private constructor() {}
+  private constructor() {
+    this.instanceId = ComponentResolverManager.instanceId;
+    console.log('[ComponentResolverManager] NEW INSTANCE CREATED with ID:', this.instanceId);
+  }
 
   /**
    * Get the singleton instance of ComponentResolverManager
    */
   static getInstance(): ComponentResolverManager {
     if (!this.instance) {
+      console.log('[ComponentResolverManager] Creating singleton instance');
       this.instance = new ComponentResolverManager();
     }
+    console.log('[ComponentResolverManager] getInstance() returning instance with ID:', this.instance.instanceId);
     return this.instance;
   }
 
@@ -112,10 +119,16 @@ export class ComponentResolverManager {
   async getOrCreateGlobalResolver(options: GlobalResolverOptions): Promise<ComponentResolver> {
     const { workspaceId, lifecycle, enableWatching, ...resolverOptions } = options;
 
+    console.log('[ComponentResolverManager] getOrCreateGlobalResolver called with workspaceId:', workspaceId, 'Instance ID:', this.instanceId);
+    console.log('[ComponentResolverManager] Current resolvers in map:', Array.from(this.globalResolvers.keys()));
+
     // Return existing resolver if already created
     if (this.globalResolvers.has(workspaceId)) {
+      console.log('[ComponentResolverManager] Returning existing resolver for workspaceId:', workspaceId);
       return this.globalResolvers.get(workspaceId)!;
     }
+
+    console.log('[ComponentResolverManager] Creating new resolver for workspaceId:', workspaceId);
 
     // Dynamically import to avoid circular dependencies
     const { ComponentResolver } = await import('./ComponentResolver.js');
@@ -163,6 +176,8 @@ export class ComponentResolverManager {
 
     // Store the resolver
     this.globalResolvers.set(workspaceId, resolver);
+    console.log('[ComponentResolverManager] Stored resolver for workspaceId:', workspaceId);
+    console.log('[ComponentResolverManager] Map now contains:', Array.from(this.globalResolvers.keys()));
 
     return resolver;
   }
@@ -174,7 +189,11 @@ export class ComponentResolverManager {
    * @returns The resolver if it exists, undefined otherwise
    */
   getGlobalResolver(workspaceId: string): ComponentResolver | undefined {
-    return this.globalResolvers.get(workspaceId);
+    console.log('[ComponentResolverManager] getGlobalResolver called with workspaceId:', workspaceId, 'Instance ID:', this.instanceId);
+    console.log('[ComponentResolverManager] Map contains:', Array.from(this.globalResolvers.keys()));
+    const resolver = this.globalResolvers.get(workspaceId);
+    console.log('[ComponentResolverManager] Found resolver:', !!resolver);
+    return resolver;
   }
 
   /**

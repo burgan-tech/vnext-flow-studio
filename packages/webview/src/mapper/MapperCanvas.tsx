@@ -133,6 +133,18 @@ function MapperCanvasInner() {
   const [handlers, setHandlers] = useState<string[] | undefined>();
   const [activeHandler, setActiveHandler] = useState<string | undefined>();
 
+  // Use ref to avoid stale closure issues in callbacks
+  const activeHandlerRef = useRef<string | undefined>();
+  activeHandlerRef.current = activeHandler;
+
+  // Initialize activeHandler to first handler if not set
+  useEffect(() => {
+    if (handlers && handlers.length > 0 && !activeHandler) {
+      console.log(`Initializing activeHandler to first handler: ${handlers[0]}`);
+      setActiveHandler(handlers[0]);
+    }
+  }, [handlers, activeHandler]);
+
   // Schema inference dialog state
   const [inferenceDialogOpen, setInferenceDialogOpen] = useState(false);
   const [inferenceDialogSide, setInferenceDialogSide] = useState<'source' | 'target'>('source');
@@ -328,14 +340,15 @@ function MapperCanvasInner() {
     isLoadingRef.current = true;
 
     // Determine final schemas: use provided schemas, or let mapSpecToReactFlow build from parts
-    // If schemas are explicitly provided (not null/undefined), use them
-    // Otherwise pass null to let mapSpecToReactFlow build composite schemas from parts
-    const finalSourceSchema = (srcSchema !== undefined && srcSchema !== null)
-      ? srcSchema
-      : sourceSchema; // Can be null - mapSpecToReactFlow will build from parts
-    const finalTargetSchema = (tgtSchema !== undefined && tgtSchema !== null)
-      ? tgtSchema
-      : targetSchema; // Can be null - mapSpecToReactFlow will build from parts
+    // If schemas are explicitly provided, use them
+    // If explicitly null, rebuild from parts (don't use old state)
+    // If undefined (not provided), use current state
+    const finalSourceSchema = srcSchema !== undefined
+      ? srcSchema  // Use provided schema (or null to rebuild from parts)
+      : sourceSchema; // Not provided - use current state
+    const finalTargetSchema = tgtSchema !== undefined
+      ? tgtSchema  // Use provided schema (or null to rebuild from parts)
+      : targetSchema; // Not provided - use current state
 
     // For edge cleaning, we need actual schemas (build from parts if needed)
     const cleaningSourceSchema = finalSourceSchema || (newMapSpec.schemaParts?.source
@@ -345,8 +358,17 @@ function MapperCanvasInner() {
       ? buildCompositeSchemaFromParts(newMapSpec.schemaParts.target, newMapSpec.schemaParts.targetOrder)
       : { type: 'object', properties: {} });
 
+    // DEBUG: Log overlays before edge cleaning
+    console.log('[initializeFromMapSpec] Overlays present before cleaning:', {
+      hasSourceOverlays: !!(newMapSpec.schemaOverlays?.source?.length),
+      hasTargetOverlays: !!(newMapSpec.schemaOverlays?.target?.length),
+      sourceOverlayCount: newMapSpec.schemaOverlays?.source?.length || 0,
+      targetOverlayCount: newMapSpec.schemaOverlays?.target?.length || 0
+    });
+
     // Clean orphaned edges before loading (with schema validation)
-    const cleanedMapSpec = cleanOrphanedEdges(newMapSpec, cleaningSourceSchema, cleaningTargetSchema);
+    // Pass activeHandler so it cleans handler-specific edges for contract mappers
+    const cleanedMapSpec = cleanOrphanedEdges(newMapSpec, cleaningSourceSchema, cleaningTargetSchema, activeHandlerRef.current);
     setMapSpec(cleanedMapSpec);
 
     console.log('Using schemas:', {
@@ -359,7 +381,16 @@ function MapperCanvasInner() {
     setTargetSchema(cleaningTargetSchema);
 
     // Load schema extensions from MapSpec
-    setSchemaOverlays(cleanedMapSpec.schemaOverlays || {});
+    // For contract mappers, load from handler-specific overlays
+    let overlaysToLoad: SchemaOverlays = {};
+    if (activeHandlerRef.current && (cleanedMapSpec as any).handlers?.[activeHandlerRef.current]?.schemaOverlays) {
+      overlaysToLoad = (cleanedMapSpec as any).handlers[activeHandlerRef.current].schemaOverlays;
+      console.log('[initializeFromMapSpec] Loading handler-specific overlays:', activeHandlerRef.current);
+    } else if (cleanedMapSpec.schemaOverlays) {
+      overlaysToLoad = cleanedMapSpec.schemaOverlays;
+      console.log('[initializeFromMapSpec] Loading root-level overlays (fallback)');
+    }
+    setSchemaOverlays(overlaysToLoad);
 
     // Convert MapSpec to React Flow format
     // Pass null for schemas to let it build from parts, or pass explicit schemas if provided
@@ -367,7 +398,7 @@ function MapperCanvasInner() {
       cleanedMapSpec,
       finalSourceSchema,
       finalTargetSchema,
-      cleanedMapSpec.schemaOverlays
+      overlaysToLoad
     );
 
     console.log('Generated nodes:', rfNodes.length, 'edges:', rfEdges.length);
@@ -435,11 +466,17 @@ function MapperCanvasInner() {
           const enhancedSchema = applyOverlaysToSchema(schema, schemaOverlays[side]);
           const userAddedPaths = extractUserAddedPaths(schemaOverlays[side]);
 
+          // Check if this schema has parts (multi-part composite)
+          const parts = node.data.parts;
+          const isComposite = parts && Object.keys(parts).length > 0;
+
           const newTree = buildSchemaTree(
             enhancedSchema,
             '$',
             'root',
-            userAddedPaths
+            userAddedPaths,
+            undefined,
+            isComposite // Mark as composite root if has parts
           );
 
           console.log(`📊 Rebuilt ${side} tree:`, newTree);
@@ -525,7 +562,10 @@ function MapperCanvasInner() {
             console.log('Contract mapper detected:', message.contractType, 'handlers:', message.handlers);
             setContractType(message.contractType);
             setHandlers(message.handlers);
-            setActiveHandler(message.activeHandler);
+            // Default to first handler if not specified
+            const handler = message.activeHandler || (message.handlers && message.handlers[0]);
+            console.log('Setting activeHandler to:', handler);
+            setActiveHandler(handler);
           }
 
           // Use schemas passed separately (not from mapSpec)
@@ -572,8 +612,10 @@ function MapperCanvasInner() {
           // Handler switched in contract mapper
           console.log('Handler switched to:', message.activeHandler);
           setActiveHandler(message.activeHandler);
+          // Update ref immediately for initializeFromMapSpec to use
+          activeHandlerRef.current = message.activeHandler;
 
-          // Reinitialize with the new handler's flattened data
+          // Reinitialize with the new handler's flattened data (will load handler-specific overlays)
           initializeFromMapSpec(message.mapSpec, null, null, null);
           break;
         }
@@ -722,21 +764,59 @@ function MapperCanvasInner() {
       return;
     }
 
+    // Convert current nodes and edges to MapSpec format
+    const currentNodes = nodes
+      .filter(n => n.type === 'functoid')
+      .map(n => {
+        const msNode = reactFlowToMapSpecNode(n);
+        return msNode!;
+      })
+      .filter(Boolean);
+    const currentEdges = edges.map(e => reactFlowToMapSpecEdge(e));
+
+    // DEBUG: Log contract mapper state
+    console.log('[saveMapSpec] Contract mapper check:', {
+      contractType,
+      activeHandler,
+      hasHandlers: !!(mapSpec as any).handlers,
+      handlers: (mapSpec as any).handlers ? Object.keys((mapSpec as any).handlers) : []
+    });
+
     // Update MapSpec with current nodes, edges, and overlays
     // Schemas are embedded in schemaParts, no need for separate handling
     // Don't update timestamp - let user decide when to update metadata
-    const updatedMapSpec: MapSpec = {
-      ...mapSpec,
-      schemaOverlays: Object.keys(schemaOverlays).length > 0 ? schemaOverlays : undefined,
-      nodes: nodes
-        .filter(n => n.type === 'functoid')
-        .map(n => {
-          const msNode = reactFlowToMapSpecNode(n);
-          return msNode!;
-        })
-        .filter(Boolean),
-      edges: edges.map(e => reactFlowToMapSpecEdge(e))
-    };
+    let updatedMapSpec: MapSpec;
+
+    // For contract-based mappers, save to handler-specific arrays ONLY
+    // (top-level arrays would cause code gen to mix edges from different handlers)
+    if (contractType && activeHandler && (mapSpec as any).handlers) {
+      console.log(`[saveMapSpec] Contract mapper - saving to handler: ${activeHandler}`);
+
+      updatedMapSpec = {
+        ...mapSpec,
+        // Clear top-level data for contract mappers (data lives in handlers)
+        schemaOverlays: undefined,
+        nodes: [],
+        edges: [],
+        handlers: {
+          ...(mapSpec as any).handlers,
+          [activeHandler]: {
+            ...(mapSpec as any).handlers[activeHandler],
+            nodes: currentNodes,
+            edges: currentEdges,
+            schemaOverlays: Object.keys(schemaOverlays).length > 0 ? schemaOverlays : undefined
+          }
+        }
+      };
+    } else {
+      // Non-contract mappers: save to top-level arrays
+      updatedMapSpec = {
+        ...mapSpec,
+        schemaOverlays: Object.keys(schemaOverlays).length > 0 ? schemaOverlays : undefined,
+        nodes: currentNodes,
+        edges: currentEdges
+      };
+    }
 
     vscodeApi.postMessage({
       type: 'save',
@@ -744,7 +824,7 @@ function MapperCanvasInner() {
     });
 
     setMapSpec(updatedMapSpec);
-  }, [mapSpec, nodes, edges, schemaOverlays]);
+  }, [mapSpec, nodes, edges, schemaOverlays, contractType, activeHandler]);
 
   /**
    * Save GraphLayout (positions, viewport) back to VS Code
@@ -828,7 +908,33 @@ function MapperCanvasInner() {
       console.log('Adding property to regular free-form object using overlay');
 
       // Build the nested schema for this property
-      const pathSegments = path.replace(/^\$\.?/, '').split('.');
+      let pathSegments = path.replace(/^\$\.?/, '').split('.');
+      let schemaPath = '$'; // Default: apply at root
+
+      // Check if we're in a composite schema with parts
+      // For contract mappers, use handler-specific schemaParts
+      // Use ref to get current activeHandler value (avoid stale closure)
+      const currentHandler = activeHandlerRef.current;
+      let parts;
+      if (currentHandler && (mapSpec as any)?.handlers?.[currentHandler]?.schemaParts) {
+        parts = side === 'source'
+          ? (mapSpec as any).handlers[currentHandler].schemaParts.source
+          : (mapSpec as any).handlers[currentHandler].schemaParts.target;
+      } else {
+        parts = side === 'source' ? mapSpec?.schemaParts?.source : mapSpec?.schemaParts?.target;
+      }
+
+      if (parts && Object.keys(parts).length > 0 && pathSegments.length > 0) {
+        // Check if the first segment is a part name
+        const firstSegment = pathSegments[0];
+        if (parts[firstSegment]) {
+          // This is a multi-part schema - apply overlay at the part level
+          schemaPath = `$.${firstSegment}`;
+          // Remove the part name from path segments
+          pathSegments = pathSegments.slice(1);
+        }
+      }
+
       const nestedSchema = buildNestedSchema(pathSegments, propertyName, propertySchema);
 
       // Generate overlay ID with unique identifier (not using property name to avoid issues with renaming)
@@ -842,7 +948,7 @@ function MapperCanvasInner() {
         ...nestedSchema,
         metadata: {
           targetPath: `${path}.${propertyName}`,
-          schemaPath: '$', // Apply at root
+          schemaPath: schemaPath, // Apply at root or part level for composite schemas
           description: `User-added property: ${propertyName}`,
           createdAt: new Date().toISOString()
         }
@@ -861,8 +967,8 @@ function MapperCanvasInner() {
           }
 
           const updatedMapSpec = { ...currentMapSpec };
-          updatedMapSpec.schemas = updatedMapSpec.schemas || {};
-          updatedMapSpec.schemas[`${side}Overlays`] = updatedOverlays;
+          updatedMapSpec.schemaOverlays = updatedMapSpec.schemaOverlays || {};
+          updatedMapSpec.schemaOverlays[side] = updatedOverlays;
 
           // Send save message to extension
           if (vscodeApi) {
@@ -964,8 +1070,8 @@ function MapperCanvasInner() {
         }
 
         const updatedMapSpec = { ...currentMapSpec };
-        updatedMapSpec.schemas = updatedMapSpec.schemas || {};
-        updatedMapSpec.schemas[`${side}Overlays`] = updatedOverlays;
+        updatedMapSpec.schemaOverlays = updatedMapSpec.schemaOverlays || {};
+        updatedMapSpec.schemaOverlays[side] = updatedOverlays;
 
         // Send save message to extension
         if (vscodeApi) {
@@ -983,7 +1089,7 @@ function MapperCanvasInner() {
         [side]: updatedOverlays
       };
     });
-  }, [buildNestedSchema]);
+  }, [buildNestedSchema, mapSpec, activeHandler]);
 
   /**
    * Edit a user-defined property
@@ -1013,7 +1119,32 @@ function MapperCanvasInner() {
             // Path is now the parent path (without property name)
             // E.g., for "$.attributes.subResourceGrants"
             const cleanPath = path.replace(/^\$\.?/, ''); // Remove leading $ or $.
-            const parentSegments = cleanPath ? cleanPath.split('.') : [];
+            let parentSegments = cleanPath ? cleanPath.split('.') : [];
+            let schemaPath = overlay.metadata?.schemaPath || '$'; // Preserve existing schemaPath
+
+            // Check if we're in a composite schema with parts (for new overlays or when schemaPath is root)
+            if (schemaPath === '$') {
+              // For contract mappers, use handler-specific schemaParts
+              // Use ref to get current activeHandler value (avoid stale closure)
+              const currentHandler = activeHandlerRef.current;
+              let parts;
+              if (currentHandler && (mapSpec as any)?.handlers?.[currentHandler]?.schemaParts) {
+                parts = side === 'source'
+                  ? (mapSpec as any).handlers[currentHandler].schemaParts.source
+                  : (mapSpec as any).handlers[currentHandler].schemaParts.target;
+              } else {
+                parts = side === 'source' ? mapSpec?.schemaParts?.source : mapSpec?.schemaParts?.target;
+              }
+
+              if (parts && Object.keys(parts).length > 0 && parentSegments.length > 0) {
+                const firstSegment = parentSegments[0];
+                if (parts[firstSegment]) {
+                  // This is a multi-part schema - apply overlay at the part level
+                  schemaPath = `$.${firstSegment}`;
+                  parentSegments = parentSegments.slice(1);
+                }
+              }
+            }
 
             // Build the new nested schema with the parent path and new property name
             const nestedSchema = buildNestedSchema(parentSegments, propertyName, propertySchema);
@@ -1024,6 +1155,7 @@ function MapperCanvasInner() {
               metadata: {
                 ...overlay.metadata,
                 targetPath: newFullPath,  // Update to new full path
+                schemaPath: schemaPath,  // Preserve or set schemaPath for composite schemas
                 description: `User-added property: ${propertyName}${originalPropertyName !== propertyName ? ' (renamed)' : ' (edited)'}`
               }
             };
@@ -1069,8 +1201,8 @@ function MapperCanvasInner() {
         }
 
         const updatedMapSpec = { ...currentMapSpec };
-        updatedMapSpec.schemas = updatedMapSpec.schemas || {};
-        updatedMapSpec.schemas[`${side}Overlays`] = updatedOverlays;
+        updatedMapSpec.schemaOverlays = updatedMapSpec.schemaOverlays || {};
+        updatedMapSpec.schemaOverlays[side] = updatedOverlays;
 
         // Send save message to extension
         if (vscodeApi) {
@@ -1090,7 +1222,7 @@ function MapperCanvasInner() {
         [side]: updatedOverlays
       };
     });
-  }, [buildNestedSchema]);
+  }, [buildNestedSchema, mapSpec, activeHandler]);
 
   /**
    * Remove a user-defined property
@@ -1125,8 +1257,8 @@ function MapperCanvasInner() {
         }
 
         const updatedMapSpec = { ...currentMapSpec };
-        updatedMapSpec.schemas = updatedMapSpec.schemas || {};
-        updatedMapSpec.schemas[`${side}Overlays`] = remainingOverlays;
+        updatedMapSpec.schemaOverlays = updatedMapSpec.schemaOverlays || {};
+        updatedMapSpec.schemaOverlays[side] = remainingOverlays;
 
         // Send save message to extension
         if (vscodeApi) {
@@ -1159,20 +1291,49 @@ function MapperCanvasInner() {
 
     // Debounce saves
     const timer = setTimeout(() => {
+      // Convert current nodes and edges to MapSpec format
+      const currentNodes = nodes
+        .filter(n => n.type === 'functoid')
+        .map(n => {
+          const msNode = reactFlowToMapSpecNode(n);
+          return msNode!;
+        })
+        .filter(Boolean);
+      const currentEdges = edges.map(e => reactFlowToMapSpecEdge(e));
+
       // Update MapSpec with current state
       // Schemas are embedded in schemaParts, no separate handling needed
-      const updatedMapSpec: MapSpec = {
-        ...mapSpec,
-        schemaOverlays: Object.keys(schemaOverlays).length > 0 ? schemaOverlays : undefined,
-        nodes: nodes
-          .filter(n => n.type === 'functoid')
-          .map(n => {
-            const msNode = reactFlowToMapSpecNode(n);
-            return msNode!;
-          })
-          .filter(Boolean),
-        edges: edges.map(e => reactFlowToMapSpecEdge(e))
-      };
+      let updatedMapSpec: MapSpec;
+
+      // For contract-based mappers, save to handler-specific arrays ONLY
+      if (contractType && activeHandler && (mapSpec as any).handlers) {
+        console.log(`💾 Auto-saving to handler: ${activeHandler}`);
+
+        updatedMapSpec = {
+          ...mapSpec,
+          // Clear top-level data for contract mappers (data lives in handlers)
+          schemaOverlays: undefined,
+          nodes: [],
+          edges: [],
+          handlers: {
+            ...(mapSpec as any).handlers,
+            [activeHandler]: {
+              ...(mapSpec as any).handlers[activeHandler],
+              nodes: currentNodes,
+              edges: currentEdges,
+              schemaOverlays: Object.keys(schemaOverlays).length > 0 ? schemaOverlays : undefined
+            }
+          }
+        };
+      } else {
+        // Non-contract mappers: save to top-level arrays
+        updatedMapSpec = {
+          ...mapSpec,
+          schemaOverlays: Object.keys(schemaOverlays).length > 0 ? schemaOverlays : undefined,
+          nodes: currentNodes,
+          edges: currentEdges
+        };
+      }
 
       console.log('💾 Auto-saving MapSpec with overlays:', updatedMapSpec.schemaOverlays);
 
@@ -1186,7 +1347,7 @@ function MapperCanvasInner() {
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, schemaOverlays, vscodeApi]); // Trigger on nodes/edges/overlays changes
+  }, [nodes, edges, schemaOverlays, vscodeApi, contractType, activeHandler]); // Trigger on nodes/edges/overlays changes
 
   /**
    * Auto-save GraphLayout when nodes move (debounced)
@@ -1858,6 +2019,8 @@ function MapperCanvasInner() {
             activeHandler={activeHandler || handlers[0]}
             onHandlerChange={(handler) => {
               console.log('Switching handler to:', handler);
+              // Update local state immediately for better UX
+              setActiveHandler(handler);
               if (vscodeApi) {
                 vscodeApi.postMessage({ type: 'switchHandler', handler });
               }
@@ -1996,6 +2159,7 @@ function MapperCanvasInner() {
           isOpen={previewPanelOpen}
           onClose={() => setPreviewPanelOpen(false)}
           mapSpec={mapSpec}
+          activeHandler={activeHandler}
         />
       )}
 

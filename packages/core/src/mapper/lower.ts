@@ -98,12 +98,33 @@ function handleExistsInSchema(
 export function cleanOrphanedEdges(
   mapSpec: MapSpec,
   sourceSchema?: JSONSchema | null,
-  targetSchema?: JSONSchema | null
+  targetSchema?: JSONSchema | null,
+  activeHandler?: string
 ): MapSpec {
+  // Determine which nodes/edges/overlays to use based on handler presence
+  let nodes: any[] = [];
+  let edges: any[] = [];
+  let overlays: any = {};
+
+  // For contract mappers with handlers, use handler-specific data
+  if (activeHandler && (mapSpec as any).handlers?.[activeHandler]) {
+    const handler = (mapSpec as any).handlers[activeHandler];
+    nodes = handler.nodes || [];
+    edges = handler.edges || [];
+    overlays = handler.schemaOverlays || {};
+    console.log(`[cleanOrphanedEdges] Using handler-specific data: ${activeHandler}`);
+  } else {
+    // For non-contract mappers, use root-level data
+    nodes = mapSpec.nodes || [];
+    edges = mapSpec.edges || [];
+    overlays = mapSpec.schemaOverlays || {};
+    console.log('[cleanOrphanedEdges] Using root-level data');
+  }
+
   // Build set of valid node IDs (filter out undefined/null nodes)
   const nodeIds = new Set<string>();
-  if (mapSpec.nodes && Array.isArray(mapSpec.nodes)) {
-    for (const node of mapSpec.nodes) {
+  if (nodes && Array.isArray(nodes)) {
+    for (const node of nodes) {
       if (node && node.id) {
         nodeIds.add(node.id);
       }
@@ -113,10 +134,36 @@ export function cleanOrphanedEdges(
   nodeIds.add('target-schema');
 
   // Apply overlays to schemas at their specified paths for validation
-  const enhancedSourceSchema = sourceSchema ? applyOverlaysToSchema(sourceSchema, mapSpec.schemaOverlays?.source) : null;
-  const enhancedTargetSchema = targetSchema ? applyOverlaysToSchema(targetSchema, mapSpec.schemaOverlays?.target) : null;
+  const enhancedSourceSchema = sourceSchema ? applyOverlaysToSchema(sourceSchema, overlays?.source) : null;
+  const enhancedTargetSchema = targetSchema ? applyOverlaysToSchema(targetSchema, overlays?.target) : null;
 
-  const validEdges = mapSpec.edges.filter(edge => {
+  // DEBUG: Log overlay application with nested structure
+  const getNestedPaths = (schema: JSONSchema | null | undefined, prefix = '$'): string[] => {
+    if (!schema || !schema.properties) return [];
+    const paths: string[] = [];
+    for (const [key, value] of Object.entries(schema.properties)) {
+      const path = `${prefix}.${key}`;
+      paths.push(path);
+      if (value.properties) {
+        paths.push(...getNestedPaths(value, path));
+      }
+    }
+    return paths;
+  };
+
+  console.log('[cleanOrphanedEdges] Overlay application:', {
+    hasSourceOverlays: !!(overlays?.source?.length),
+    hasTargetOverlays: !!(overlays?.target?.length),
+    sourcePathsBefore: getNestedPaths(sourceSchema),
+    sourcePathsAfter: getNestedPaths(enhancedSourceSchema),
+    targetPathsBefore: getNestedPaths(targetSchema),
+    targetPathsAfter: getNestedPaths(enhancedTargetSchema),
+    // DEBUG: Check context property structure
+    sourceContextBefore: sourceSchema?.properties?.context ? Object.keys((sourceSchema.properties.context as any).properties || {}) : [],
+    sourceContextAfter: enhancedSourceSchema?.properties?.context ? Object.keys((enhancedSourceSchema.properties.context as any).properties || {}) : []
+  });
+
+  const validEdges = edges.filter(edge => {
     // Check if source/target nodes exist
     const sourceExists = nodeIds.has(edge.source);
     const targetExists = nodeIds.has(edge.target);
@@ -144,8 +191,24 @@ export function cleanOrphanedEdges(
     return true;
   });
 
-  if (validEdges.length !== mapSpec.edges.length) {
-    return { ...mapSpec, edges: validEdges };
+  if (validEdges.length !== edges.length) {
+    // Return updated mapSpec with cleaned edges in the right location
+    if (activeHandler && (mapSpec as any).handlers?.[activeHandler]) {
+      // Update handler-specific edges
+      return {
+        ...mapSpec,
+        handlers: {
+          ...(mapSpec as any).handlers,
+          [activeHandler]: {
+            ...(mapSpec as any).handlers[activeHandler],
+            edges: validEdges
+          }
+        }
+      } as MapSpec;
+    } else {
+      // Update root-level edges
+      return { ...mapSpec, edges: validEdges };
+    }
   }
 
   return mapSpec;

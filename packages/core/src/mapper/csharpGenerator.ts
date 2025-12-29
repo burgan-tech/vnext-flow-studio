@@ -7,6 +7,7 @@
  */
 
 import type { MapSpec } from './types';
+import type { ContractMapSpec } from './contractTypes';
 import type { MapperIR, Expression } from './ir';
 import { lowerMapSpec } from './lower';
 
@@ -15,9 +16,182 @@ import { lowerMapSpec } from './lower';
  * (convenience function that lowers then generates)
  */
 export function generateCSharp(mapSpec: MapSpec): string {
+  // Check if this is a contract-based mapper
+  const contractMapSpec = mapSpec as unknown as ContractMapSpec;
+  if (contractMapSpec.contractType && contractMapSpec.handlers) {
+    // Generate code for contract mapper with all handlers
+    return generateContractMapperCode(contractMapSpec);
+  }
+
+  // Non-contract mapper: use top-level nodes/edges
   const ir = lowerMapSpec(mapSpec);
   const targetOrder = mapSpec.schemaParts?.targetOrder;
   return generateCSharpFromIR(ir, targetOrder);
+}
+
+/**
+ * Generate code for contract mapper with all handlers
+ */
+function generateContractMapperCode(contractMapSpec: ContractMapSpec): string {
+  const lines: string[] = [];
+
+  // Add usings
+  lines.push('using System.Threading.Tasks;');
+  lines.push('using System.Text.Json.Nodes;');
+  lines.push('using BBT.Workflow.Scripting;');
+  lines.push('using BBT.Workflow.Definitions;');
+  lines.push('');
+
+  // Add class header
+  lines.push(`public class ${contractMapSpec.className || 'GeneratedMapper'} : ${contractMapSpec.contractType}`);
+  lines.push('{');
+
+  // Generate code for each handler
+  if (contractMapSpec.contractType === 'IMapping') {
+    // IMapping has InputHandler and OutputHandler
+    const inputHandler = contractMapSpec.handlers?.InputHandler;
+    const outputHandler = contractMapSpec.handlers?.OutputHandler;
+
+    // Generate InputHandler
+    lines.push('    public async Task<ScriptResponse> InputHandler(ScriptContext context, WorkflowTask task)');
+    lines.push('    {');
+    if (inputHandler && (inputHandler.nodes?.length || inputHandler.edges?.length)) {
+      const handlerMapSpec = {
+        ...contractMapSpec,
+        nodes: inputHandler.nodes || [],
+        edges: inputHandler.edges || [],
+        schemaParts: inputHandler.schemaParts,
+        schemaOverlays: inputHandler.schemaOverlays
+      };
+      const ir = lowerMapSpec(handlerMapSpec as any);
+      const targetOrder = inputHandler.schemaParts?.targetOrder;
+      const body = generateCSharpFromIR(ir, targetOrder);
+      const indentedBody = body.split('\n').map(line => '        ' + line).join('\n');
+      lines.push(indentedBody);
+      lines.push('');
+      lines.push('        return new ScriptResponse { Data = target_audit };');
+    } else {
+      lines.push('        // TODO: Implement InputHandler mapping');
+      lines.push('        return new ScriptResponse();');
+    }
+    lines.push('    }');
+    lines.push('');
+
+    // Generate OutputHandler
+    lines.push('    public async Task<ScriptResponse> OutputHandler(ScriptContext context)');
+    lines.push('    {');
+    if (outputHandler && (outputHandler.nodes?.length || outputHandler.edges?.length)) {
+      const handlerMapSpec = {
+        ...contractMapSpec,
+        nodes: outputHandler.nodes || [],
+        edges: outputHandler.edges || [],
+        schemaParts: outputHandler.schemaParts,
+        schemaOverlays: outputHandler.schemaOverlays
+      };
+      const ir = lowerMapSpec(handlerMapSpec as any);
+      const targetOrder = outputHandler.schemaParts?.targetOrder;
+      const body = generateCSharpFromIR(ir, targetOrder);
+      const indentedBody = body.split('\n').map(line => '        ' + line).join('\n');
+      lines.push(indentedBody);
+    } else {
+      lines.push('        // TODO: Implement OutputHandler mapping');
+      lines.push('        return new ScriptResponse();');
+    }
+    lines.push('    }');
+  } else {
+    // Other contract types - use first handler found
+    const handlerName = Object.keys(contractMapSpec.handlers || {})[0];
+    const handler = contractMapSpec.handlers?.[handlerName];
+
+    lines.push('    public async Task<dynamic> Handler(ScriptContext context)');
+    lines.push('    {');
+    if (handler && (handler.nodes?.length || handler.edges?.length)) {
+      const handlerMapSpec = {
+        ...contractMapSpec,
+        nodes: handler.nodes || [],
+        edges: handler.edges || [],
+        schemaParts: handler.schemaParts,
+        schemaOverlays: handler.schemaOverlays
+      };
+      const ir = lowerMapSpec(handlerMapSpec as any);
+      const targetOrder = handler.schemaParts?.targetOrder;
+      const body = generateCSharpFromIR(ir, targetOrder);
+      const indentedBody = body.split('\n').map(line => '        ' + line).join('\n');
+      lines.push(indentedBody);
+      lines.push('');
+      lines.push('        return target_result;');
+    } else {
+      lines.push('        // TODO: Implement handler mapping');
+      lines.push('        return null;');
+    }
+    lines.push('    }');
+  }
+
+  lines.push('}');
+  return lines.join('\n');
+}
+
+/**
+ * Generate contract method wrapper (DEPRECATED - use generateContractMapperCode instead)
+ */
+function generateContractMethod(mapSpec: MapSpec, body: string): string {
+  const contractMapSpec = mapSpec as unknown as ContractMapSpec;
+  const contractType = contractMapSpec.contractType;
+  const lines: string[] = [];
+
+  // Add class header
+  lines.push(`public class ${contractMapSpec.className || 'GeneratedMapper'} : ${contractType}`);
+  lines.push('{');
+
+  // Generate methods based on contract type
+  if (contractType === 'IMapping') {
+    // IMapping has InputHandler and OutputHandler
+    // For now, we're generating OutputHandler (the active handler)
+    lines.push('    public async Task<ScriptResponse> InputHandler(ScriptContext context, WorkflowTask task)');
+    lines.push('    {');
+    lines.push('        // TODO: Implement InputHandler mapping');
+    lines.push('        return new ScriptResponse();');
+    lines.push('    }');
+    lines.push('');
+    lines.push('    public async Task<ScriptResponse> OutputHandler(ScriptContext context)');
+    lines.push('    {');
+
+    // Indent the body
+    const indentedBody = body.split('\n').map(line => '        ' + line).join('\n');
+    lines.push(indentedBody);
+    lines.push('');
+    lines.push('        return new ScriptResponse { Data = target_data };');
+    lines.push('    }');
+  } else if (contractType === 'IConditionMapping') {
+    lines.push('    public async Task<bool> Handler(ScriptContext context)');
+    lines.push('    {');
+    const indentedBody = body.split('\n').map(line => '        ' + line).join('\n');
+    lines.push(indentedBody);
+    lines.push('');
+    lines.push('        return target_result;');
+    lines.push('    }');
+  } else if (contractType === 'ITransitionMapping') {
+    lines.push('    public async Task<dynamic> Handler(ScriptContext context)');
+    lines.push('    {');
+    const indentedBody = body.split('\n').map(line => '        ' + line).join('\n');
+    lines.push(indentedBody);
+    lines.push('');
+    lines.push('        return target_result;');
+    lines.push('    }');
+  } else {
+    // Generic contract - just wrap the body
+    lines.push('    public async Task<dynamic> Handler(ScriptContext context)');
+    lines.push('    {');
+    const indentedBody = body.split('\n').map(line => '        ' + line).join('\n');
+    lines.push(indentedBody);
+    lines.push('');
+    lines.push('        return target_data;');
+    lines.push('    }');
+  }
+
+  lines.push('}');
+
+  return lines.join('\n');
 }
 
 /**
@@ -25,7 +199,7 @@ export function generateCSharp(mapSpec: MapSpec): string {
  */
 export function generateCSharpFromIR(ir: MapperIR, targetOrder?: string[]): string {
   const generator = new CSharpGenerator(ir, targetOrder);
-  return generator.generate();
+  return generator.generateDeclarative();
 }
 
 /**
@@ -43,7 +217,402 @@ class CSharpGenerator {
   }
 
   /**
-   * Generate C# code for entire mapper
+   * Generate declarative C# code with anonymous objects
+   */
+  generateDeclarative(): string {
+    if (this.ir.mappings.length === 0) {
+      return 'return new ScriptResponse();';
+    }
+
+    const lines: string[] = [];
+
+    // Generate shared expressions first
+    if (this.ir.sharedExpressions && this.ir.sharedExpressions.length > 0) {
+      for (const shared of this.ir.sharedExpressions) {
+        const expr = this.generateExpression(shared.expression);
+        const varName = shared.varName.replace('$', 'var_');
+        lines.push(`var ${varName} = ${expr};`);
+      }
+      lines.push('');
+    }
+
+    // Build a tree structure from mappings
+    interface TreeNode {
+      [key: string]: TreeNode | string; // string represents the expression value
+    }
+
+    const tree: TreeNode = {};
+    const arrayMappings = new Map<string, { field: string; expr: Expression }[]>();
+
+    // Organize mappings into tree structure
+    for (const mapping of this.ir.mappings) {
+      const arrayMatch = mapping.target.match(/^(.+?)\[\]\.(.+)$/);
+
+      if (arrayMatch) {
+        // Array mapping
+        const arrayBase = arrayMatch[1];
+        const fieldName = arrayMatch[2];
+
+        if (!arrayMappings.has(arrayBase)) {
+          arrayMappings.set(arrayBase, []);
+        }
+
+        arrayMappings.get(arrayBase)!.push({
+          field: fieldName,
+          expr: mapping.expression
+        });
+      } else {
+        // Simple mapping - build tree
+        const parts = mapping.target.split('.');
+        let current: any = tree;
+
+        for (let i = 0; i < parts.length - 1; i++) {
+          const part = parts[i];
+          if (!current[part] || typeof current[part] === 'string') {
+            current[part] = {};
+          }
+          current = current[part];
+        }
+
+        const lastPart = parts[parts.length - 1];
+        current[lastPart] = this.generateExpressionDeclarative(mapping.expression);
+      }
+    }
+
+    // Handle array mappings - add them to the tree
+    for (const [arrayPath, fields] of arrayMappings.entries()) {
+      const parts = arrayPath.split('.');
+      let current: any = tree;
+
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!current[part] || typeof current[part] === 'string') {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+
+      const lastPart = parts[parts.length - 1];
+      const sourceArray = this.extractSourceArray(fields[0].expr);
+      const sourceArrayAccess = this.generateFieldAccessDeclarative(sourceArray);
+
+      // Generate LINQ Select expression
+      const selectBody = this.generateAnonymousObject(
+        fields.reduce((acc, f) => {
+          acc[f.field] = this.generateExpressionForArrayContext(f.expr);
+          return acc;
+        }, {} as Record<string, string>),
+        4
+      );
+
+      current[lastPart] = `${sourceArrayAccess}?.Select(item => ${selectBody}).ToList()`;
+    }
+
+    // Generate ScriptResponse
+    // If tree has a single 'data' key (ScriptResponse wrapper), unwrap it
+    let responseTree = tree;
+    if (Object.keys(tree).length === 1 && tree['data'] && typeof tree['data'] === 'object') {
+      responseTree = tree['data'] as TreeNode;
+    }
+
+    // Generate properties for ScriptResponse
+    const props: string[] = [];
+    for (const [key, value] of Object.entries(responseTree)) {
+      if (typeof value === 'string') {
+        props.push(`    ${key} = ${value}`);
+      } else if (typeof value === 'object') {
+        const nestedObj = this.generateAnonymousObject(value, 2);
+        props.push(`    ${key} = ${nestedObj}`);
+      }
+    }
+
+    lines.push('return new ScriptResponse');
+    lines.push('{');
+    lines.push(props.join(',\n'));
+    lines.push('};');
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate anonymous object from tree structure
+   */
+  private generateAnonymousObject(obj: any, indent: number): string {
+    const indentStr = ' '.repeat(indent);
+    const propIndentStr = ' '.repeat(indent + 4);
+
+    const props: string[] = [];
+
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === 'string') {
+        // Leaf node - direct value
+        props.push(`${propIndentStr}${key} = ${value}`);
+      } else if (typeof value === 'object') {
+        // Nested object
+        const nestedObj = this.generateAnonymousObject(value, indent + 4);
+        props.push(`${propIndentStr}${key} = ${nestedObj}`);
+      }
+    }
+
+    if (props.length === 0) {
+      return 'new { }';
+    }
+
+    return `new\n${indentStr}{\n${props.join(',\n')}\n${indentStr}}`;
+  }
+
+  /**
+   * Generate expression for declarative code (with better field access)
+   */
+  private generateExpressionDeclarative(expr: Expression): string {
+    switch (expr.kind) {
+      case 'literal':
+        return this.generateLiteral(expr.value, expr.type);
+
+      case 'field':
+        return this.generateFieldAccessDeclarative(expr.path);
+
+      case 'sharedRef':
+        return expr.varName.replace('$', 'var_');
+
+      case 'binary':
+        return this.generateBinaryDeclarative(expr);
+
+      case 'unary':
+        return this.generateUnaryDeclarative(expr);
+
+      case 'call':
+        return this.generateCallDeclarative(expr);
+
+      case 'conditional':
+        return this.generateConditionalDeclarative(expr);
+
+      case 'array':
+        return this.generateArrayDeclarative(expr);
+
+      case 'object':
+        return this.generateObjectDeclarative(expr);
+
+      default:
+        return 'null';
+    }
+  }
+
+  /**
+   * Generate field access for declarative code
+   * Converts paths like "Body.headers.user_reference" to "context.Headers?["user_reference"]"
+   */
+  private generateFieldAccessDeclarative(path: string): string {
+    // Remove array indices and synthetic conditionals
+    let cleanPath = path.replace(/\[\]/g, '');
+    cleanPath = cleanPath.replace(/__SYNTH__\[[^\]]+\]\s+[^.]+/g, '');
+
+    const parts = cleanPath.split('.').filter(p => p.length > 0);
+
+    if (parts.length === 0) {
+      return 'context';
+    }
+
+    // Special handling for common ScriptContext patterns
+    const firstPart = parts[0];
+
+    // If the first part is 'context', skip it and use the next part
+    // This handles paths like "context.Body.headers.x"
+    if (firstPart === 'context' && parts.length > 1) {
+      const secondPart = parts[1];
+
+      // Handle context.Body.headers -> context.Headers
+      if (secondPart === 'Body' && parts.length > 2 && parts[2] === 'headers') {
+        if (parts.length === 3) {
+          return 'context.Headers';
+        }
+        // context.Body.headers.x -> context.Headers?["x"]
+        const headerKeys = parts.slice(3).map(p => `["${p}"]`).join('');
+        return `context.Headers?${headerKeys}`;
+      }
+
+      // Handle other context properties
+      if (parts.length === 2) {
+        return `context.${secondPart}`;
+      }
+
+      // context.Instance.something -> context.Instance?["something"]
+      let result = `context.${secondPart}`;
+      for (let i = 2; i < parts.length; i++) {
+        result += `?["${parts[i]}"]`;
+      }
+      return result;
+    }
+
+    // Handle Body.headers -> Headers (when no 'context' prefix)
+    if (firstPart === 'Body' && parts.length > 1 && parts[1] === 'headers') {
+      if (parts.length === 2) {
+        return 'context.Headers';
+      }
+      // Body.headers.x -> context.Headers?["x"]
+      const headerKeys = parts.slice(2).map(p => `["${p}"]`).join('');
+      return `context.Headers?${headerKeys}`;
+    }
+
+    // Handle Instance, Body, etc. as property access
+    if (parts.length === 1) {
+      return `context.${firstPart}`;
+    }
+
+    // Handle nested property access with null-conditional operator
+    let result = `context.${firstPart}`;
+    for (let i = 1; i < parts.length; i++) {
+      // Use indexer syntax for nested properties
+      result += `?["${parts[i]}"]`;
+    }
+
+    return result;
+  }
+
+  /**
+   * Generate binary operation for declarative code
+   */
+  private generateBinaryDeclarative(expr: any): string {
+    const left = this.generateExpressionDeclarative(expr.left);
+    const right = this.generateExpressionDeclarative(expr.right);
+
+    switch (expr.operator) {
+      // Arithmetic
+      case 'add': return `(${left} + ${right})`;
+      case 'subtract': return `(${left} - ${right})`;
+      case 'multiply': return `(${left} * ${right})`;
+      case 'divide': return `(${left} / ${right})`;
+      case 'modulo': return `(${left} % ${right})`;
+      case 'power': return `Math.Pow(${left}, ${right})`;
+
+      // Comparison
+      case 'equal': return `(${left} == ${right})`;
+      case 'notEqual': return `(${left} != ${right})`;
+      case 'lessThan': return `(${left} < ${right})`;
+      case 'lessEqual': return `(${left} <= ${right})`;
+      case 'greaterThan': return `(${left} > ${right})`;
+      case 'greaterEqual': return `(${left} >= ${right})`;
+
+      // Logical
+      case 'and': return `(${left} && ${right})`;
+      case 'or': return `(${left} || ${right})`;
+
+      // String
+      case 'concat': return `(${left} + ${right})`;
+
+      default: return `(${left} ${expr.operator} ${right})`;
+    }
+  }
+
+  /**
+   * Generate unary operation for declarative code
+   */
+  private generateUnaryDeclarative(expr: any): string {
+    const operand = this.generateExpressionDeclarative(expr.operand);
+
+    switch (expr.operator) {
+      case 'negate': return `(-${operand})`;
+      case 'not': return `(!${operand})`;
+      case 'abs': return `Math.Abs(${operand})`;
+      case 'ceil': return `Math.Ceiling(${operand})`;
+      case 'floor': return `Math.Floor(${operand})`;
+      case 'round': return `Math.Round(${operand})`;
+      case 'sqrt': return `Math.Sqrt(${operand})`;
+      default: return operand;
+    }
+  }
+
+  /**
+   * Generate function call for declarative code
+   */
+  private generateCallDeclarative(expr: any): string {
+    const args = expr.args.map((arg: Expression) => this.generateExpressionDeclarative(arg));
+    const config = expr.config || {};
+
+    switch (expr.function) {
+      // String functions
+      case 'uppercase': return `${args[0]}?.ToUpper()`;
+      case 'lowercase': return `${args[0]}?.ToLower()`;
+      case 'trim': return `${args[0]}?.Trim()`;
+      case 'length': return `${args[0]}?.Length`;
+      case 'substring':
+        return `${args[0]}?.Substring(${args[1] || 0}, ${args[2] || ''})`;
+      case 'replace':
+        return `${args[0]}?.Replace("${config.search || ''}", "${config.replace || ''}")`;
+      case 'split':
+        return `${args[0]}?.Split("${config.delimiter || ','}")`;
+      case 'join':
+        return `string.Join("${config.delimiter || ','}", ${args[0]})`;
+
+      // Conversion functions
+      case 'toString': return `${args[0]}?.ToString()`;
+      case 'toNumber': return `Convert.ToDecimal(${args[0]})`;
+      case 'toBoolean': return `Convert.ToBoolean(${args[0]})`;
+      case 'toInteger': return `Convert.ToInt32(${args[0]})`;
+
+      // DateTime functions
+      case 'now': return 'DateTime.Now';
+      case 'formatDate':
+        return `${args[0]}?.ToString("${config.format || 'yyyy-MM-dd'}")`;
+
+      // Null coalescing
+      case 'coalesce':
+        if (args.length === 2) {
+          return `(${args[0]} ?? ${args[1]})`;
+        }
+        return args.join(' ?? ');
+
+      default: return this.generateCall(expr); // Fall back to original implementation
+    }
+  }
+
+  /**
+   * Generate conditional for declarative code
+   */
+  private generateConditionalDeclarative(expr: any): string {
+    const condition = this.generateExpressionDeclarative(expr.condition);
+    const thenExpr = this.generateExpressionDeclarative(expr.then);
+    const elseExpr = this.generateExpressionDeclarative(expr.else);
+
+    // Detect null coalescing pattern: (x != null ? x : y) -> (x ?? y)
+    // Check if condition is "x != null" and then is the same as x
+    if (expr.condition.kind === 'binary' &&
+        expr.condition.operator === 'notEqual' &&
+        expr.condition.right.kind === 'literal' &&
+        expr.condition.right.value === null) {
+      // Get the left side expression
+      const leftExpr = this.generateExpressionDeclarative(expr.condition.left);
+      // If then expression matches the condition's left side, use ??
+      if (leftExpr === thenExpr) {
+        return `(${leftExpr} ?? ${elseExpr})`;
+      }
+    }
+
+    return `(${condition} ? ${thenExpr} : ${elseExpr})`;
+  }
+
+  /**
+   * Generate array for declarative code
+   */
+  private generateArrayDeclarative(expr: any): string {
+    const elements = expr.elements.map((el: Expression) => this.generateExpressionDeclarative(el));
+    return `new[] { ${elements.join(', ')} }`;
+  }
+
+  /**
+   * Generate object for declarative code
+   */
+  private generateObjectDeclarative(expr: any): string {
+    const props = expr.properties.map((prop: any) => {
+      const key = prop.key;
+      const value = this.generateExpressionDeclarative(prop.value);
+      return `${key} = ${value}`;
+    });
+    return `new { ${props.join(', ')} }`;
+  }
+
+  /**
+   * Generate C# code for entire mapper (old imperative style - kept for compatibility)
    */
   generate(): string {
     if (this.ir.mappings.length === 0) {

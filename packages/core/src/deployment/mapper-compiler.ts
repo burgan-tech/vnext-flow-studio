@@ -184,6 +184,11 @@ export class MapperCompiler {
     location: string,
     context: NormalizationContext
   ): Promise<void> {
+    // Skip if no location (should not happen, but guard for type safety)
+    if (!mapping.location) {
+      return;
+    }
+
     try {
       // Resolve file path relative to base directory
       const filePath = path.resolve(context.options.baseDir, mapping.location);

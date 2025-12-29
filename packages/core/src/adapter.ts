@@ -80,6 +80,9 @@ export function toReactFlow(
     });
   }
 
+  // Determine cancel target state
+  const cancelTargetKey = workflow.attributes.cancel?.target;
+
   // Add state nodes
   for (const state of workflow.attributes.states) {
     const pos = diagram.nodePos[state.key] ?? { x: 100, y: 100 };
@@ -124,6 +127,7 @@ export function toReactFlow(
         state: state,
         stateType: state.stateType,
         stateSubType: state.stateSubType,
+        isCancelTarget: state.key === cancelTargetKey,
         width: calculatedWidth,
         height: 80,
         hints: stateHints,

@@ -362,6 +362,7 @@ export interface TreeNode {
   isLeaf: boolean; // True if no children and not object/array
   isArrayItem?: boolean; // True if this is array items node
   isUserAdded?: boolean; // True if this property was added by user (not from schema)
+  isPart?: boolean; // True if this is a top-level part in a composite schema
   description?: string; // Field description
   format?: string; // JSON Schema format
 }

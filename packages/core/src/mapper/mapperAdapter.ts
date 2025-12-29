@@ -84,11 +84,16 @@ export function mapSpecToReactFlow(
     const enhancedSourceSchema = applyOverlaysToSchema(compositeSourceSchema, schemaOverlays?.source);
     const sourceUserAddedPaths = extractUserAddedPaths(schemaOverlays?.source);
 
+    // Check if this is a multi-part composite schema
+    const isComposite = mapSpec.schemaParts?.source && Object.keys(mapSpec.schemaParts.source).length > 0;
+
     const sourceTree = buildSchemaTree(
       enhancedSourceSchema,
       '$',
       'root',
-      sourceUserAddedPaths
+      sourceUserAddedPaths,
+      undefined,
+      isComposite // Mark as composite root if has parts
     );
     nodes.push({
       id: 'source-schema',
@@ -110,11 +115,16 @@ export function mapSpecToReactFlow(
     const enhancedTargetSchema = applyOverlaysToSchema(compositeTargetSchema, schemaOverlays?.target);
     const targetUserAddedPaths = extractUserAddedPaths(schemaOverlays?.target);
 
+    // Check if this is a multi-part composite schema
+    const isComposite = mapSpec.schemaParts?.target && Object.keys(mapSpec.schemaParts.target).length > 0;
+
     const targetTree = buildSchemaTree(
       enhancedTargetSchema,
       '$',
       'root',
-      targetUserAddedPaths
+      targetUserAddedPaths,
+      undefined,
+      isComposite // Mark as composite root if has parts
     );
     nodes.push({
       id: 'target-schema',

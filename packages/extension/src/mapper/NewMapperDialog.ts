@@ -1,10 +1,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { CONTRACT_SCHEMA_TEMPLATES, ContractType, parseWorkflowSchemaUri, supportsChildWorkflowSchema, type WorkflowSchemasConfig } from '@amorphie-flow-studio/core/mapper';
 
 interface MapperCreationParams {
   name: string;
   description: string;
+  contractType: ContractType;
+  parentWorkflowSchema?: string;
+  childWorkflowSchema?: string;
   targetFolder: string;
   openInEditor: boolean;
 }
@@ -42,7 +46,7 @@ export async function showNewMapperDialog(
 
           case 'create':
             try {
-              const { name, description, openInEditor } = message.params as MapperCreationParams;
+              const { name, description, contractType, parentWorkflowSchema, childWorkflowSchema, openInEditor } = message.params as MapperCreationParams;
 
               // Validate name
               if (!name || !/^[a-z0-9-]+$/.test(name)) {
@@ -53,31 +57,100 @@ export async function showNewMapperDialog(
                 return;
               }
 
-              // Create the mapper template
-              const mapper = {
-                version: '1.0',
-                metadata: {
-                  name,
-                  description: description || `${name} mapper`,
-                  version: '1.0.0',
-                  source: 'none',
-                  target: 'none',
-                  createdAt: new Date().toISOString(),
-                  tags: ['new']
-                },
-                schemas: {
-                  source: 'none',
-                  target: 'none'
-                },
-                nodes: [],
-                edges: []
+              // Get contract template
+              const contractTemplate = CONTRACT_SCHEMA_TEMPLATES[contractType];
+              if (!contractTemplate) {
+                panel.webview.postMessage({
+                  type: 'error',
+                  message: `Invalid contract type: ${contractType}`
+                });
+                return;
+              }
+
+              // Build handlers structure from template
+              const handlers: Record<string, any> = {};
+              for (const handlerTemplate of contractTemplate.handlers) {
+                handlers[handlerTemplate.methodName] = {
+                  schemaParts: {
+                    source: handlerTemplate.source,
+                    target: handlerTemplate.target
+                  },
+                  nodes: [],
+                  edges: []
+                };
+              }
+
+              // Determine file extension based on contract type
+              const extensionMap: Record<ContractType, string> = {
+                'IMapping': '.mapping.json',
+                'IConditionMapping': '.condition.json',
+                'ITransitionMapping': '.transition.json',
+                'ISubFlowMapping': '.subflow.json',
+                'ISubProcessMapping': '.subprocess.json',
+                'ITimerMapping': '.timer.json'
+              };
+              const fileExtension = extensionMap[contractType] || '.mapper.json';
+
+              // Parse and validate workflow schema URIs
+              const workflowSchemas: WorkflowSchemasConfig = {};
+
+              if (parentWorkflowSchema && parentWorkflowSchema.trim()) {
+                try {
+                  const parentRef = parseWorkflowSchemaUri(parentWorkflowSchema.trim());
+                  workflowSchemas.parent = parentRef;
+                } catch (error) {
+                  panel.webview.postMessage({
+                    type: 'error',
+                    message: `Invalid parent workflow schema URI: ${error instanceof Error ? error.message : String(error)}`
+                  });
+                  return;
+                }
+              }
+
+              if (childWorkflowSchema && childWorkflowSchema.trim()) {
+                try {
+                  const childRef = parseWorkflowSchemaUri(childWorkflowSchema.trim());
+                  workflowSchemas.child = childRef;
+                } catch (error) {
+                  panel.webview.postMessage({
+                    type: 'error',
+                    message: `Invalid child workflow schema URI: ${error instanceof Error ? error.message : String(error)}`
+                  });
+                  return;
+                }
+              }
+
+              // Create metadata with workflow schemas if configured
+              const metadata: any = {
+                key: name,
+                domain: 'custom',
+                flow: 'mappers',
+                name: description || name,
+                version: '1.0.0'
+              };
+
+              if (Object.keys(workflowSchemas).length > 0) {
+                metadata.workflowSchemas = workflowSchemas;
+              }
+
+              // Create the contract-based mapper template
+              const mapper: any = {
+                key: name,
+                domain: 'custom',
+                flow: 'mappers',
+                version: '1.0.0',
+                contractType,
+                namespace: 'Custom.Mappers',
+                className: toPascalCase(name),
+                metadata,
+                handlers
               };
 
               // Ensure directory exists
               await fs.mkdir(targetFolder, { recursive: true });
 
-              // Create the file path directly (no save dialog)
-              const filePath = path.join(targetFolder, `${name}.mapper.json`);
+              // Create the file path with contract-specific extension
+              const filePath = path.join(targetFolder, `${name}${fileExtension}`);
               const saveUri = vscode.Uri.file(filePath);
 
               // Check if file already exists
@@ -85,7 +158,7 @@ export async function showNewMapperDialog(
                 await fs.access(filePath);
                 panel.webview.postMessage({
                   type: 'error',
-                  message: `File already exists: ${name}.mapper.json`
+                  message: `File already exists: ${name}${fileExtension}`
                 });
                 return;
               } catch {
@@ -99,7 +172,7 @@ export async function showNewMapperDialog(
               console.log('[NewMapperDialog] File written:', filePath);
               console.log('[NewMapperDialog] Resolving with:', { uri: saveUri.toString(), openInEditor });
 
-              vscode.window.showInformationMessage(`Created mapper: ${name}`);
+              vscode.window.showInformationMessage(`Created ${contractType} mapper: ${name}`);
 
               panel.dispose();
               resolve({ uri: saveUri, openInEditor });
@@ -179,7 +252,8 @@ function getWebviewContent(targetFolder: string): string {
     }
 
     input[type="text"],
-    textarea {
+    textarea,
+    select {
       width: 100%;
       padding: 8px 10px;
       font-family: var(--vscode-font-family);
@@ -192,7 +266,8 @@ function getWebviewContent(targetFolder: string): string {
     }
 
     input[type="text"]:focus,
-    textarea:focus {
+    textarea:focus,
+    select:focus {
       border-color: var(--vscode-focusBorder);
     }
 
@@ -290,6 +365,19 @@ function getWebviewContent(targetFolder: string): string {
 
     <form id="mapperForm">
       <div class="form-group">
+        <label for="contractType">Contract Type *</label>
+        <select id="contractType" name="contractType" required>
+          <option value="IMapping">IMapping - Task input/output data binding</option>
+          <option value="IConditionMapping">IConditionMapping - Boolean conditional logic</option>
+          <option value="ITransitionMapping">ITransitionMapping - Transition data transformation</option>
+          <option value="ISubFlowMapping">ISubFlowMapping - Subflow input/output handlers</option>
+          <option value="ISubProcessMapping">ISubProcessMapping - Subprocess input preparation</option>
+          <option value="ITimerMapping">ITimerMapping - Timer schedule calculation</option>
+        </select>
+        <div class="help-text">Select the contract interface to implement</div>
+      </div>
+
+      <div class="form-group">
         <label for="name">Mapper Name *</label>
         <input
           type="text"
@@ -297,7 +385,6 @@ function getWebviewContent(targetFolder: string): string {
           name="name"
           placeholder="order-to-invoice"
           required
-          autofocus
           pattern="[a-z0-9-]+"
         />
         <div class="help-text">Lowercase letters, numbers, and dashes only</div>
@@ -311,6 +398,34 @@ function getWebviewContent(targetFolder: string): string {
           placeholder="Maps order data to invoice format"
         ></textarea>
         <div class="help-text">Optional description of the mapper's purpose</div>
+      </div>
+
+      <div class="form-group" id="workflowSchemaGroup" style="display: none;">
+        <label for="parentWorkflowSchema">Parent Workflow Schema (Optional)</label>
+        <input
+          type="text"
+          id="parentWorkflowSchema"
+          name="parentWorkflowSchema"
+          placeholder="workflow://core/app-root@1.0.0"
+          pattern="workflow://[a-z0-9-]+/[a-z0-9-]+@.+"
+        />
+        <div class="help-text">
+          Constrains Instance.Data with workflow schema (format: workflow://domain/key@version)
+        </div>
+      </div>
+
+      <div class="form-group" id="childWorkflowSchemaGroup" style="display: none;">
+        <label for="childWorkflowSchema">Child Workflow Schema (Optional)</label>
+        <input
+          type="text"
+          id="childWorkflowSchema"
+          name="childWorkflowSchema"
+          placeholder="workflow://loan/loan-approval@1.0.0"
+          pattern="workflow://[a-z0-9-]+/[a-z0-9-]+@.+"
+        />
+        <div class="help-text">
+          For SubFlow/SubProcess: schema of the child workflow being invoked
+        </div>
       </div>
 
       <div class="form-group">
@@ -336,11 +451,16 @@ function getWebviewContent(targetFolder: string): string {
   <script>
     const vscode = acquireVsCodeApi();
     const form = document.getElementById('mapperForm');
+    const contractTypeSelect = document.getElementById('contractType');
     const nameInput = document.getElementById('name');
     const descriptionInput = document.getElementById('description');
+    const parentWorkflowSchemaInput = document.getElementById('parentWorkflowSchema');
+    const childWorkflowSchemaInput = document.getElementById('childWorkflowSchema');
     const openInEditorCheckbox = document.getElementById('openInEditor');
     const cancelBtn = document.getElementById('cancelBtn');
     const errorMessage = document.getElementById('errorMessage');
+    const workflowSchemaGroup = document.getElementById('workflowSchemaGroup');
+    const childWorkflowSchemaGroup = document.getElementById('childWorkflowSchemaGroup');
 
     function showError(message) {
       errorMessage.textContent = message;
@@ -350,6 +470,27 @@ function getWebviewContent(targetFolder: string): string {
     function hideError() {
       errorMessage.classList.remove('visible');
     }
+
+    // Show/hide workflow schema fields based on contract type
+    function updateWorkflowSchemaVisibility() {
+      const contractType = contractTypeSelect.value;
+
+      // All contract types support parent workflow schema
+      workflowSchemaGroup.style.display = 'block';
+
+      // Only SubFlow and SubProcess support child workflow schema
+      if (contractType === 'ISubFlowMapping' || contractType === 'ISubProcessMapping') {
+        childWorkflowSchemaGroup.style.display = 'block';
+      } else {
+        childWorkflowSchemaGroup.style.display = 'none';
+      }
+    }
+
+    // Update visibility on contract type change
+    contractTypeSelect.addEventListener('change', updateWorkflowSchemaVisibility);
+
+    // Initial visibility update
+    updateWorkflowSchemaVisibility();
 
     // Validate name as user types
     nameInput.addEventListener('input', () => {
@@ -367,9 +508,17 @@ function getWebviewContent(targetFolder: string): string {
       e.preventDefault();
       hideError();
 
+      const contractType = contractTypeSelect.value;
       const name = nameInput.value.trim();
       const description = descriptionInput.value.trim();
+      const parentWorkflowSchema = parentWorkflowSchemaInput.value.trim();
+      const childWorkflowSchema = childWorkflowSchemaInput.value.trim();
       const openInEditor = openInEditorCheckbox.checked;
+
+      if (!contractType) {
+        showError('Contract type is required');
+        return;
+      }
 
       if (!name) {
         showError('Mapper name is required');
@@ -382,13 +531,13 @@ function getWebviewContent(targetFolder: string): string {
       }
 
       // Disable form while creating
-      form.querySelectorAll('input, textarea, button').forEach(el => {
+      form.querySelectorAll('input, textarea, button, select').forEach(el => {
         el.disabled = true;
       });
 
       vscode.postMessage({
         type: 'create',
-        params: { name, description, openInEditor }
+        params: { contractType, name, description, parentWorkflowSchema, childWorkflowSchema, openInEditor }
       });
     });
 
@@ -404,15 +553,15 @@ function getWebviewContent(targetFolder: string): string {
         case 'error':
           showError(message.message);
           // Re-enable form
-          form.querySelectorAll('input, textarea, button').forEach(el => {
+          form.querySelectorAll('input, textarea, button, select').forEach(el => {
             el.disabled = false;
           });
           break;
       }
     });
 
-    // Focus name input on load
-    nameInput.focus();
+    // Focus contract type select on load
+    contractTypeSelect.focus();
   </script>
 </body>
 </html>`;
@@ -425,4 +574,11 @@ function escapeHtml(unsafe: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function toPascalCase(str: string): string {
+  return str
+    .split(/[-_\s]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
 }

@@ -690,6 +690,11 @@ export class ModelValidator {
       return true;
     }
 
+    // Check cancel transition
+    if (workflow.attributes.cancel?.target === stateKey) {
+      return true;
+    }
+
     // Check all state transitions
     for (const [_, state] of states) {
       for (const transition of (state.transitions || [])) {

@@ -136,11 +136,23 @@ export function TaskDetailsPanel({
     );
   }
 
-  const handleTaskRefChange = (value: string) => {
-    setTaskRefInput(value);
+  const handleTaskRefChange = (value: string, taskData?: { key: string; domain?: string; flow?: string; version?: string }) => {
+    setTaskRefInput(taskData?.key || value);
+
+    // If we have structured task data, use key/domain/flow/version format
+    // Otherwise fall back to ref format (for manual entry of file paths)
+    const taskRef: TaskRef = taskData && taskData.key
+      ? {
+          key: taskData.key,
+          domain: taskData.domain || '',
+          flow: taskData.flow || 'sys-tasks',
+          version: taskData.version || '1.0.0'
+        }
+      : { ref: value };
+
     const updatedTask: ExecutionTask = {
       ...task,
-      task: { ref: value } as TaskRef,
+      task: taskRef,
     };
     onUpdateTask(updatedTask);
   };

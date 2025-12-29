@@ -1014,10 +1014,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       transitions: []
     };
 
-    if (template.stateSubType) {
-      newState.stateSubType = template.stateSubType;
-    }
-
     const stateIndex = workflow.attributes.states.length;
     const column = stateIndex % 4;
     const row = Math.floor(stateIndex / 4);
@@ -1084,8 +1080,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         newState = plugin.createState();
         // Override the key to ensure uniqueness
         newState.key = stateKey;
-        // Set xProfile to plugin ID to ensure proper plugin detection
-        newState.xProfile = plugin.id;
         // Ensure labels for both required languages
         if (!newState.labels || newState.labels.length === 0) {
           newState.labels = [
@@ -1104,7 +1098,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         newState = {
           key: stateKey,
           stateType: plugin.stateType,
-          xProfile: plugin.id, // Set xProfile to plugin ID
           versionStrategy: 'Minor',
           labels: [
             { label: stateLabel, language: 'en-US' },
@@ -1112,11 +1105,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           ],
           transitions: []
         };
-
-        // Add stateSubType for Final states
-        if (plugin.id === 'Final' && plugin.stateType === 3) {
-          newState.stateSubType = 1; // Default to Success
-        }
       }
     }
 
@@ -1446,6 +1434,11 @@ ${documentation.split('\n').slice(1).join('\n')}`;
 
   const handleSetStartNode = useCallback((nodeId: string) => {
     postMessage({ type: 'domain:setStart', target: nodeId });
+    setContextMenu(null);
+  }, [postMessage]);
+
+  const handleSetCancelTarget = useCallback((nodeId: string) => {
+    postMessage({ type: 'domain:setCancel', target: nodeId });
     setContextMenu(null);
   }, [postMessage]);
 
@@ -1920,7 +1913,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
   /**
    * Create a state template for a specific state type with required properties
    */
-  const createStateTemplate = useCallback((stateType: 1 | 2 | 3 | 4 | 5, sourceState: any, subType?: any) => {
+  const createStateTemplate = useCallback((stateType: 1 | 2 | 3 | 4 | 5, sourceState: any) => {
     // Base template with common properties that are always allowed
     const template: any = {
       key: sourceState.key,
@@ -1933,7 +1926,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     if (sourceState.view) template.view = sourceState.view;
     if (sourceState.onEntries) template.onEntries = sourceState.onEntries;
     if (sourceState.onExits) template.onExits = sourceState.onExits;
-    if (sourceState.xProfile) template.xProfile = sourceState.xProfile;
 
     // Add type-specific required properties and copy compatible ones
     switch (stateType) {
@@ -1944,10 +1936,9 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         // Omit: subFlow, stateSubType (type-specific to other states)
         break;
 
-      case 3: // Final - requires stateSubType, no outgoing transitions
-        template.stateSubType = subType || 1; // Default to Success
+      case 3: // Final - no outgoing transitions, stateSubType is runtime concern
         template.transitions = []; // Finals cannot have transitions
-        // Omit: subFlow (specific to SubFlow states)
+        // Omit: subFlow, stateSubType (stateSubType is determined at runtime)
         break;
 
       case 4: // SubFlow - requires subFlow configuration
@@ -1984,14 +1975,14 @@ ${documentation.split('\n').slice(1).join('\n')}`;
   }, [workflow]);
 
   // State type conversion handlers
-  const handleConvertToFinal = useCallback((stateKey: string, subType: any) => {
+  const handleConvertToFinal = useCallback((stateKey: string) => {
     const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
     if (!state) return;
 
     postMessage({
       type: 'domain:updateState',
       stateKey,
-      state: createStateTemplate(3, state, subType)
+      state: createStateTemplate(3, state)
     });
     setContextMenu(null);
   }, [workflow, postMessage, createStateTemplate]);
@@ -2031,18 +2022,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     });
     setContextMenu(null);
   }, [workflow, postMessage, createStateTemplate]);
-
-  const handleSetFinalSubType = useCallback((stateKey: string, subType: any) => {
-    const state = workflow?.attributes?.states?.find(s => s.key === stateKey);
-    if (!state) return;
-
-    postMessage({
-      type: 'domain:updateState',
-      stateKey,
-      state: { ...state, stateSubType: subType }
-    });
-    setContextMenu(null);
-  }, [workflow, postMessage]);
 
   const handleDeleteState = useCallback((stateKey: string) => {
     postMessage({
@@ -2787,12 +2766,12 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             onEditView={() => handleEditView(contextMenu.nodeId!)}
             onEditKey={() => handleEditStateKey(contextMenu.nodeId!)}
             onStartFromHere={stateType === 1 || stateType === 2 || stateType === 5 ? () => handleSetStartNode(contextMenu.nodeId!) : undefined}
-            onConvertToFinal={stateType === 1 || stateType === 2 ? (subType) => handleConvertToFinal(contextMenu.nodeId!, subType) : undefined}
+            onSetAsCancel={() => handleSetCancelTarget(contextMenu.nodeId!)}
+            onConvertToFinal={stateType === 1 || stateType === 2 ? () => handleConvertToFinal(contextMenu.nodeId!) : undefined}
             onConvertToIntermediate={stateType === 1 || stateType === 3 || stateType === 4 || stateType === 5 ? () => handleConvertToIntermediate(contextMenu.nodeId!) : undefined}
             onConvertToSubFlow={stateType === 1 || stateType === 2 ? () => handleConvertToSubFlow(contextMenu.nodeId!) : undefined}
             onConvertToWizard={stateType === 1 || stateType === 2 ? () => handleConvertToWizard(contextMenu.nodeId!) : undefined}
             onConfigureSubFlow={stateType === 4 ? () => handleConfigureSubFlow(contextMenu.nodeId!) : undefined}
-            onSetSubType={stateType === 3 ? (subType) => handleSetFinalSubType(contextMenu.nodeId!, subType) : undefined}
             onToggleSharedTransition={(transitionKey, enabled) => handleToggleSharedTransition(contextMenu.nodeId!, transitionKey, enabled)}
             onDelete={() => handleDeleteState(contextMenu.nodeId!)}
           />

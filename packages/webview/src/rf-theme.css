@@ -261,6 +261,11 @@ html::-webkit-scrollbar-corner,
   z-index: 10;
 }
 
+.state-node__badge-icon--cancel {
+  background: #dc2626;
+  color: white;
+}
+
 .state-node__title,
 .state-node__label {
   margin: 0;
@@ -491,6 +496,12 @@ html::-webkit-scrollbar-corner,
   --state-color: #14b8a6;
   --state-surface: #f0fdfa;
   --state-muted: #0d9488;
+}
+
+/* Cancel target indicator - adds a distinctive red dashed border */
+.state-node--cancel-target .state-node__shape {
+  border: 2px dashed #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
 }
 
 /* Palette preview colors - apply same colors to palette items */

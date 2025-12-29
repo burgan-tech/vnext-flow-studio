@@ -1,19 +1,17 @@
 import React from 'react';
-import type { State, StateSubType, SharedTransition } from '@amorphie-workflow/core';
+import type { State, SharedTransition } from '@amorphie-workflow/core';
 import {
   ClipboardList,
   Tag,
   Image,
   Edit3,
   Play,
+  XCircle,
   ArrowLeftRight,
   Repeat,
   Settings,
   Trash2,
   Flag,
-  Check,
-  X,
-  Ban,
   Share2,
   Sparkles
 } from 'lucide-react';
@@ -28,12 +26,12 @@ interface StateToolbarProps {
   onEditView: () => void;
   onEditKey: () => void;
   onStartFromHere?: () => void;
-  onConvertToFinal?: (subType: StateSubType) => void;
+  onSetAsCancel?: () => void;
+  onConvertToFinal?: () => void;
   onConvertToIntermediate?: () => void;
   onConvertToSubFlow?: () => void;
   onConvertToWizard?: () => void;
   onConfigureSubFlow?: () => void;
-  onSetSubType?: (subType: StateSubType | undefined) => void;
   onToggleSharedTransition?: (transitionKey: string, enabled: boolean) => void;
   onDelete: () => void;
 }
@@ -47,12 +45,12 @@ export function StateToolbar({
   onEditView,
   onEditKey,
   onStartFromHere,
+  onSetAsCancel,
   onConvertToFinal,
   onConvertToIntermediate,
   onConvertToSubFlow,
   onConvertToWizard,
   onConfigureSubFlow,
-  onSetSubType,
   onToggleSharedTransition,
   onDelete,
 }: StateToolbarProps) {
@@ -141,6 +139,22 @@ export function StateToolbar({
           </>
         )}
 
+        {/* Set as Cancel Target - available for all states */}
+        {onSetAsCancel && (
+          <>
+            <button
+              className="state-toolbar__button"
+              onClick={onSetAsCancel}
+              title="Set as Cancel Target"
+            >
+              <span className="state-toolbar__icon"><XCircle size={16} /></span>
+              <span className="state-toolbar__label">Set as Cancel Target</span>
+            </button>
+
+            <div className="state-toolbar__divider" />
+          </>
+        )}
+
         {/* Shared Transitions - not available for Final and Wizard states */}
         {sharedTransitionItems.length > 0 && stateType !== 3 && stateType !== 5 && (
           <>
@@ -169,16 +183,14 @@ export function StateToolbar({
             )}
 
             {onConvertToFinal && (
-              <ContextMenuSubmenu
-                label="Convert to Final"
-                icon={<Flag size={16} />}
-                variant="toolbar"
-                items={[
-                  { label: 'As Success', icon: <Check size={16} />, onClick: () => onConvertToFinal(1) },
-                  { label: 'As Failed', icon: <X size={16} />, onClick: () => onConvertToFinal(2) },
-                  { label: 'As Cancelled', icon: <Ban size={16} />, onClick: () => onConvertToFinal(3) }
-                ]}
-              />
+              <button
+                className="state-toolbar__button"
+                onClick={onConvertToFinal}
+                title="Convert to Final"
+              >
+                <span className="state-toolbar__icon"><Flag size={16} /></span>
+                <span className="state-toolbar__label">Convert to Final</span>
+              </button>
             )}
 
             {onConvertToSubFlow && (
@@ -209,16 +221,14 @@ export function StateToolbar({
         {stateType === 2 && (
           <>
             {onConvertToFinal && (
-              <ContextMenuSubmenu
-                label="Convert to Final"
-                icon={<Flag size={16} />}
-                variant="toolbar"
-                items={[
-                  { label: 'As Success', icon: <Check size={16} />, onClick: () => onConvertToFinal(1) },
-                  { label: 'As Failed', icon: <X size={16} />, onClick: () => onConvertToFinal(2) },
-                  { label: 'As Cancelled', icon: <Ban size={16} />, onClick: () => onConvertToFinal(3) }
-                ]}
-              />
+              <button
+                className="state-toolbar__button"
+                onClick={onConvertToFinal}
+                title="Convert to Final"
+              >
+                <span className="state-toolbar__icon"><Flag size={16} /></span>
+                <span className="state-toolbar__label">Convert to Final</span>
+              </button>
             )}
 
             {onConvertToSubFlow && (
@@ -248,22 +258,6 @@ export function StateToolbar({
         {stateType === 3 && (
           <>
             {/* Final state actions */}
-            {onSetSubType && (
-              <ContextMenuSubmenu
-                label="Set SubType"
-                icon="🏁"
-                variant="toolbar"
-                items={[
-                  { label: 'Success', icon: '✓', onClick: () => onSetSubType(1) },
-                  { label: 'Failed', icon: '✗', onClick: () => onSetSubType(2) },
-                  { label: 'Cancelled', icon: '⊘', onClick: () => onSetSubType(3) },
-                  { label: 'None', icon: '', onClick: () => onSetSubType(undefined) }
-                ]}
-              />
-            )}
-
-            <div className="state-toolbar__divider" />
-
             {onConvertToIntermediate && (
               <button
                 className="state-toolbar__button"

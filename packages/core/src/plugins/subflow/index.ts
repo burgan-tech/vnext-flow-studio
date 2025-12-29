@@ -68,8 +68,23 @@ const SUBFLOW_STATE_TERMINALS: TerminalRole[] = [
         triggerType: 2,
         versionStrategy: 'Minor',
         timer: {
-          reset: 'N',
-          duration: 'PT30M' // Default 30 minutes for subflow
+          // Static timer script - default 30 minutes for subflow, no reset on re-entry
+          code: btoa(`using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions.Timer;
+
+public class StaticTimer : ITimerMapping
+{
+    public async Task<TimerSchedule> Handler(ScriptContext context)
+    {
+        // Static duration: PT30M
+        return TimerSchedule.FromDuration("PT30M", resetOnEntry: false);
+    }
+}
+`),
+          location: './src/timers/subflow-timeout.csx',
+          encoding: 'B64',
+          type: 'L'
         }
       }
     }

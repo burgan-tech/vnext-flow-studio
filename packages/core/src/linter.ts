@@ -9,6 +9,7 @@ import type {
   SchemaRef,
   ViewDefinition,
   ViewRef,
+  ViewConfig,
   FunctionDefinition,
   FunctionRef,
   ExtensionDefinition,
@@ -244,7 +245,14 @@ export function lint(
   };
 
   // Helper functions for view references
-  const hasViewReference = (ref: ViewRef | null | undefined): boolean => {
+  // Extract ViewRef from ViewConfig if needed
+  const getViewRef = (config: ViewConfig | null | undefined): ViewRef | null | undefined => {
+    if (!config) return config;
+    return config.view;
+  };
+
+  const hasViewReference = (config: ViewConfig | null | undefined): boolean => {
+    const ref = getViewRef(config);
     if (!ref) {
       return true;
     }
@@ -271,7 +279,8 @@ export function lint(
     return true; // Can't check catalog, but fields are valid
   };
 
-  const describeViewRef = (ref: ViewRef | null | undefined): string => {
+  const describeViewRef = (config: ViewConfig | null | undefined): string => {
+    const ref = getViewRef(config);
     if (!ref) {
       return '<missing view>';
     }

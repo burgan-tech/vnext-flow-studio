@@ -7,7 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Transition Mapping Editor Blackout**: Fixed `ReferenceError: availableMappers is not defined` that caused the editor to black out when editing transition mappings
+  - Added missing `availableMappers` variable definition from `catalogs.mapper` in `TransitionMappingPopup.tsx`
+
+- **State Creation - stateSubType Removed**: Removed deprecated `stateSubType` field from being set when creating new states via drag-and-drop
+  - Final states no longer get `stateSubType = 1` automatically
+  - stateSubType is a runtime concern and should not be set at design time
+  - Removed stateSubType badge from node rendering (not needed at design time)
+
+- **State Creation - xProfile Removed**: Removed deprecated `xProfile` field from state creation
+  - Plugin states no longer set `xProfile` when using `plugin.createState()` or fallback creation
+  - State type conversion no longer copies `xProfile` from source state
+  - xProfile is still filtered out during deployment for backward compatibility with existing workflows
+
+- **Dependencies Panel - Task Validation**: Fixed task references with `ref` paths being incorrectly reported as missing
+  - Ref-style references (e.g., `./Tasks/mytask.json`) are now resolved relative to the workflow file directory instead of workspace root
+  - Key-style references continue to use ComponentResolver with search paths
+
+- **Task Reference Format**: Fixed task references being saved with malformed `ref` string format
+  - **Before (wrong)**: `{ "ref": "core/sys-tasks/create-bank-account@1.0.0" }`
+  - **After (correct)**: `{ "key": "create-bank-account", "domain": "core", "flow": "sys-tasks", "version": "1.0.0" }`
+  - Tasks selected from catalog now use proper structured key/domain/flow/version format
+  - Manual file path entry still uses `ref` field for backward compatibility
+
+- **ComponentResolver - Flow-Based Patterns**: Added flow-based search patterns for finding tasks with `flow` field
+  - Searches for tasks in paths like `Tasks/sys-tasks/create-bank-account.json` and `sys-tasks/create-bank-account.json`
+  - Fixes "Could not find Task" errors for tasks that use the `flow` field as a subfolder path
+
+- **Workflow Test Service - Transition Data Wrapping**: Fixed `executeTransition` to wrap transition data in `attributes` field
+  - Now matches the same pattern used in `startInstance` for API compatibility
+  - Platform expects input data wrapped in `{ attributes: data }` format
+
 ### Added
+- **Set as Cancel Target**: Context menu option to configure workflow cancel transition
+  - Right-click any state and select "Set as Cancel Target" to designate it as the cancel destination
+  - Visual indicator (red ✕ badge and red dashed border) shows the current cancel target state
+  - Creates `workflow.attributes.cancel` with proper CancelTransition structure
+  - Linter recognizes cancel targets as having incoming transitions (no false "no incoming transitions" warnings)
+
 - **Transition Double-Click Smart Navigation**: Double-clicking on a transition edge now routes to the appropriate editor based on transition type
   - **Automatic transitions (triggerType 1)**:
     - If rule has a file location → Opens the rule file in VS Code editor (right panel)

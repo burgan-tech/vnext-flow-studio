@@ -37,6 +37,10 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
    * IMapping - Task input/output data binding
    * InputHandler: Prepares request before task execution
    * OutputHandler: Processes response after task execution
+   *
+   * Workflow Schema Support:
+   * - parent: Constrains Instance.Data with workflow instance schema
+   * - Enables type-safe mapping of workflow data to task requests and responses
    */
   IMapping: {
     contractType: 'IMapping',
@@ -46,20 +50,20 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
         methodName: 'InputHandler',
         source: {
           context: {
-            schemaRef: 'platform://ScriptContext',
-            label: 'Context',
-            schemaSourcePath: 'platform://ScriptContext'
-          },
-          task: {
-            schemaRef: 'platform://WorkflowTask',
-            label: 'Task Configuration',
-            schemaSourcePath: 'platform://WorkflowTask'
+            schemaRef: 'platform://ScriptContext_InputHandler',
+            label: 'Workflow Context',
+            schemaSourcePath: 'platform://ScriptContext_InputHandler'
           }
         },
         target: {
-          response: {
+          task: {
+            schemaRef: 'platform://WorkflowTask',
+            label: 'Task Configuration (to modify)',
+            schemaSourcePath: 'platform://WorkflowTask'
+          },
+          audit: {
             schemaRef: 'platform://ScriptResponse',
-            label: 'Response',
+            label: 'Audit Response',
             schemaSourcePath: 'platform://ScriptResponse'
           }
         }
@@ -68,15 +72,15 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
         methodName: 'OutputHandler',
         source: {
           context: {
-            schemaRef: 'platform://ScriptContext',
-            label: 'Context',
-            schemaSourcePath: 'platform://ScriptContext'
+            schemaRef: 'platform://ScriptContext_OutputHandler',
+            label: 'Context (with TaskResponse)',
+            schemaSourcePath: 'platform://ScriptContext_OutputHandler'
           }
         },
         target: {
-          response: {
+          data: {
             schemaRef: 'platform://ScriptResponse',
-            label: 'Response',
+            label: 'Instance Data (to merge)',
             schemaSourcePath: 'platform://ScriptResponse'
           }
         }
@@ -96,9 +100,9 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
         methodName: 'Handler',
         source: {
           context: {
-            schemaRef: 'platform://ScriptContext',
+            schemaRef: 'platform://ScriptContext_ConditionHandler',
             label: 'Context',
-            schemaSourcePath: 'platform://ScriptContext'
+            schemaSourcePath: 'platform://ScriptContext_ConditionHandler'
           }
         },
         target: {
@@ -125,9 +129,9 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
         methodName: 'Handler',
         source: {
           context: {
-            schemaRef: 'platform://ScriptContext',
-            label: 'Context',
-            schemaSourcePath: 'platform://ScriptContext'
+            schemaRef: 'platform://ScriptContext_TransitionHandler',
+            label: 'Context (with transition request)',
+            schemaSourcePath: 'platform://ScriptContext_TransitionHandler'
           }
         },
         target: {
@@ -146,6 +150,10 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
    * ISubFlowMapping - Subflow input/output handlers
    * InputHandler: Prepares data for subflow creation
    * OutputHandler: Processes subflow completion results
+   *
+   * Workflow Schema Support:
+   * - parent: Constrains parent workflow's Instance.Data
+   * - child: Constrains child subflow's Instance.Data
    */
   ISubFlowMapping: {
     contractType: 'ISubFlowMapping',
@@ -155,9 +163,9 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
         methodName: 'InputHandler',
         source: {
           context: {
-            schemaRef: 'platform://ScriptContext',
+            schemaRef: 'platform://ScriptContext_InputHandler',
             label: 'Parent Context',
-            schemaSourcePath: 'platform://ScriptContext'
+            schemaSourcePath: 'platform://ScriptContext_InputHandler'
           }
         },
         target: {
@@ -172,9 +180,9 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
         methodName: 'OutputHandler',
         source: {
           context: {
-            schemaRef: 'platform://ScriptContext',
+            schemaRef: 'platform://ScriptContext_OutputHandler',
             label: 'Subflow Context',
-            schemaSourcePath: 'platform://ScriptContext'
+            schemaSourcePath: 'platform://ScriptContext_OutputHandler'
           }
         },
         target: {
@@ -191,6 +199,10 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
   /**
    * ISubProcessMapping - Subprocess input preparation
    * InputHandler: Prepares data for subprocess creation (fire-and-forget)
+   *
+   * Workflow Schema Support:
+   * - parent: Constrains parent workflow's Instance.Data
+   * - child: Constrains subprocess's Instance.Data
    */
   ISubProcessMapping: {
     contractType: 'ISubProcessMapping',
@@ -200,9 +212,9 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
         methodName: 'InputHandler',
         source: {
           context: {
-            schemaRef: 'platform://ScriptContext',
+            schemaRef: 'platform://ScriptContext_InputHandler',
             label: 'Parent Context',
-            schemaSourcePath: 'platform://ScriptContext'
+            schemaSourcePath: 'platform://ScriptContext_InputHandler'
           }
         },
         target: {
@@ -228,9 +240,9 @@ export const CONTRACT_SCHEMA_TEMPLATES: Record<ContractType, ContractSchemaTempl
         methodName: 'Handler',
         source: {
           context: {
-            schemaRef: 'platform://ScriptContext',
+            schemaRef: 'platform://ScriptContext_TimerHandler',
             label: 'Context',
-            schemaSourcePath: 'platform://ScriptContext'
+            schemaSourcePath: 'platform://ScriptContext_TimerHandler'
           }
         },
         target: {

@@ -38,6 +38,38 @@ export interface HandlerMapSpec {
   schemaParts: SchemaParts;     // Handler-specific source/target schemas
   nodes: MapSpecNode[];         // Handler-specific functoid nodes
   edges: Edge[];                // Handler-specific connections
+  schemaOverlays?: import('./types').SchemaOverlays; // Handler-specific schema extensions
+}
+
+/**
+ * Workflow schema reference
+ * Format: workflow://{domain}/{key}@{version}
+ */
+export interface WorkflowSchemaReference {
+  uri: string;                    // Full URI: "workflow://core/app-root@1.0.0"
+  domain: string;                 // "core"
+  key: string;                    // "app-root"
+  version: string;                // "1.0.0"
+  label?: string;                 // Optional display label
+}
+
+/**
+ * Workflow schemas configuration
+ * Stored in mapper metadata
+ */
+export interface WorkflowSchemasConfig {
+  /**
+   * Parent workflow schema
+   * Used for all contract types to constrain Instance.Data
+   */
+  parent?: WorkflowSchemaReference;
+
+  /**
+   * Child workflow schema
+   * Only for ISubFlowMapping and ISubProcessMapping
+   * References the subflow/subprocess being invoked
+   */
+  child?: WorkflowSchemaReference;
 }
 
 /**
@@ -56,6 +88,12 @@ export interface ContractMetadata {
   key: string;                  // Unique key within domain/flow (e.g., "http-task-mapping")
   domain: string;               // Domain/namespace (e.g., "ecommerce", "core")
   flow: string;                 // Flow/category (e.g., "mappers", "sys-mappers")
+
+  /**
+   * Workflow schema references
+   * Constrains ScriptContext.Instance.Data with workflow-specific schemas
+   */
+  workflowSchemas?: WorkflowSchemasConfig;
 }
 
 /**
@@ -371,4 +409,62 @@ export function hasKeyBasedIdentity(metadata: any): metadata is ContractMetadata
     typeof metadata.domain === 'string' &&
     typeof metadata.flow === 'string'
   );
+}
+
+/**
+ * Parse workflow schema URI
+ * Format: workflow://{domain}/{key}@{version}
+ */
+export function parseWorkflowSchemaUri(uri: string): WorkflowSchemaReference {
+  if (!uri.startsWith('workflow://')) {
+    throw new Error(`Invalid workflow schema URI: ${uri}. Must start with 'workflow://'`);
+  }
+
+  const withoutProtocol = uri.replace('workflow://', '');
+  const versionMatch = withoutProtocol.match(/^(.+)@(.+)$/);
+
+  if (!versionMatch) {
+    throw new Error(`Invalid workflow schema URI: ${uri}. Expected format: workflow://{domain}/{key}@{version}`);
+  }
+
+  const path = versionMatch[1];
+  const version = versionMatch[2];
+  const parts = path.split('/');
+
+  if (parts.length !== 2) {
+    throw new Error(`Invalid workflow schema URI: ${uri}. Expected format: workflow://{domain}/{key}@{version}`);
+  }
+
+  return {
+    uri,
+    domain: parts[0],
+    key: parts[1],
+    version
+  };
+}
+
+/**
+ * Build workflow schema URI
+ */
+export function buildWorkflowSchemaUri(
+  domain: string,
+  key: string,
+  version: string
+): string {
+  return `workflow://${domain}/${key}@${version}`;
+}
+
+/**
+ * Check if contract type supports workflow schemas
+ */
+export function supportsWorkflowSchemas(contractType: ContractType): boolean {
+  // All contracts use ScriptContext with Instance.Data
+  return true;
+}
+
+/**
+ * Check if contract type supports child workflow schemas
+ */
+export function supportsChildWorkflowSchema(contractType: ContractType): boolean {
+  return contractType === 'ISubFlowMapping' || contractType === 'ISubProcessMapping';
 }

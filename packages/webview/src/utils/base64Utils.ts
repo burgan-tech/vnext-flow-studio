@@ -35,7 +35,7 @@ export function encodeBase64(code: string): string {
   }
 
   // Check if the code contains C# patterns that should be encoded
-  const hasCSharpPatterns = /using\s+System|public\s+class|ScriptBase|IMapping|ScriptContext|WorkflowTask/.test(code);
+  const hasCSharpPatterns = /using\s+System|public\s+class|ScriptBase|IMapping|ITimerMapping|ScriptContext|WorkflowTask|TimerSchedule/.test(code);
 
   if (hasCSharpPatterns) {
     return btoa(code);

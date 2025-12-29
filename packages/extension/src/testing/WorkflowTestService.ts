@@ -198,6 +198,15 @@ export class WorkflowTestService {
     // Execute the transition (sync=true for immediate response)
     const url = `${env.baseUrl}/api/v1/${workflow.domain}/workflows/${workflow.key}/instances/${instanceId}/transitions/${transitionKey}?sync=true`;
 
+    // Platform expects input data wrapped in attributes field (same as startInstance)
+    const bodyData = {
+      attributes: data
+    };
+
+    console.log('[WorkflowTestService] executeTransition - URL:', url);
+    console.log('[WorkflowTestService] executeTransition - data:', data);
+    console.log('[WorkflowTestService] executeTransition - bodyData:', bodyData);
+
     try {
       const response = await fetch(url, {
         method: 'PATCH',
@@ -205,7 +214,7 @@ export class WorkflowTestService {
           'Content-Type': 'application/json',
           ...this.getAuthHeaders(env)
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(bodyData)
       });
 
       if (!response.ok) {

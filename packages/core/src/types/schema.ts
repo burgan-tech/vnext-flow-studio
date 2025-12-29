@@ -2,6 +2,16 @@
 
 import type { Label } from './workflow';
 
+// Schema component type (what the schema validates)
+export type SchemaComponentType =
+  | 'workflow'
+  | 'task'
+  | 'function'
+  | 'view'
+  | 'schema'
+  | 'extension'
+  | 'headers';
+
 // JSON Schema type enum
 export type JsonSchemaType =
   | 'object'
@@ -61,7 +71,7 @@ export interface JsonSchema {
 
 // Schema attributes
 export interface SchemaAttributes {
-  type: string;
+  type: SchemaComponentType;
   schema: JsonSchema;
   labels?: Label[];
 }

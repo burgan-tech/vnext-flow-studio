@@ -86,6 +86,7 @@ export function TransitionMappingPopup({
   }, [draftMapping, mapping]);
 
   // Update mapping code when catalog script is updated (for readonly display)
+  const availableMappers = catalogs.mapper || [];
   useEffect(() => {
     // Get the location to check (either from mapperRef or location)
     const scriptLocation = draftMapping.mapperRef || draftMapping.location;
@@ -100,7 +101,7 @@ export function TransitionMappingPopup({
 
     if (isScriptFile && draftMapping.code) {
       // Find the script in the catalog
-      const catalogScript = availableMappers.find(m => m.location === scriptLocation);
+      const catalogScript = availableMappers.find((m: any) => m.location === scriptLocation);
       if (catalogScript && catalogScript.base64 && catalogScript.base64 !== draftMapping.code) {
         // Script was updated in catalog, refresh the readonly display
         console.log('[TransitionMappingPopup] Updating readonly script display for:', scriptLocation);

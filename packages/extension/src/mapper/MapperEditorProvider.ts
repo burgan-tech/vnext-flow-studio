@@ -1,10 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { autoLayoutMapper } from '../../../core/src/mapper/mapperLayout';
-import { ComponentResolverManager } from '../../../core/src/model/ComponentResolverManager';
-import { calculateSchemaHash } from '../../../core/src/mapper/schemaHashUtils';
-import { resolvePlatformSchema } from '../../../core/src/mapper/platformSchemas';
-import { loadPlatformSchemas } from '../../../core/src/mapper/mapperAdapter';
+import { autoLayoutMapper, calculateSchemaHash, resolvePlatformSchema, loadPlatformSchemas, resolveAndApplyWorkflowSchemas, PLATFORM_SCHEMAS } from '@amorphie-flow-studio/core/mapper';
+import { ComponentResolverManager } from '@amorphie-flow-studio/core';
 
 /**
  * MapperEditorProvider - Custom editor for *.mapper.json files
@@ -410,6 +407,117 @@ async function openMapperEditor(
       }
     }
 
+    // Apply workflow schemas if configured
+    const mapperMetadata = (mapSpec as any).metadata;
+    if (mapperMetadata?.workflowSchemas) {
+      try {
+        console.log('Applying workflow schemas:', mapperMetadata.workflowSchemas);
+
+        // Wait for ModelBridge initialization to complete (ensures ComponentResolver is ready)
+        if (modelBridge?.waitForInitialization) {
+          console.log('[openMapperEditor] Waiting for ModelBridge initialization before applying workflow schemas...');
+          await modelBridge.waitForInitialization();
+          console.log('[openMapperEditor] ModelBridge initialization complete');
+        }
+
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(mapperUri);
+        if (!workspaceFolder) {
+          console.warn('No workspace folder found, cannot resolve workflow schemas');
+        } else {
+          const manager = ComponentResolverManager.getInstance();
+          const workspacePath = workspaceFolder.uri.fsPath;
+
+          console.log('[openMapperEditor] Looking for global resolver with workspaceId:', workspacePath);
+
+          // Use global resolver only - don't create isolated resolvers
+          const resolver = manager.getGlobalResolver(workspacePath);
+          console.log('[openMapperEditor] Global resolver found:', !!resolver);
+
+          if (!resolver) {
+            console.log('Global ComponentResolver not yet initialized. Workflow schemas will be available after resolver initialization.');
+          } else {
+            // Apply workflow schemas to all handlers (if contract mapper with handlers)
+            if (mapSpec.handlers) {
+              console.log('Applying workflow schemas to all handlers');
+              for (const [handlerName, handlerSpec] of Object.entries(mapSpec.handlers as any)) {
+                if (handlerSpec.schemaParts) {
+                  // Apply to source parts
+                  if (handlerSpec.schemaParts.source) {
+                    for (const [partName, partDef] of Object.entries(handlerSpec.schemaParts.source)) {
+                      const part = partDef as any;
+                      if (part.schemaRef?.startsWith('platform://ScriptContext') && part.schema) {
+                        console.log(`Applying workflow schema to ${handlerName}.source.${partName}`);
+                        part.schema = await resolveAndApplyWorkflowSchemas(
+                          mapperMetadata.workflowSchemas,
+                          resolver,
+                          part.schema
+                        );
+                      }
+                    }
+                  }
+                  // Apply to target parts
+                  if (handlerSpec.schemaParts.target) {
+                    for (const [partName, partDef] of Object.entries(handlerSpec.schemaParts.target)) {
+                      const part = partDef as any;
+                      if (part.schemaRef?.startsWith('platform://ScriptContext') && part.schema) {
+                        console.log(`Applying workflow schema to ${handlerName}.target.${partName}`);
+                        part.schema = await resolveAndApplyWorkflowSchemas(
+                          mapperMetadata.workflowSchemas,
+                          resolver,
+                          part.schema
+                        );
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // Also apply to flattened top-level schemaParts (for initial display)
+            if (mapSpec.schemaParts) {
+              // Apply workflow schemas to ScriptContext parts
+              // Apply to source parts
+              if (mapSpec.schemaParts.source) {
+              for (const [partName, partDef] of Object.entries(mapSpec.schemaParts.source)) {
+                const part = partDef as any;
+                // Apply to any ScriptContext variant (ScriptContext, ScriptContext_InputHandler, etc.)
+                if (part.schemaRef?.startsWith('platform://ScriptContext') && part.schema) {
+                  console.log(`Applying workflow schema to source part: ${partName}`);
+                  part.schema = await resolveAndApplyWorkflowSchemas(
+                    mapperMetadata.workflowSchemas,
+                    resolver,
+                    part.schema
+                  );
+                }
+              }
+            }
+
+            // Apply to target parts
+            if (mapSpec.schemaParts.target) {
+              for (const [partName, partDef] of Object.entries(mapSpec.schemaParts.target)) {
+                const part = partDef as any;
+                // Apply to any ScriptContext variant (ScriptContext, ScriptContext_InputHandler, etc.)
+                if (part.schemaRef?.startsWith('platform://ScriptContext') && part.schema) {
+                  console.log(`Applying workflow schema to target part: ${partName}`);
+                  part.schema = await resolveAndApplyWorkflowSchemas(
+                    mapperMetadata.workflowSchemas,
+                    resolver,
+                    part.schema
+                  );
+                }
+              }
+            }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to apply workflow schemas:', error);
+        vscode.window.showWarningMessage(
+          `Failed to apply workflow schemas: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
     console.log('Prepared mapSpec with schemas:', {
       hasSource: !!loadedSourceSchema,
       hasTarget: !!loadedTargetSchema,
@@ -472,6 +580,12 @@ async function openMapperEditor(
               activeHandler = newHandler;
               const handlerSpec = mapSpec.handlers[newHandler] as any;
 
+              // DEBUG: Log schema properties
+              if (handlerSpec.schemaParts?.source?.context?.schema?.properties) {
+                console.log(`[switchHandler] ${newHandler} context schema properties:`,
+                  Object.keys(handlerSpec.schemaParts.source.context.schema.properties));
+              }
+
               // Flatten the new active handler's data
               mapSpec.schemaParts = handlerSpec.schemaParts;
               mapSpec.nodes = handlerSpec.nodes || [];
@@ -519,17 +633,44 @@ async function openMapperEditor(
                 return path.relative(mapperDir, absolutePath);
               };
 
-              // Convert schema source paths in all parts
-              if (mapSpecToSave.schemaParts) {
+              // Helper to strip schemas from schema parts
+              const stripSchemasFromParts = (schemaParts: any) => {
+                if (!schemaParts) return;
+
                 for (const side of ['source', 'target'] as const) {
-                  const parts = mapSpecToSave.schemaParts[side];
+                  const parts = schemaParts[side];
                   if (parts) {
                     for (const partName of Object.keys(parts)) {
                       const part = parts[partName];
                       if (part.schemaSourcePath) {
                         part.schemaSourcePath = makeRelativePath(part.schemaSourcePath);
                       }
+
+                      // Strip resolved schema for non-embedded references
+                      // Only keep embedded schemas (schemaRef === 'custom' or 'none')
+                      if (part.schemaRef &&
+                          part.schemaRef !== 'custom' &&
+                          part.schemaRef !== 'none') {
+                        // This is a reference (platform://, workflow://, or file path)
+                        // Remove the resolved schema - it will be resolved at load time
+                        delete part.schema;
+                      }
                     }
+                  }
+                }
+              };
+
+              // Strip schemas from top-level schemaParts
+              if (mapSpecToSave.schemaParts) {
+                stripSchemasFromParts(mapSpecToSave.schemaParts);
+              }
+
+              // Strip schemas from handler schemaParts (contract-based mappers)
+              if (mapSpecToSave.handlers) {
+                for (const handlerName of Object.keys(mapSpecToSave.handlers)) {
+                  const handler = mapSpecToSave.handlers[handlerName];
+                  if (handler && handler.schemaParts) {
+                    stripSchemasFromParts(handler.schemaParts);
                   }
                 }
               }
@@ -709,6 +850,13 @@ async function openMapperEditor(
             try {
               console.log('Requesting platform schemas...');
 
+              // Wait for ModelBridge initialization to complete (ensures ComponentResolver is ready)
+              if (modelBridge?.waitForInitialization) {
+                console.log('[requestPlatformSchemas] Waiting for ModelBridge initialization...');
+                await modelBridge.waitForInitialization();
+                console.log('[requestPlatformSchemas] ModelBridge initialization complete');
+              }
+
               let schemas: any[] = [];
 
               // Try to get schemas from ModelBridge if available
@@ -727,38 +875,11 @@ async function openMapperEditor(
                 }
               }
 
-              // Fallback: Create ComponentResolver if ModelBridge not available or no active model
+              // Fallback: Use embedded platform schemas
               if (schemas.length === 0) {
-                const workspaceFolder = vscode.workspace.getWorkspaceFolder(mapperUri);
-                if (!workspaceFolder) {
-                  console.warn('No workspace folder found, cannot load platform schemas');
-                  panel.webview.postMessage({
-                    type: 'platformSchemas',
-                    schemas: []
-                  });
-                  break;
-                }
-
-                console.log('Using ComponentResolver fallback...');
-                const manager = ComponentResolverManager.getInstance();
-                const workspacePath = workspaceFolder.uri.fsPath;
-
-                // Try to use the global resolver if it exists, otherwise create isolated resolver
-                let resolver = manager.getGlobalResolver(workspacePath);
-                if (!resolver) {
-                  console.log('Creating isolated resolver for schema loading...');
-                  resolver = await manager.createIsolatedResolver({
-                    basePath: workspacePath,
-                    useCache: true
-                  });
-                  await resolver.preloadAllComponents();
-                } else {
-                  console.log('Using existing global resolver');
-                }
-
-                const schemaCache = (resolver as any).schemaCache as Map<string, any>;
-                schemas = Array.from(schemaCache.values());
-                console.log(`Found ${schemas.length} platform schemas from ComponentResolver`);
+                console.log('Using embedded platform schemas...');
+                schemas = Object.values(PLATFORM_SCHEMAS);
+                console.log(`Loaded ${schemas.length} platform schemas`);
               }
 
               // Send schemas to webview
@@ -978,6 +1099,17 @@ export class MapperEditorProvider implements vscode.CustomTextEditorProvider {
     console.log('[MapperEditorProvider.resolveCustomTextEditor] Panel ID:', (webviewPanel as any)._id || 'unknown');
     console.log('[MapperEditorProvider.resolveCustomTextEditor] Current active panels:', this.activePanels.size);
 
+    // Wait for ModelBridge initialization to complete (ensures ComponentResolver is ready)
+    console.log('[MapperEditorProvider] modelBridge exists:', !!this.modelBridge);
+    console.log('[MapperEditorProvider] waitForInitialization exists:', !!this.modelBridge?.waitForInitialization);
+    if (this.modelBridge?.waitForInitialization) {
+      console.log('[MapperEditorProvider] Waiting for ModelBridge initialization...');
+      await this.modelBridge.waitForInitialization();
+      console.log('[MapperEditorProvider] ModelBridge initialization complete');
+    } else {
+      console.warn('[MapperEditorProvider] Cannot wait for initialization - modelBridge or waitForInitialization not available');
+    }
+
     // Configure the provided webview panel
     webviewPanel.webview.options = {
       enableScripts: true,
@@ -1037,6 +1169,13 @@ export function registerMapperEditor(context: vscode.ExtensionContext, modelBrid
     async (uri?: vscode.Uri) => {
       console.log('[mapperEditor.open] Command called with URI:', uri?.toString());
 
+      // Wait for ModelBridge initialization to complete (ensures ComponentResolver is ready)
+      if (modelBridge?.waitForInitialization) {
+        console.log('[mapperEditor.open] Waiting for ModelBridge initialization...');
+        await modelBridge.waitForInitialization();
+        console.log('[mapperEditor.open] ModelBridge initialization complete');
+      }
+
       const mapperUri = uri ?? (
         await vscode.window.showOpenDialog({
           filters: { 'Amorphie Mapper': ['mapper.json'] },
@@ -1056,7 +1195,7 @@ export function registerMapperEditor(context: vscode.ExtensionContext, modelBrid
         return;
       }
 
-      await openMapperEditor(mapperUri, context, activePanels);
+      await openMapperEditor(mapperUri, context, activePanels, undefined, modelBridge);
       console.log('[mapperEditor.open] openMapperEditor completed');
     }
   );

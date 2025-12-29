@@ -221,11 +221,11 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
       resolvedTransitions: []
     };
 
-    // Resolve view
-    if (state.view) {
-      resolved.resolvedView = await this.componentResolver.resolveView(state.view) || undefined;
+    // Resolve view (ViewConfig has nested view reference)
+    if (state.view?.view) {
+      resolved.resolvedView = await this.componentResolver.resolveView(state.view.view) || undefined;
       if (resolved.resolvedView) {
-        const key = this.getComponentKey(state.view);
+        const key = this.getComponentKey(state.view.view);
         this.state.components.views.set(key, resolved.resolvedView);
       }
     }
@@ -272,7 +272,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
     };
 
     // Resolve rule script
-    if (transition.rule && loadScripts) {
+    if (transition.rule && transition.rule.location && loadScripts) {
       // Always resolve scripts relative to workflow file directory
       const workflowDir = path.dirname(this.state.metadata.workflowPath);
       const script = await this.scriptManager.loadScript(
@@ -323,7 +323,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
     };
 
     // Resolve rule script
-    if (sharedTransition.rule && loadScripts) {
+    if (sharedTransition.rule && sharedTransition.rule.location && loadScripts) {
       // Always resolve scripts relative to workflow file directory
       const workflowDir = path.dirname(this.state.metadata.workflowPath);
       const script = await this.scriptManager.loadScript(
@@ -381,7 +381,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
     }
 
     // Resolve mapping script
-    if (task.mapping && loadScripts) {
+    if (task.mapping && task.mapping.location && loadScripts) {
       // Always resolve scripts relative to workflow file directory
       const workflowDir = path.dirname(this.state.metadata.workflowPath);
       const script = await this.scriptManager.loadScript(

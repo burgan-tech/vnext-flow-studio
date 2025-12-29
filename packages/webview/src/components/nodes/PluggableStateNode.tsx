@@ -14,6 +14,7 @@ interface PluggableStateNodeProps {
     state?: State;
     stateType: StateType;
     stateSubType?: number;
+    isCancelTarget?: boolean;
     variant?: 'start' | 'timeout';
     width?: number;
     height?: number;
@@ -154,6 +155,7 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
     state,
     stateType,
     stateSubType,
+    isCancelTarget,
     variant,
     width: dataWidth,
     height: dataHeight,
@@ -168,8 +170,6 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
   const [showCommentModal, setShowCommentModal] = useState(false);
   const stateTypeClass = getStateTypeClass(stateType, stateSubType);
   const stateTypeName = getStateTypeName(stateType);
-  const stateSubTypeName = getStateSubTypeName(stateSubType);
-  const stateSubTypeIcon = getStateSubTypeIcon(stateSubType);
   const stateTypeIcon = getStateTypeIcon(stateType, pluginId);
   const variantIcon = getVariantIcon(variant);
   const displayTitle = title || label || 'Node';
@@ -263,7 +263,8 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
     pluginClass,
     selected ? 'selected' : '',
     highlighted ? 'state-node--highlighted' : '',
-    highlightedInHistory ? 'state-node--history' : ''
+    highlightedInHistory ? 'state-node--history' : '',
+    isCancelTarget ? 'state-node--cancel-target' : ''
   ].filter(Boolean).join(' ');
 
   // Render terminal labels for plugin nodes (currently disabled to keep nodes clean)
@@ -332,9 +333,9 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
         </div>
 
         <div className="state-node__content">
-          {stateSubTypeIcon && (
-            <div className="state-node__badge-icon" aria-label={stateSubTypeName} title={stateSubTypeName}>
-              {stateSubTypeIcon}
+          {isCancelTarget && (
+            <div className="state-node__badge-icon state-node__badge-icon--cancel" aria-label="Cancel Target" title="Cancel Target">
+              ✕
             </div>
           )}
           <div className="state-node__title">

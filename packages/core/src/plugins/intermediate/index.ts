@@ -69,8 +69,23 @@ const INTERMEDIATE_STATE_TERMINALS: TerminalRole[] = [
         triggerType: 2,
         versionStrategy: 'Minor',
         timer: {
-          reset: 'N',
-          duration: 'PT5M' // Default 5 minutes
+          // Static timer script - default 5 minutes, no reset on re-entry
+          code: btoa(`using System.Threading.Tasks;
+using BBT.Workflow.Scripting;
+using BBT.Workflow.Definitions.Timer;
+
+public class StaticTimer : ITimerMapping
+{
+    public async Task<TimerSchedule> Handler(ScriptContext context)
+    {
+        // Static duration: PT5M
+        return TimerSchedule.FromDuration("PT5M", resetOnEntry: false);
+    }
+}
+`),
+          location: './src/timers/timeout.csx',
+          encoding: 'B64',
+          type: 'L'
         }
       }
     }
@@ -157,10 +172,10 @@ const intermediateStateHooks: PluginHooks = {
     // Validate timer configuration for timeout transitions
     const timeoutTransitions = state.transitions?.filter(t => t.triggerType === 2) || [];
     for (const transition of timeoutTransitions) {
-      if (!transition.timer || !transition.timer.duration) {
+      if (!transition.timer || !transition.timer.code) {
         problems.push({
-          code: 'intermediate-state.timeout-missing-duration',
-          message: `Timeout transition '${transition.key}' must have a duration`,
+          code: 'intermediate-state.timeout-missing-timer',
+          message: `Timeout transition '${transition.key}' must have timer code configured`,
           severity: 'error',
           location: {
             type: 'transition',

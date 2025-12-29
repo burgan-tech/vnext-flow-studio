@@ -159,6 +159,22 @@ export class DeploymentService {
       basePath = workspaceRoot;
     }
 
+    // Load vnext.config.json to get authoritative domain
+    const { findVNextConfig } = await import('@amorphie-flow-studio/core');
+    const configResult = await findVNextConfig(basePath);
+    let authoritativeDomain: string | undefined;
+
+    if (configResult.success && configResult.config?.domain) {
+      authoritativeDomain = configResult.config.domain;
+      this.log(`Loaded authoritative domain from vnext.config.json: ${authoritativeDomain}`);
+
+      // Override main workflow domain if needed
+      if (request.component.domain !== authoritativeDomain) {
+        this.log(`⚠️  Main workflow domain mismatch: "${request.component.domain}" → "${authoritativeDomain}"`);
+        request.component.domain = authoritativeDomain;
+      }
+    }
+
     // Report progress: discovering dependencies
     onProgress?.({
       step: 'normalizing',
@@ -213,11 +229,16 @@ export class DeploymentService {
       // Reconstruct full component for deployment
       const component = {
         key: dep.ref.key,
-        domain: dep.ref.domain,
+        domain: authoritativeDomain || dep.ref.domain,  // Use authoritative domain if available
         flow: dep.ref.flow,
         version: dep.ref.version,  // ← Correct version from graph!
         attributes: dep.definition  // Already normalized
       };
+
+      // Log domain override for dependencies if applicable
+      if (authoritativeDomain && dep.ref.domain !== authoritativeDomain) {
+        this.log(`  └─ Dependency ${dep.type} "${dep.ref.key}": domain "${dep.ref.domain}" → "${authoritativeDomain}"`);
+      }
 
       deploymentRequests.push({
         component: component,
@@ -363,6 +384,21 @@ export class DeploymentService {
         projectRoot = path.dirname(configResult.configPath);
         this.log(`Found project root via vnext.config.json: ${projectRoot}`);
 
+        // Extract and apply authoritative domain from vnext.config.json
+        if (configResult.config?.domain) {
+          const authoritativeDomain = configResult.config.domain;
+          this.log(`Authoritative domain from vnext.config.json: ${authoritativeDomain}`);
+
+          // Override component domain if it differs
+          if (request.component.domain !== authoritativeDomain) {
+            this.log(`⚠️  Domain mismatch detected!`);
+            this.log(`   Component file domain: "${request.component.domain}"`);
+            this.log(`   vnext.config.json domain: "${authoritativeDomain}"`);
+            this.log(`   → Overriding with authoritative domain: "${authoritativeDomain}"`);
+            request.component.domain = authoritativeDomain;
+          }
+        }
+
         // Update ComponentResolver basePath to the project root
         this.componentResolver.setBasePath(projectRoot);
 
@@ -445,6 +481,13 @@ export class DeploymentService {
     // Filter out design-time attributes before deployment
     this.log(`Filtering design-time attributes...`);
     componentToDeploy = filterDesignTimeAttributes(componentToDeploy);
+
+    // Ensure domain is still correct after normalization and filtering
+    // (normalization might have reset it)
+    if (componentToDeploy.domain !== request.component.domain) {
+      this.log(`Re-applying authoritative domain after normalization: ${request.component.domain}`);
+      componentToDeploy.domain = request.component.domain;
+    }
 
     // Clean up existing instance from database if database config is provided
     if (!request.environment.database) {
@@ -552,6 +595,19 @@ export class DeploymentService {
 
     // Deploy to runtime
     this.log(`Deploying to ${request.environment.baseUrl}...`);
+    this.log(`Component to deploy - key: ${componentToDeploy.key}, domain: ${componentToDeploy.domain}, flow: ${componentToDeploy.flow}`);
+
+    // Log full component structure for debugging
+    this.log('Full component structure:');
+    this.log(JSON.stringify({
+      key: componentToDeploy.key,
+      domain: componentToDeploy.domain,
+      flow: componentToDeploy.flow,
+      version: componentToDeploy.version,
+      hasAttributes: !!componentToDeploy.attributes,
+      attributesKeys: componentToDeploy.attributes ? Object.keys(componentToDeploy.attributes).slice(0, 10) : []
+    }, null, 2));
+
     const deployResult = await this.adapter.createComponent(
       componentType,
       componentToDeploy,

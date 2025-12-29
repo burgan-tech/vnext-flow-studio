@@ -10,6 +10,7 @@ import type { JSONSchema } from './types';
 /**
  * ScriptContext schema
  * Main context object passed to all scripting handlers
+ * Matches BBT.Workflow.Scripting.ScriptContext from Models.cs
  */
 export const ScriptContextSchema: JSONSchema = {
   $id: 'platform://ScriptContext',
@@ -17,6 +18,62 @@ export const ScriptContextSchema: JSONSchema = {
   description: 'Script execution context containing workflow state and runtime information',
   type: 'object',
   properties: {
+    Body: {
+      type: 'object',
+      description: 'Request payload data from transitions or StandardTaskResponse from completed tasks (camelCase). When containing task response: { data, statusCode, isSuccess, errorMessage, headers, metadata, executionDurationMs, taskType }',
+      additionalProperties: true,
+      properties: {
+        data: {
+          type: 'object',
+          description: 'Actual response data from task execution',
+          additionalProperties: true
+        },
+        statusCode: {
+          type: 'integer',
+          description: 'HTTP status code for HTTP-based tasks'
+        },
+        isSuccess: {
+          type: 'boolean',
+          description: 'Indicates whether task execution was successful'
+        },
+        errorMessage: {
+          type: 'string',
+          description: 'Error message if task execution failed'
+        },
+        headers: {
+          type: 'object',
+          description: 'Response headers for HTTP-based tasks',
+          additionalProperties: {
+            type: 'string'
+          }
+        },
+        metadata: {
+          type: 'object',
+          description: 'Additional metadata about task execution',
+          additionalProperties: true
+        },
+        executionDurationMs: {
+          type: 'integer',
+          description: 'Task execution duration in milliseconds'
+        },
+        taskType: {
+          type: 'string',
+          description: 'Task type identifier'
+        }
+      }
+    },
+    Headers: {
+      type: 'object',
+      description: 'HTTP headers from transition requests (lowercase keys)',
+      additionalProperties: {
+        type: 'string'
+      }
+    },
+    RouteValues: {
+      type: 'object',
+      description: 'Route values and URL parameters from transition request',
+      additionalProperties: true
+    },
     Instance: {
       type: 'object',
       description: 'Workflow instance data and state',
@@ -31,54 +88,24 @@ export const ScriptContextSchema: JSONSchema = {
           description: 'Workflow instance GUID',
           format: 'uuid'
         },
-        State: {
+        CurrentState: {
           type: 'string',
           description: 'Current workflow state key'
         },
         Status: {
           type: 'string',
-          description: 'Workflow status (Active, Completed, Failed, etc.)',
-          enum: ['Active', 'Completed', 'Failed', 'Cancelled', 'Suspended']
+          description: 'Workflow status',
+          enum: ['Active', 'Busy', 'Completed', 'Faulted', 'Passive']
         },
         CreatedAt: {
           type: 'string',
           description: 'Instance creation timestamp',
           format: 'date-time'
         },
-        UpdatedAt: {
+        ModifiedAt: {
           type: 'string',
-          description: 'Last update timestamp',
+          description: 'Last modification timestamp',
           format: 'date-time'
-        }
-      }
-    },
-    Headers: {
-      type: 'object',
-      description: 'HTTP headers from current request',
-      additionalProperties: {
-        type: 'string'
-      }
-    },
-    RouteValues: {
-      type: 'object',
-      description: 'Route parameters from URL',
-      additionalProperties: true
-    },
-    Body: {
-      type: 'object',
-      description: 'HTTP response body (available in OutputHandler)',
-      additionalProperties: true
-    },
-    TaskResponse: {
-      type: 'array',
-      description: 'Collection of task execution responses',
-      items: {
-        type: 'object',
-        properties: {
-          TaskName: { type: 'string' },
-          Status: { type: 'string' },
-          Data: { type: 'object', additionalProperties: true },
-          Error: { type: 'string' }
         }
       }
     },
@@ -86,29 +113,52 @@ export const ScriptContextSchema: JSONSchema = {
       type: 'object',
       description: 'Workflow definition metadata',
       properties: {
-        Key: { type: 'string' },
-        Domain: { type: 'string' },
-        Flow: { type: 'string' },
-        Version: { type: 'string' }
+        Key: { type: 'string', description: 'Workflow key' },
+        Domain: { type: 'string', description: 'Workflow domain' },
+        Flow: { type: 'string', description: 'Workflow flow' },
+        Version: { type: 'string', description: 'Workflow version' }
       }
     },
-    User: {
+    Runtime: {
       type: 'object',
-      description: 'Current user information',
+      description: 'Runtime information and services for current execution context',
+      additionalProperties: true
+    },
+    Transition: {
+      type: 'object',
+      description: 'Current transition being processed',
       properties: {
-        Id: { type: 'string' },
-        UserName: { type: 'string' },
-        Email: { type: 'string', format: 'email' },
-        Roles: {
-          type: 'array',
-          items: { type: 'string' }
+        Key: { type: 'string', description: 'Transition key' },
+        FromState: { type: 'string', description: 'Source state' },
+        ToState: { type: 'string', description: 'Target state' },
+        Type: { type: 'string', description: 'Transition type' }
+      },
+      additionalProperties: true
+    },
+    Definitions: {
+      type: 'object',
+      description: 'Workflow and component definitions available in execution context',
+      additionalProperties: true
+    },
+    TaskResponse: {
+      type: 'object',
+      description: 'Task execution results keyed by task name (camelCase keys)',
+      additionalProperties: {
+        type: 'object',
+        description: 'ScriptResponse object containing task execution data',
+        properties: {
+          Key: { type: 'string' },
+          Data: { type: 'object', additionalProperties: true },
+          Headers: { type: 'object', additionalProperties: { type: 'string' } },
+          RouteValues: { type: 'object', additionalProperties: true },
+          Tags: { type: 'array', items: { type: 'string' } }
         }
       }
     },
-    TraceId: {
-      type: 'string',
-      description: 'Distributed tracing correlation ID',
-      format: 'uuid'
+    MetaData: {
+      type: 'object',
+      description: 'Execution metadata, performance metrics, and contextual information',
+      additionalProperties: true
     }
   },
   required: ['Instance']
@@ -117,6 +167,7 @@ export const ScriptContextSchema: JSONSchema = {
 /**
  * ScriptResponse schema
  * Response object returned from scripting handlers
+ * Matches BBT.Workflow.Scripting.ScriptResponse from Models.cs
  */
 export const ScriptResponseSchema: JSONSchema = {
   $id: 'platform://ScriptResponse',
@@ -124,38 +175,31 @@ export const ScriptResponseSchema: JSONSchema = {
   description: 'Response object returned from mapping handlers',
   type: 'object',
   properties: {
-    Data: {
-      type: 'object',
-      description: 'Transformed data to merge into workflow instance or send to external system',
-      additionalProperties: true
-    },
     Key: {
       type: 'string',
-      description: 'Optional identifier for tracking this operation'
+      description: 'Unique identifier or key for correlation, caching, or referencing'
+    },
+    Data: {
+      type: 'object',
+      description: 'Primary data payload - usage varies by mapping context (audit, instance merge, subflow input)',
+      additionalProperties: true
     },
     Headers: {
       type: 'object',
-      description: 'HTTP headers to include in request',
-      additionalProperties: {
-        type: 'string'
-      }
+      description: 'HTTP headers or metadata headers for additional context',
+      additionalProperties: true
     },
     RouteValues: {
       type: 'object',
-      description: 'Route parameters for request',
+      description: 'Route values or routing parameters for workflow routing decisions',
       additionalProperties: true
     },
     Tags: {
       type: 'array',
-      description: 'Categorization tags for audit and tracking',
+      description: 'Collection of tags for categorizing, filtering, or marking the response',
       items: {
         type: 'string'
       }
-    },
-    Metadata: {
-      type: 'object',
-      description: 'Additional metadata for logging and audit',
-      additionalProperties: true
     }
   }
 };
@@ -255,11 +299,117 @@ export const TimerScheduleSchema: JSONSchema = {
 };
 
 /**
+ * ScriptContext for InputHandler
+ * Available in: IMapping.InputHandler, ISubFlowMapping.InputHandler, ISubProcessMapping.InputHandler
+ * Minimal context - only workflow state
+ */
+export const ScriptContext_InputHandlerSchema: JSONSchema = {
+  $id: 'platform://ScriptContext_InputHandler',
+  title: 'ScriptContext (InputHandler)',
+  description: 'Script context for input preparation - access workflow state to prepare task inputs',
+  type: 'object',
+  properties: {
+    Instance: ScriptContextSchema.properties!.Instance
+    // Workflow/Runtime/Definitions/MetaData NOT included - execution engine only
+    // Body/Headers/RouteValues NOT included - not relevant for task preparation
+    // Transition NOT included - tasks don't directly handle transitions
+    // TaskResponse NOT included - empty in InputHandler
+  },
+  required: ['Instance']
+};
+
+/**
+ * ScriptContext for OutputHandler
+ * Available in: IMapping.OutputHandler, ISubFlowMapping.OutputHandler
+ * Access workflow state and task execution results
+ */
+export const ScriptContext_OutputHandlerSchema: JSONSchema = {
+  $id: 'platform://ScriptContext_OutputHandler',
+  title: 'ScriptContext (OutputHandler)',
+  description: 'Script context for output processing - access task results and workflow state',
+  type: 'object',
+  properties: {
+    Body: ScriptContextSchema.properties!.Body, // StandardTaskResponse from executed task
+    Instance: ScriptContextSchema.properties!.Instance,
+    TaskResponse: ScriptContextSchema.properties!.TaskResponse // Task execution results
+    // Workflow/Runtime/Definitions/MetaData NOT included - execution engine only
+    // Headers/RouteValues NOT included - not needed for output processing
+    // Transition NOT included - tasks don't directly handle transitions
+  },
+  required: ['Instance']
+};
+
+/**
+ * ScriptContext for ConditionHandler
+ * Available in: IConditionMapping.Handler
+ * Automatic transitions - evaluate workflow state only
+ */
+export const ScriptContext_ConditionHandlerSchema: JSONSchema = {
+  $id: 'platform://ScriptContext_ConditionHandler',
+  title: 'ScriptContext (ConditionHandler)',
+  description: 'Script context for automatic transition conditions - evaluate workflow state to determine if transition should execute',
+  type: 'object',
+  properties: {
+    Instance: ScriptContextSchema.properties!.Instance
+    // Workflow/Runtime/Definitions/MetaData NOT included - execution engine only
+    // Body/Headers/RouteValues NOT included - automatic transitions have no request data
+    // Transition NOT included - condition evaluated before transition executes
+    // TaskResponse NOT included
+  },
+  required: ['Instance']
+};
+
+/**
+ * ScriptContext for TransitionHandler
+ * Available in: ITransitionMapping.Handler
+ * API-triggered transitions - access request payload and workflow state
+ */
+export const ScriptContext_TransitionHandlerSchema: JSONSchema = {
+  $id: 'platform://ScriptContext_TransitionHandler',
+  title: 'ScriptContext (TransitionHandler)',
+  description: 'Script context for transition data transformation - process API request payload',
+  type: 'object',
+  properties: {
+    Body: ScriptContextSchema.properties!.Body,
+    Headers: ScriptContextSchema.properties!.Headers,
+    RouteValues: ScriptContextSchema.properties!.RouteValues,
+    Instance: ScriptContextSchema.properties!.Instance,
+    Transition: ScriptContextSchema.properties!.Transition
+    // Workflow/Runtime/Definitions/MetaData NOT included - execution engine only
+    // TaskResponse NOT included - transitions execute before tasks
+  },
+  required: ['Instance']
+};
+
+/**
+ * ScriptContext for TimerHandler
+ * Available in: ITimerMapping.TimerHandler
+ * Minimal context - only workflow state for timer calculations
+ */
+export const ScriptContext_TimerHandlerSchema: JSONSchema = {
+  $id: 'platform://ScriptContext_TimerHandler',
+  title: 'ScriptContext (TimerHandler)',
+  description: 'Script context for timer scheduling - calculate timer schedule based on workflow state',
+  type: 'object',
+  properties: {
+    Instance: ScriptContextSchema.properties!.Instance
+    // Workflow/Runtime/Definitions/MetaData NOT included - execution engine only
+    // Body/Headers/RouteValues/Transition/TaskResponse NOT included
+  },
+  required: ['Instance']
+};
+
+/**
  * Platform schema registry
  * Lookup table for all platform schemas
  */
 export const PLATFORM_SCHEMAS: Record<string, JSONSchema> = {
   ScriptContext: ScriptContextSchema,
+  ScriptContext_InputHandler: ScriptContext_InputHandlerSchema,
+  ScriptContext_OutputHandler: ScriptContext_OutputHandlerSchema,
+  ScriptContext_ConditionHandler: ScriptContext_ConditionHandlerSchema,
+  ScriptContext_TransitionHandler: ScriptContext_TransitionHandlerSchema,
+  ScriptContext_TimerHandler: ScriptContext_TimerHandlerSchema,
   ScriptResponse: ScriptResponseSchema,
   WorkflowTask: WorkflowTaskSchema,
   TimerSchedule: TimerScheduleSchema

@@ -327,7 +327,14 @@ export function applyOverlays(schema: JSONSchema, overlays?: SchemaOverlay[]): J
     }
   }
 
-  // Reconstruct allOf with non-conditionals + merged conditionals
+  // Merge non-conditionals directly into the base schema (instead of using allOf)
+  // This ensures properties are actually merged, not just constrained
+  let result = { ...schema };
+  for (const overlay of nonConditionals) {
+    result = deepMergeSchemas(result, overlay);
+  }
+
+  // Reconstruct allOf with only the merged conditionals
   const mergedConditionals = Array.from(conditionalMap.values());
 
   console.log('[Schema Overlays] Result:', {
@@ -336,10 +343,15 @@ export function applyOverlays(schema: JSONSchema, overlays?: SchemaOverlay[]): J
     total: nonConditionals.length + mergedConditionals.length
   });
 
-  return {
-    ...schema,
-    allOf: [...nonConditionals, ...mergedConditionals]
-  };
+  // If there are conditionals, use allOf; otherwise just return the merged result
+  if (mergedConditionals.length > 0) {
+    return {
+      ...result,
+      allOf: mergedConditionals
+    };
+  }
+
+  return result;
 }
 
 /**
@@ -506,7 +518,8 @@ export function buildSchemaTree(
   path: string = '$',
   name: string = 'root',
   userAddedPaths?: Set<string>,
-  parentRealPath?: string
+  parentRealPath?: string,
+  isCompositeRoot: boolean = false  // NEW: indicates if this is a composite schema where children are parts
 ): TreeNode | null {
   if (!schema) return null;
 
@@ -544,11 +557,22 @@ export function buildSchemaTree(
   };
 
   if (resolvedSchema.type === 'object' && resolvedSchema.properties) {
+    // DEBUG: Log properties at root level
+    if (path === '$.context' || name === 'context') {
+      console.log('[buildSchemaTree] Building context node - properties:',
+        Object.keys(resolvedSchema.properties));
+    }
+
     // Object type: add children for each property
     for (const [key, prop] of Object.entries(resolvedSchema.properties)) {
       const childPath = path === '$' ? `$.${key}` : `${path}.${key}`;
-      const child = buildSchemaTree(prop, childPath, key, userAddedPaths, path);
+      // Pass false for isCompositeRoot - children are not composite roots
+      const child = buildSchemaTree(prop, childPath, key, userAddedPaths, path, false);
       if (child) {
+        // Mark as part if this is first level of composite schema
+        if (isCompositeRoot) {
+          child.isPart = true;
+        }
         node.children.push(child);
       }
     }
@@ -558,7 +582,7 @@ export function buildSchemaTree(
     // Array type: add array indicator and recurse into items
     const childPath = `${path}[]`;
     const childRealPath = realPath ? `${realPath}[]` : undefined;
-    const child = buildSchemaTree(resolvedSchema.items as JSONSchema, childPath, 'items', userAddedPaths, childRealPath);
+    const child = buildSchemaTree(resolvedSchema.items as JSONSchema, childPath, 'items', userAddedPaths, childRealPath, false);
     if (child) {
       child.isArrayItem = true;
       node.children.push(child);

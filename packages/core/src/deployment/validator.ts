@@ -415,19 +415,23 @@ export class DeploymentValidator {
    * Validate a script is inlined (has code or location is 'inline')
    */
   private validateScriptInlined(
-    script: { location: string; code: string },
+    script: { location?: string; code?: string; type?: string },
     location: string,
     context: NormalizationContext
   ): void {
+    // Global scripts (type='G') may not have code content
+    if (script.type === 'G') {
+      return;
+    }
     // Script should either be inline or have base64-encoded code
-    if (script.location !== 'inline' && script.location.endsWith('.csx')) {
+    if (script.location && script.location !== 'inline' && script.location.endsWith('.csx')) {
       this.addWarning(
         `Script not inlined, may fail deployment: ${location} (${script.location})`,
         context
       );
     }
 
-    if (script.location !== 'inline' && script.location.includes('mapper.json')) {
+    if (script.location && script.location !== 'inline' && script.location.includes('mapper.json')) {
       this.addWarning(
         `Mapper not compiled, may fail deployment: ${location} (${script.location})`,
         context

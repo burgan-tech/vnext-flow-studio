@@ -8,7 +8,14 @@ export enum TaskType {
   DaprPubSub = '4',
   HumanTask = '5',
   HttpTask = '6',
-  ScriptTask = '7'
+  ScriptTask = '7',
+  ConditionTask = '8',
+  TimerTask = '9',
+  NotificationTask = '10',
+  StartFlowTask = '11',
+  TriggerTransitionTask = '12',
+  GetInstanceDataTask = '13',
+  SubProcessTask = '14'
 }
 
 // HTTP methods
@@ -19,6 +26,7 @@ export interface DaprHttpEndpointConfig {
   endpointName: string;
   path: string;
   method: HttpMethod;
+  body?: Record<string, any>;
   headers?: Record<string, any>;
 }
 
@@ -33,7 +41,8 @@ export interface DaprServiceConfig {
   appId: string;
   methodName: string;
   httpVerb?: HttpMethod;
-  data?: Record<string, any>;
+  body?: Record<string, any>;
+  headers?: Record<string, any>;
   queryString?: string;
   timeoutSeconds?: number;
 }
@@ -69,6 +78,62 @@ export interface HttpTaskConfig {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ScriptTaskConfig {}
 
+// Condition Task (8) - No specific config
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ConditionTaskConfig {}
+
+// Timer Task (9) - No specific config
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface TimerTaskConfig {}
+
+// Notification Task (10)
+export interface NotificationTaskConfig {
+  metadata: Record<string, any>;
+}
+
+// Start Flow Task (11) - Creates a new workflow instance
+export interface StartFlowTaskConfig {
+  flow: string;
+  domain: string;
+  body?: Record<string, any>;
+  sync?: boolean;
+  version?: string;
+  key?: string;
+  tags?: string[];
+}
+
+// Trigger Transition Task (12) - Executes a transition on a target workflow instance
+export interface TriggerTransitionTaskConfig {
+  flow: string;
+  domain: string;
+  transitionName: string;
+  body?: Record<string, any>;
+  sync?: boolean;
+  version?: string;
+  key?: string;
+  instanceId?: string;
+  tags?: string[];
+}
+
+// Get Instance Data Task (13) - Retrieves instance data from a workflow instance
+export interface GetInstanceDataTaskConfig {
+  flow: string;
+  domain: string;
+  key?: string;
+  instanceId?: string;
+  extensions?: string[];
+}
+
+// SubProcess Task (14) - Starts a subprocess workflow
+export interface SubProcessTaskConfig {
+  flow: string;
+  domain: string;
+  body?: Record<string, any>;
+  version?: string;
+  key?: string;
+  tags?: string[];
+}
+
 // Union type for all task configurations
 export type TaskConfig =
   | DaprHttpEndpointConfig
@@ -77,7 +142,14 @@ export type TaskConfig =
   | DaprPubSubConfig
   | HumanTaskConfig
   | HttpTaskConfig
-  | ScriptTaskConfig;
+  | ScriptTaskConfig
+  | ConditionTaskConfig
+  | TimerTaskConfig
+  | NotificationTaskConfig
+  | StartFlowTaskConfig
+  | TriggerTransitionTaskConfig
+  | GetInstanceDataTaskConfig
+  | SubProcessTaskConfig;
 
 // Base task attributes interface
 interface TaskAttributesBase {
@@ -120,6 +192,41 @@ export interface ScriptTaskAttributes extends TaskAttributesBase {
   config: ScriptTaskConfig;
 }
 
+export interface ConditionTaskAttributes extends TaskAttributesBase {
+  type: TaskType.ConditionTask;
+  config: ConditionTaskConfig;
+}
+
+export interface TimerTaskAttributes extends TaskAttributesBase {
+  type: TaskType.TimerTask;
+  config: TimerTaskConfig;
+}
+
+export interface NotificationTaskAttributes extends TaskAttributesBase {
+  type: TaskType.NotificationTask;
+  config: NotificationTaskConfig;
+}
+
+export interface StartFlowTaskAttributes extends TaskAttributesBase {
+  type: TaskType.StartFlowTask;
+  config: StartFlowTaskConfig;
+}
+
+export interface TriggerTransitionTaskAttributes extends TaskAttributesBase {
+  type: TaskType.TriggerTransitionTask;
+  config: TriggerTransitionTaskConfig;
+}
+
+export interface GetInstanceDataTaskAttributes extends TaskAttributesBase {
+  type: TaskType.GetInstanceDataTask;
+  config: GetInstanceDataTaskConfig;
+}
+
+export interface SubProcessTaskAttributes extends TaskAttributesBase {
+  type: TaskType.SubProcessTask;
+  config: SubProcessTaskConfig;
+}
+
 // Union type for all task attributes
 export type TaskAttributes =
   | DaprHttpEndpointTaskAttributes
@@ -128,7 +235,14 @@ export type TaskAttributes =
   | DaprPubSubTaskAttributes
   | HumanTaskAttributes
   | HttpTaskAttributes
-  | ScriptTaskAttributes;
+  | ScriptTaskAttributes
+  | ConditionTaskAttributes
+  | TimerTaskAttributes
+  | NotificationTaskAttributes
+  | StartFlowTaskAttributes
+  | TriggerTransitionTaskAttributes
+  | GetInstanceDataTaskAttributes
+  | SubProcessTaskAttributes;
 
 // Main task definition interface
 export interface TaskComponentDefinition {

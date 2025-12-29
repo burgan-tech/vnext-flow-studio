@@ -94,32 +94,19 @@ export class ReferenceResolver {
   ): Promise<State> {
     const normalized = { ...state };
 
-    // Normalize view reference
-    // Handle both direct ViewRef and nested view configuration object
-    if (normalized.view) {
+    // Normalize view reference (ViewConfig structure with nested view property)
+    if (normalized.view && normalized.view.view) {
       console.log(`[ReferenceResolver] Normalizing state:${state.key}.view:`, JSON.stringify(normalized.view, null, 2));
-      // Check if this is a view configuration object with a nested 'view' property
-      if (typeof normalized.view === 'object' && 'view' in normalized.view && normalized.view.view) {
-        // Nested structure: { view: ViewRef, loadData: boolean, extensions: [] }
-        console.log(`[ReferenceResolver] Detected nested view config for state:${state.key}`);
-        const viewConfig = normalized.view as any;
-        const normalizedViewRef = await this.normalizeViewRef(
-          viewConfig.view,
-          `state:${state.key}.view`,
-          context
-        );
-        console.log(`[ReferenceResolver] Normalized view ref:`, JSON.stringify(normalizedViewRef, null, 2));
-        viewConfig.view = normalizedViewRef;
-        normalized.view = viewConfig;
-      } else {
-        // Direct ViewRef
-        console.log(`[ReferenceResolver] Detected direct ViewRef for state:${state.key}`);
-        normalized.view = await this.normalizeViewRef(
-          normalized.view,
-          `state:${state.key}.view`,
-          context
-        );
-      }
+      const normalizedViewRef = await this.normalizeViewRef(
+        normalized.view.view,
+        `state:${state.key}.view`,
+        context
+      );
+      console.log(`[ReferenceResolver] Normalized view ref:`, JSON.stringify(normalizedViewRef, null, 2));
+      normalized.view = {
+        ...normalized.view,
+        view: normalizedViewRef
+      };
     }
 
     // Normalize onEntry tasks
@@ -207,27 +194,16 @@ export class ReferenceResolver {
       );
     }
 
-    // Normalize view reference
-    // Handle both direct ViewRef and nested view configuration object
-    if (normalized.view) {
-      // Check if this is a view configuration object with a nested 'view' property
-      if (typeof normalized.view === 'object' && 'view' in normalized.view && normalized.view.view) {
-        // Nested structure: { view: ViewRef, loadData: boolean, extensions: [] }
-        const viewConfig = normalized.view as any;
-        viewConfig.view = await this.normalizeViewRef(
-          viewConfig.view,
+    // Normalize view reference (ViewConfig structure with nested view property)
+    if (normalized.view && normalized.view.view) {
+      normalized.view = {
+        ...normalized.view,
+        view: await this.normalizeViewRef(
+          normalized.view.view,
           `${location}.view`,
           context
-        );
-        normalized.view = viewConfig;
-      } else {
-        // Direct ViewRef
-        normalized.view = await this.normalizeViewRef(
-          normalized.view,
-          `${location}.view`,
-          context
-        );
-      }
+        )
+      };
     }
 
     // Normalize execution tasks

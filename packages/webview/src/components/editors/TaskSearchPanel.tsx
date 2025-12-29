@@ -2,10 +2,17 @@ import React, { useState, useMemo } from 'react';
 import type { TaskComponentDefinition } from '@amorphie-workflow/core';
 import { useBridge } from '../../hooks/useBridge';
 
+interface TaskSelection {
+  key: string;
+  domain?: string;
+  flow?: string;
+  version?: string;
+}
+
 interface TaskSearchPanelProps {
   availableTasks: TaskComponentDefinition[];
   selectedTaskRef: string;
-  onSelectTask: (taskRef: string) => void;
+  onSelectTask: (taskRef: string, taskData?: TaskSelection) => void;
   onCreateNewTask?: () => void;
 }
 
@@ -71,7 +78,13 @@ export function TaskSearchPanel({
 
   const handleSelectTask = (task: TaskComponentDefinition) => {
     const ref = formatTaskRef(task);
-    onSelectTask(ref);
+    // Pass both the display ref and the structured task data
+    onSelectTask(ref, {
+      key: task.key,
+      domain: task.domain,
+      flow: task.flow || 'sys-tasks',
+      version: task.version
+    });
     setIsDropdownOpen(false);
     setSearchQuery('');
   };

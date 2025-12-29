@@ -317,7 +317,7 @@ export class ComponentResolver implements IComponentResolver {
     console.log('[ComponentResolver] Resolving normalized ref:', ref, 'basePath:', basePath, 'searchPaths:', searchPaths);
 
     // Try different naming patterns for each search path
-    const patterns = [
+    const patterns: Array<(sp: string) => string> = [
       (sp: string) => `${sp}/${ref.domain}/${ref.key}.json`,
       (sp: string) => `${sp}/${ref.key}.json`,
       (sp: string) => `${sp}/${ref.domain}-${ref.key}.json`,
@@ -330,8 +330,26 @@ export class ComponentResolver implements IComponentResolver {
       (sp: string) => `${sp}/${ref.key}-workflow.json`,
       (sp: string) => `${sp}/${ref.key}-subflow.json`,
       (sp: string) => `${sp}/${ref.domain}/${ref.key}-workflow.json`,
-      (sp: string) => `${sp}/${ref.domain}/${ref.key}-subflow.json`
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-subflow.json`,
+      // Schema-specific patterns (e.g., app-root-schema-1.0.0.json)
+      (sp: string) => `${sp}/${ref.key}-schema-${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-schema-${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.key}-schema.${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-schema.${ref.version}.json`
     ];
+
+    // Add flow-based patterns if flow is specified (flow can be a subfolder like "sys-tasks")
+    if (ref.flow) {
+      patterns.push(
+        (sp: string) => `${sp}/${ref.flow}/${ref.key}.json`,
+        (sp: string) => `${sp}/${ref.flow}/${ref.domain}/${ref.key}.json`,
+        (sp: string) => `${sp}/${ref.flow}/${ref.key}-${ref.version}.json`,
+        (sp: string) => `${sp}/${ref.flow}/${ref.domain}/${ref.key}-${ref.version}.json`,
+        // Flow as standalone path (e.g., sys-tasks/create-bank-account.json)
+        (sp: string) => `${ref.flow}/${ref.key}.json`,
+        (sp: string) => `${ref.flow}/${ref.domain}/${ref.key}.json`
+      );
+    }
 
     // Try each search path with each pattern
     for (const searchPath of searchPaths) {
@@ -492,7 +510,12 @@ export class ComponentResolver implements IComponentResolver {
       (sp: string) => `${sp}/${ref.key}-workflow.json`,
       (sp: string) => `${sp}/${ref.key}-subflow.json`,
       (sp: string) => `${sp}/${ref.domain}/${ref.key}-workflow.json`,
-      (sp: string) => `${sp}/${ref.domain}/${ref.key}-subflow.json`
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-subflow.json`,
+      // Schema-specific patterns (e.g., app-root-schema-1.0.0.json)
+      (sp: string) => `${sp}/${ref.key}-schema-${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-schema-${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.key}-schema.${ref.version}.json`,
+      (sp: string) => `${sp}/${ref.domain}/${ref.key}-schema.${ref.version}.json`
     ];
 
     // Try each search path with each pattern

@@ -4,7 +4,13 @@ export type Lang = 'en' | 'tr' | 'en-US' | 'tr-TR';
 export type VersionStrategy = 'Major' | 'Minor';
 export type TriggerType = 0 | 1 | 2 | 3; // Manual, Auto, Timeout, Event
 export type StateType = 1 | 2 | 3 | 4 | 5; // Initial, Intermediate, Final, SubFlow, Wizard
-export type StateSubType = 1 | 2 | 3; // Success, Failed, Cancelled
+// StateSubType values:
+// 0 = No specific subtype (default)
+// 1 = Successful completion
+// 2 = Error condition
+// 3 = Manually terminated (Cancelled)
+// 4 = Temporarily suspended
+export type StateSubType = 0 | 1 | 2 | 3 | 4;
 
 export interface Label {
   label: string;
@@ -38,21 +44,54 @@ export type ViewRef =
   | { ref: string }
   | { key: string; domain: string; flow: string; version: string };
 
+/**
+ * ViewConfig wraps a view reference with optional extensions and data loading config.
+ * Used in states and transitions to specify view configuration.
+ */
+export interface ViewConfig {
+  /** Reference to the view component */
+  view: ViewRef;
+  /** List of extension keys to load with this view */
+  extensions?: string[];
+  /** Whether to load instance data when showing this view */
+  loadData?: boolean;
+}
+
 export type SchemaRef =
   | { ref: string }
   | { key: string; domain: string; flow: string; version: string };
 
-export interface Mapping {
-  location: string;
-  code: string;
+// Script type - Global or Local
+export type ScriptType = 'G' | 'L';
+
+// Code encoding format - Base64 or Native
+export type ScriptEncoding = 'B64' | 'NAT';
+
+/**
+ * ScriptCode represents executable script content.
+ * Used for mappings, rules, and timer scripts.
+ *
+ * For Local scripts (type='L' or undefined), code is required.
+ * For Global scripts (type='G'), code is optional.
+ */
+export interface ScriptCode {
+  /** Script type - 'G' (Global) or 'L' (Local). Defaults to 'L' */
+  type?: ScriptType;
+  /** Script code content (usually Base64 encoded). Required for Local scripts. */
+  code?: string;
+  /** Location of the script file (e.g., "./src/mappings/task1.csx") */
+  location?: string;
+  /** Code encoding format - 'B64' (Base64) or 'NAT' (Native). Defaults to 'B64' */
+  encoding?: ScriptEncoding;
+  /** Optional comment */
   _comment?: string;
 }
 
-export interface Rule {
-  location: string;
-  code: string;
-  _comment?: string;
-}
+// Mapping is a ScriptCode used for data transformation
+export type Mapping = ScriptCode;
+
+// Rule is a ScriptCode used for conditional logic
+export type Rule = ScriptCode;
 
 export interface ExecutionTask {
   order: number;
@@ -69,8 +108,8 @@ export interface TransitionBase {
   labels?: Label[];
   rule?: Rule | null;
   schema?: SchemaRef | null;
-  timer?: TimerConfig | null;
-  view?: ViewRef | null;
+  timer?: ScriptCode | null; // Timer script for scheduled transitions (triggerType: 2)
+  view?: ViewConfig | null;
   onExecutionTasks?: ExecutionTask[];
   mapping?: Mapping | null;
   _comment?: string;
@@ -90,6 +129,21 @@ export interface SharedTransition extends TransitionBase {
   _comment?: string;
 }
 
+export interface CancelTransition {
+  key: string;
+  target: string;
+  from?: string; // Source state key (optional)
+  versionStrategy: VersionStrategy;
+  triggerType: 0; // Cancel transition must be manual trigger only
+  labels: Label[];
+  availableIn?: string[]; // States where this cancel transition can be used
+  schema?: SchemaRef | null;
+  view?: ViewConfig | null;
+  onExecutionTasks?: ExecutionTask[];
+  mapping?: Mapping | null;
+  _comment?: string;
+}
+
 // ViewItem is deprecated - states now have single view reference
 
 export interface State {
@@ -101,7 +155,7 @@ export interface State {
   onEntries?: ExecutionTask[];
   onExits?: ExecutionTask[];
   transitions?: Transition[];
-  view?: ViewRef;
+  view?: ViewConfig | null;
   subFlow?: SubFlowConfig | null;
   _comment?: string;
 }
@@ -116,11 +170,6 @@ export interface TimeoutCfg {
   target: string;
   versionStrategy: VersionStrategy;
   timer: TimerConfig;
-}
-
-export interface ScriptCode {
-  location: string;
-  code: string;
 }
 
 export interface Reference {
@@ -147,6 +196,8 @@ export interface SubFlowConfig {
   type: 'C' | 'F' | 'S' | 'P';
   process: ProcessRef;
   mapping: Mapping;
+  /** Override views for specific subflow states (key: state name, value: view config) */
+  viewOverrides?: Record<string, ViewConfig>;
   _comment?: string;
 }
 
@@ -168,6 +219,7 @@ export interface Workflow {
     extensions?: ExtensionRef[];
     sharedTransitions?: SharedTransition[];
     startTransition: TransitionBase & { triggerType: 0 };
+    cancel?: CancelTransition | null;
     states: State[];
   };
 }

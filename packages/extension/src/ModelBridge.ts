@@ -70,9 +70,18 @@ export class ModelBridge {
   // Deployment service
   private deploymentService?: DeploymentService;
 
+  // Initialization tracking
+  private initializationPromise: Promise<void>;
+  private initializationResolve?: () => void;
+
   constructor(config: ModelBridgeConfig) {
     this.config = config;
     this.integration = new VSCodeModelIntegration();
+
+    // Create initialization promise
+    this.initializationPromise = new Promise<void>((resolve) => {
+      this.initializationResolve = resolve;
+    });
 
     // Initialize plugin system
     this.initializePlugins();
@@ -81,12 +90,27 @@ export class ModelBridge {
     this.setupEventHandlers();
 
     // Set up component file watching for hot reloading (async, runs in background)
-    this.setupComponentWatching().catch(error => {
-      console.error('[ModelBridge] Failed to setup component watching:', error);
-      vscode.window.showWarningMessage(
-        `Component file watching failed to start: ${error.message}`
-      );
-    });
+    this.setupComponentWatching()
+      .then(() => {
+        console.log('[ModelBridge] Initialization complete');
+        this.initializationResolve?.();
+      })
+      .catch(error => {
+        console.error('[ModelBridge] Failed to setup component watching:', error);
+        vscode.window.showWarningMessage(
+          `Component file watching failed to start: ${error.message}`
+        );
+        // Resolve anyway to not block the extension
+        this.initializationResolve?.();
+      });
+  }
+
+  /**
+   * Wait for ModelBridge to finish initialization
+   * This ensures ComponentResolver is ready before use
+   */
+  public async waitForInitialization(): Promise<void> {
+    return this.initializationPromise;
   }
 
 
@@ -263,6 +287,7 @@ export class ModelBridge {
       // Get or create a global component resolver using ComponentResolverManager
       // This ensures proper lifecycle management and cleanup
       const manager = ComponentResolverManager.getInstance();
+      console.log('[ModelBridge] Creating/getting global resolver with workspaceId:', workspaceRoot);
       this.globalResolver = await manager.getOrCreateGlobalResolver({
         workspaceId: workspaceRoot,
         basePath: workspaceRoot,
@@ -940,6 +965,12 @@ export class ModelBridge {
           this.scheduleAutosave(model);
           break;
 
+        case 'domain:setCancel':
+          await this.setCancelTransition(model, message.target);
+          await this.updateWebviewForModel(model, panel);
+          this.scheduleAutosave(model);
+          break;
+
         case 'domain:addTransition':
           await this.addTransition(model, message.from, message.target, message.triggerType);
           this.scheduleAutosave(model, 100); // Immediate save for structural changes
@@ -1137,6 +1168,21 @@ export class ModelBridge {
       target,
       versionStrategy: 'Major',
       triggerType: 0
+    };
+    // Autosave will be triggered by the message handler
+  }
+
+  /**
+   * Set cancel transition
+   */
+  private async setCancelTransition(model: WorkflowModel, target: string): Promise<void> {
+    const workflow = model.getWorkflow();
+    workflow.attributes.cancel = {
+      key: 'cancel',
+      target,
+      versionStrategy: 'Major',
+      triggerType: 0,
+      labels: [{ label: 'Cancel', language: 'en' }]
     };
     // Autosave will be triggered by the message handler
   }
@@ -1767,7 +1813,7 @@ export class ModelBridge {
       let exists = false;
 
       try {
-        // For scripts with location, check file directly
+        // For scripts with location, check file directly (relative to workflow file)
         if (dep.type === 'Script' && dep.location) {
           const absolutePath = path.resolve(basePath, dep.location);
           console.log(`[ModelBridge] Validating script [${i}]:`, dep.location, '→', absolutePath);
@@ -1779,28 +1825,33 @@ export class ModelBridge {
             exists = false;
             console.log(`[ModelBridge] Script [${i}] exists: false`);
           }
-        } else if (this.globalResolver) {
-          // For other components, use ComponentResolver
-          const componentType = dep.type.toLowerCase() + 's' as 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions';
-
-          let componentRef: any;
-          if (dep.ref) {
-            componentRef = { ref: dep.ref };
-          } else if (dep.key) {
-            componentRef = {
-              key: dep.key,
-              domain: dep.domain,
-              flow: dep.flow,
-              version: dep.version
-            };
+        } else if (dep.ref) {
+          // For ref-style references, resolve directly from workflow directory
+          const absolutePath = path.resolve(basePath, dep.ref);
+          console.log(`[ModelBridge] Validating ${dep.type} ref [${i}]:`, dep.ref, '→', absolutePath);
+          try {
+            await vscode.workspace.fs.stat(vscode.Uri.file(absolutePath));
+            exists = true;
+            console.log(`[ModelBridge] ${dep.type} ref [${i}] exists: true`);
+          } catch {
+            exists = false;
+            console.log(`[ModelBridge] ${dep.type} ref [${i}] exists: false`);
           }
+        } else if (this.globalResolver && dep.key) {
+          // For key-style references, use ComponentResolver with search paths
+          const componentType = dep.type.toLowerCase() + 's' as 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'workflows';
 
-          if (componentRef) {
-            console.log(`[ModelBridge] Validating ${dep.type} [${i}]:`, componentRef);
-            const foundPath = await this.globalResolver.resolveComponentPath(componentRef, componentType);
-            exists = foundPath !== null;
-            console.log(`[ModelBridge] ${dep.type} [${i}] exists:`, exists, 'path:', foundPath);
-          }
+          const componentRef = {
+            key: dep.key,
+            domain: dep.domain,
+            flow: dep.flow,
+            version: dep.version
+          };
+
+          console.log(`[ModelBridge] Validating ${dep.type} [${i}]:`, componentRef);
+          const foundPath = await this.globalResolver.resolveComponentPath(componentRef, componentType);
+          exists = foundPath !== null;
+          console.log(`[ModelBridge] ${dep.type} [${i}] exists:`, exists, 'path:', foundPath);
         }
       } catch (error) {
         console.error('[ModelBridge] Error validating dependency:', error);

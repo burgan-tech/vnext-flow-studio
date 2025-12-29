@@ -11,15 +11,18 @@
       "schemaParts": {
         "source": {
           "context": {
-            "schemaRef": "platform://ScriptContext"
-          },
-          "task": {
-            "schemaRef": "platform://WorkflowTask"
+            "schemaRef": "platform://ScriptContext",
+            "label": "Workflow Context"
           }
         },
         "target": {
-          "response": {
-            "schemaRef": "platform://ScriptResponse"
+          "task": {
+            "schemaRef": "platform://WorkflowTask",
+            "label": "Task Configuration (to modify)"
+          },
+          "audit": {
+            "schemaRef": "platform://ScriptResponse",
+            "label": "Audit Response"
           }
         }
       },
@@ -30,15 +33,14 @@
       "schemaParts": {
         "source": {
           "context": {
-            "schemaRef": "platform://ScriptContext"
-          },
-          "task": {
-            "schemaRef": "platform://WorkflowTask"
+            "schemaRef": "platform://ScriptContext",
+            "label": "Context (with TaskResponse)"
           }
         },
         "target": {
-          "response": {
-            "schemaRef": "platform://ScriptResponse"
+          "data": {
+            "schemaRef": "platform://ScriptResponse",
+            "label": "Instance Data (to merge)"
           }
         }
       },
