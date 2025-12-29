@@ -13,7 +13,8 @@ import {
   Trash2,
   Flag,
   Share2,
-  Sparkles
+  Sparkles,
+  Check
 } from 'lucide-react';
 import { ContextMenuSubmenu } from '../ContextMenuSubmenu';
 

@@ -346,8 +346,8 @@ export class ComponentResolver implements IComponentResolver {
         (sp: string) => `${sp}/${ref.flow}/${ref.key}-${ref.version}.json`,
         (sp: string) => `${sp}/${ref.flow}/${ref.domain}/${ref.key}-${ref.version}.json`,
         // Flow as standalone path (e.g., sys-tasks/create-bank-account.json)
-        (sp: string) => `${ref.flow}/${ref.key}.json`,
-        (sp: string) => `${ref.flow}/${ref.domain}/${ref.key}.json`
+        (_sp: string) => `${ref.flow}/${ref.key}.json`,
+        (_sp: string) => `${ref.flow}/${ref.domain}/${ref.key}.json`
       );
     }
 

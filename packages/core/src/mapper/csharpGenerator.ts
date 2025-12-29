@@ -134,7 +134,7 @@ function generateContractMapperCode(contractMapSpec: ContractMapSpec): string {
 /**
  * Generate contract method wrapper (DEPRECATED - use generateContractMapperCode instead)
  */
-function generateContractMethod(mapSpec: MapSpec, body: string): string {
+function _generateContractMethod(mapSpec: MapSpec, body: string): string {
   const contractMapSpec = mapSpec as unknown as ContractMapSpec;
   const contractType = contractMapSpec.contractType;
   const lines: string[] = [];

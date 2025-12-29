@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { CONTRACT_SCHEMA_TEMPLATES, ContractType, parseWorkflowSchemaUri, supportsChildWorkflowSchema, type WorkflowSchemasConfig } from '@amorphie-flow-studio/core/mapper';
+import { CONTRACT_SCHEMA_TEMPLATES, ContractType, parseWorkflowSchemaUri, type WorkflowSchemasConfig } from '@amorphie-flow-studio/core/mapper';
 
 interface MapperCreationParams {
   name: string;

@@ -4,7 +4,7 @@
  */
 
 import type { JSONSchema } from './types';
-import type { WorkflowSchemaReference, WorkflowSchemasConfig } from './contractTypes';
+import type { WorkflowSchemasConfig } from './contractTypes';
 import { parseWorkflowSchemaUri } from './contractTypes';
 import type { IComponentResolver } from '../model/types';
 

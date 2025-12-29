@@ -62,23 +62,6 @@ const getStateTypeName = (stateType: StateType): string => {
   }
 };
 
-const getStateSubTypeName = (stateSubType?: number): string => {
-  switch (stateSubType) {
-    case 1: return 'Success';
-    case 2: return 'Failed';
-    case 3: return 'Cancelled';
-    default: return '';
-  }
-};
-
-const getStateSubTypeIcon = (stateSubType?: number): string => {
-  switch (stateSubType) {
-    case 1: return '✓'; // Success
-    case 2: return '✗'; // Failed
-    case 3: return '⊘'; // Cancelled
-    default: return '';
-  }
-};
 
 const getStateTypeIcon = (stateType: StateType, _pluginId?: string): string => {
   switch (stateType) {

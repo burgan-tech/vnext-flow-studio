@@ -457,7 +457,7 @@ export function buildWorkflowSchemaUri(
 /**
  * Check if contract type supports workflow schemas
  */
-export function supportsWorkflowSchemas(contractType: ContractType): boolean {
+export function supportsWorkflowSchemas(_contractType: ContractType): boolean {
   // All contracts use ScriptContext with Instance.Data
   return true;
 }
