@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Editor Hang on Open**: Fixed potential hang when opening workflow editor
+  - Added missing `await` in model change event handler that could cause silent failures
+  - Added 30-second webview ready timeout before sending init data
+  - Prevents race conditions where init message was sent before webview was ready
+
 - **Transition Mapping Editor Blackout**: Fixed `ReferenceError: availableMappers is not defined` that caused the editor to black out when editing transition mappings
   - Added missing `availableMappers` variable definition from `catalogs.mapper` in `TransitionMappingPopup.tsx`
 

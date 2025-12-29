@@ -170,11 +170,15 @@ export class ModelBridge {
    * Set up event handlers for model changes
    */
   private setupEventHandlers(): void {
-    this.integration.on('onDidChangeModel', (_event) => {
+    this.integration.on('onDidChangeModel', async (_event) => {
       // Notify all relevant panels about model changes
       const model = this.integration.getActiveModel();
       if (model) {
-        this.updateWebviewForModel(model);
+        try {
+          await this.updateWebviewForModel(model);
+        } catch (error) {
+          console.error('[ModelBridge] Error updating webview on model change:', error);
+        }
       }
     });
 
@@ -876,6 +880,16 @@ export class ModelBridge {
         if (variants.length > 0) {
           pluginVariants[plugin.id] = variants;
         }
+      }
+
+      // Wait for webview to signal it's ready before sending init message
+      console.log('[ModelBridge] Waiting for webview ready signal...');
+      const readyStartTime = Date.now();
+      try {
+        await this.waitForWebviewReady(panel, 30000);
+        console.log(`[ModelBridge] Webview ready in ${Date.now() - readyStartTime}ms`);
+      } catch (error) {
+        console.warn(`[ModelBridge] Webview ready timeout after ${Date.now() - readyStartTime}ms, sending init anyway:`, error);
       }
 
       // Send initial data to webview
@@ -2923,32 +2937,8 @@ export class ModelBridge {
       throw error;
     }
 
-    // Wait for the webview to signal it's ready before sending init message
-    console.log('[ModelBridge] Waiting for webview ready signal...');
-    const readyPromise = new Promise<void>((resolve) => {
-      const disposable = panel.webview.onDidReceiveMessage((message: MsgFromWebview) => {
-        if (message.type === 'ready') {
-          console.log('[ModelBridge] Webview ready signal received');
-          disposable.dispose();
-          resolve();
-        }
-      });
-    });
-
-    // Set a timeout in case the ready message never arrives
-    const timeoutPromise = new Promise<void>((_, reject) => {
-      setTimeout(() => reject(new Error('Webview ready timeout')), 10000);
-    });
-
-    try {
-      await Promise.race([readyPromise, timeoutPromise]);
-      console.log('[ModelBridge] Webview is ready, proceeding to load workflow');
-    } catch (error) {
-      console.warn('[ModelBridge] Webview ready timeout, loading workflow anyway:', error);
-      // Continue anyway - the webview might still work
-    }
-
     // Open the subflow using the model bridge
+    // Note: openWorkflow handles waiting for webview ready signal
     const model = await this.openWorkflow(workflowUri, panel);
 
     // Register message handler for this panel (same as extension.ts)
@@ -3173,6 +3163,31 @@ export class ModelBridge {
     }, delayMs);
 
     this.autosaveTimers.set(modelKey, timer);
+  }
+
+  /**
+   * Wait for webview to send ready signal with timeout
+   */
+  private waitForWebviewReady(panel: vscode.WebviewPanel, timeoutMs: number = 30000): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const disposable = panel.webview.onDidReceiveMessage((message: MsgFromWebview) => {
+        if (message.type === 'ready') {
+          disposable.dispose();
+          resolve();
+        }
+      });
+
+      setTimeout(() => {
+        disposable.dispose();
+        reject(new Error(`Webview ready timeout after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      // Also resolve if panel is disposed
+      panel.onDidDispose(() => {
+        disposable.dispose();
+        reject(new Error('Panel disposed while waiting for ready'));
+      });
+    });
   }
 
   /**
