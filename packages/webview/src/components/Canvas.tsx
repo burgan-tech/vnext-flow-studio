@@ -419,6 +419,39 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     };
   }, [toggleRegularTransitions, toggleSharedTransitions, showRegularTransitions, showSharedTransitions]);
 
+  // Undo/Redo keyboard shortcuts
+  useEffect(() => {
+    const handleUndoRedo = (e: KeyboardEvent) => {
+      // Check if an input element is focused - don't intercept undo/redo in text fields
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLInputElement ||
+          activeElement instanceof HTMLTextAreaElement ||
+          activeElement?.getAttribute('contenteditable') === 'true') {
+        return;
+      }
+
+      // Undo: Ctrl/Cmd + Z (without Shift)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        postMessage({ type: 'history:undo' });
+      }
+
+      // Redo: Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y
+      if ((e.ctrlKey || e.metaKey) && (
+        (e.shiftKey && e.key.toLowerCase() === 'z') ||
+        (!e.shiftKey && e.key.toLowerCase() === 'y')
+      )) {
+        e.preventDefault();
+        postMessage({ type: 'history:redo' });
+      }
+    };
+
+    window.addEventListener('keydown', handleUndoRedo);
+    return () => {
+      window.removeEventListener('keydown', handleUndoRedo);
+    };
+  }, [postMessage]);
+
   // Legacy state templates are no longer used - all states come from plugins
   const stateTemplates = useMemo<StateTemplate[]>(() => [], []);
 

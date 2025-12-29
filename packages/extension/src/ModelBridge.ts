@@ -33,6 +33,8 @@ import {
 } from '@amorphie-flow-studio/core';
 import { DeploymentService, EnvironmentManager } from './deployment/index.js';
 import { VSCodeOutputChannelLogger } from './VSCodeLogger.js';
+import { HistoryManager } from './HistoryManager.js';
+import type { HistoryActionType } from '@amorphie-flow-studio/core';
 import type { ComponentWatcher, ComponentResolver, FileChangeEvent } from '@amorphie-flow-studio/core';
 
 /**
@@ -61,6 +63,7 @@ export class ModelBridge {
   private autosaveTimers: Map<string, NodeJS.Timeout> = new Map();
   private lastSavedContent: Map<string, string> = new Map();
   private lastSaveTime: Map<string, number> = new Map();
+  private historyManagers: Map<string, HistoryManager> = new Map();
 
   // Component watching
   private componentWatcher?: ComponentWatcher;
@@ -961,87 +964,117 @@ export class ModelBridge {
           break;
 
         case 'domain:setStart':
+          this.captureHistoryBefore(model, 'workflow:start', 'Set start transition');
           await this.setStartTransition(model, message.target);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model);
           break;
 
         case 'domain:setCancel':
+          this.captureHistoryBefore(model, 'workflow:cancel', 'Set cancel transition');
           await this.setCancelTransition(model, message.target);
           await this.updateWebviewForModel(model, panel);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model);
           break;
 
         case 'domain:addTransition':
+          this.captureHistoryBefore(model, 'transition:add', 'Add transition');
           await this.addTransition(model, message.from, message.target, message.triggerType);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:moveTransition':
+          this.captureHistoryBefore(model, 'transition:update', 'Move transition');
           await this.moveTransition(model, message.oldFrom, message.tKey, message.newFrom, message.newTarget);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:removeTransition':
+          this.captureHistoryBefore(model, 'transition:remove', 'Remove transition');
           await this.removeTransition(model, message.from, message.tKey);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:removeState':
+          this.captureHistoryBefore(model, 'state:remove', 'Remove state');
           await this.removeState(model, message.stateKey);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:updateState':
+          this.captureHistoryBefore(model, 'state:update', 'Update state');
           await this.updateState(model, message.stateKey, message.state);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model);
           break;
 
         case 'domain:updateTransition':
+          this.captureHistoryBefore(model, 'transition:update', 'Update transition');
           await this.updateTransition(model, message.from, message.transitionKey, message.transition);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model);
           break;
 
         case 'domain:makeTransitionShared':
           console.log('[ModelBridge] Handling domain:makeTransitionShared');
+          this.captureHistoryBefore(model, 'transition:shared', 'Make transition shared');
           await this.makeTransitionShared(model, message.from, message.transitionKey);
           console.log('[ModelBridge] makeTransitionShared complete, scheduling immediate autosave');
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:updateSharedTransition':
+          this.captureHistoryBefore(model, 'transition:update', 'Update shared transition');
           await this.updateSharedTransition(model, message.transitionKey, message.sharedTransition);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model);
           break;
 
         case 'domain:updateStartTransition':
+          this.captureHistoryBefore(model, 'workflow:start', 'Update start transition');
           await this.updateStartTransition(model, message.startTransition);
           await this.updateWebviewForModel(model, panel);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model);
           break;
 
         case 'domain:convertSharedToRegular':
+          this.captureHistoryBefore(model, 'transition:shared', 'Convert shared to regular');
           await this.convertSharedToRegular(model, message.transitionKey, message.targetState);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
         case 'domain:removeFromSharedTransition': {
           console.log('[ModelBridge] Handling domain:removeFromSharedTransition');
+          this.captureHistoryBefore(model, 'transition:shared', 'Remove from shared transition');
           const deleted = await this.removeFromSharedTransition(model, message.transitionKey, message.stateKey);
           console.log('[ModelBridge] Deletion result:', deleted);
           if (deleted) {
             console.log('[ModelBridge] Scheduling immediate autosave');
+            this.notifyHistoryStateChanged(model, panel);
             this.scheduleAutosave(model, 100); // Immediate save for structural changes
           }
           break;
         }
 
         case 'domain:updateComment':
+          this.captureHistoryBefore(model, 'state:update', 'Update comment');
           await this.updateComment(model, message);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model);
           break;
 
         case 'domain:addState':
+          this.captureHistoryBefore(model, 'state:add', 'Add state');
           await this.addState(model, message.state, message.position, message.pluginId, message.hints);
+          this.notifyHistoryStateChanged(model, panel);
           this.scheduleAutosave(model, 100); // Immediate save for structural changes
           break;
 
@@ -1098,7 +1131,9 @@ export class ModelBridge {
           break;
 
         case 'workflow:updateSettings':
+          this.captureHistoryBefore(model, 'workflow:settings', 'Update workflow settings');
           await this.updateWorkflowSettings(model, message.data, panel);
+          this.notifyHistoryStateChanged(model, panel);
           break;
 
         case 'test:openPanel':
@@ -1143,6 +1178,14 @@ export class ModelBridge {
 
         case 'deploy:openSettings':
           await vscode.commands.executeCommand('amorphie.openSettings');
+          break;
+
+        case 'history:undo':
+          await this.handleHistoryUndo(model, panel);
+          break;
+
+        case 'history:redo':
+          await this.handleHistoryRedo(model, panel);
           break;
       }
 
@@ -3130,6 +3173,96 @@ export class ModelBridge {
     }, delayMs);
 
     this.autosaveTimers.set(modelKey, timer);
+  }
+
+  /**
+   * Get or create HistoryManager for a model
+   */
+  private getHistoryManager(model: WorkflowModel): HistoryManager {
+    const modelKey = this.getModelKey(model);
+    let manager = this.historyManagers.get(modelKey);
+    if (!manager) {
+      manager = new HistoryManager(50);
+      this.historyManagers.set(modelKey, manager);
+    }
+    return manager;
+  }
+
+  /**
+   * Capture current workflow state before a mutation
+   */
+  private captureHistoryBefore(
+    model: WorkflowModel,
+    type: HistoryActionType,
+    description: string
+  ): void {
+    const historyManager = this.getHistoryManager(model);
+    const workflow = model.getWorkflow();
+    historyManager.pushState(type, description, workflow);
+  }
+
+  /**
+   * Notify webview of history state changes
+   */
+  private notifyHistoryStateChanged(model: WorkflowModel, panel: vscode.WebviewPanel): void {
+    const historyManager = this.getHistoryManager(model);
+    panel.webview.postMessage({
+      type: 'history:stateChanged',
+      canUndo: historyManager.canUndo(),
+      canRedo: historyManager.canRedo()
+    });
+  }
+
+  /**
+   * Handle undo request from webview
+   */
+  private async handleHistoryUndo(model: WorkflowModel, panel: vscode.WebviewPanel): Promise<void> {
+    const historyManager = this.getHistoryManager(model);
+    const currentWorkflow = model.getWorkflow();
+    const previousWorkflow = historyManager.undo(currentWorkflow);
+
+    if (previousWorkflow) {
+      // Update the model with the previous workflow state
+      model.setWorkflow(previousWorkflow);
+
+      // Re-resolve references for linting
+      await model.refreshReferences();
+
+      // Save to disk
+      await this.saveModel(model);
+
+      // Update webview (includes lint update)
+      await this.updateWebviewForModel(model, panel);
+
+      // Notify history state changed
+      this.notifyHistoryStateChanged(model, panel);
+    }
+  }
+
+  /**
+   * Handle redo request from webview
+   */
+  private async handleHistoryRedo(model: WorkflowModel, panel: vscode.WebviewPanel): Promise<void> {
+    const historyManager = this.getHistoryManager(model);
+    const currentWorkflow = model.getWorkflow();
+    const nextWorkflow = historyManager.redo(currentWorkflow);
+
+    if (nextWorkflow) {
+      // Update the model with the next workflow state
+      model.setWorkflow(nextWorkflow);
+
+      // Re-resolve references for linting
+      await model.refreshReferences();
+
+      // Save to disk
+      await this.saveModel(model);
+
+      // Update webview (includes lint update)
+      await this.updateWebviewForModel(model, panel);
+
+      // Notify history state changed
+      this.notifyHistoryStateChanged(model, panel);
+    }
   }
 
   /**

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Undo/Redo Functionality**: Added undo and redo support for workflow structure changes
+  - Press `Cmd+Z` (Mac) or `Ctrl+Z` (Windows) to undo
+  - Press `Cmd+Shift+Z` or `Cmd+Y` to redo
+  - Tracks all workflow mutations: add/remove/update states, transitions, shared transitions, workflow settings
+  - Maximum 50 undo steps stored per workflow
+  - History is cleared when the panel is closed
+  - Undo/redo properly updates the linter to reflect the restored state
+
 ### Fixed
 
 - **Transition Mapping Editor Blackout**: Fixed `ReferenceError: availableMappers is not defined` that caused the editor to black out when editing transition mappings

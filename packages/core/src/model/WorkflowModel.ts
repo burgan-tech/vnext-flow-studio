@@ -418,6 +418,44 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
   }
 
   /**
+   * Set the workflow definition (used for undo/redo)
+   * Clears resolved state to ensure consistency after workflow replacement
+   */
+  setWorkflow(workflow: Workflow): void {
+    const oldWorkflow = this.state.workflow;
+    this.state.workflow = workflow;
+
+    // Clear resolved state maps - they'll be re-populated on demand
+    this.state.resolvedStates.clear();
+    this.state.resolvedFunctions.clear();
+    this.state.resolvedExtensions.clear();
+    this.state.resolvedSharedTransitions.clear();
+
+    this.markDirty();
+    this.emitChange({
+      type: 'workflow',
+      action: 'update',
+      target: 'workflow',
+      oldValue: oldWorkflow,
+      newValue: workflow
+    });
+  }
+
+  /**
+   * Re-resolve all references after workflow changes (e.g., undo/redo)
+   */
+  async refreshReferences(): Promise<void> {
+    // Clear existing resolved state
+    this.state.resolvedStates.clear();
+    this.state.resolvedFunctions.clear();
+    this.state.resolvedExtensions.clear();
+    this.state.resolvedSharedTransitions.clear();
+
+    // Re-resolve all references
+    await this.resolveAllReferences(false);
+  }
+
+  /**
    * Get the diagram
    */
   getDiagram(): Diagram | undefined {

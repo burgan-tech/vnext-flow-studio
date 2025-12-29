@@ -47,7 +47,8 @@ export type MsgToWebview =
   | { type: 'instance:clearHighlight' }
   | { type: 'instance:highlightHistory'; workflowKey: string; history: string[]; currentState: string }
   | { type: 'script:updated'; script: any; scriptType: 'mapper' | 'rule' }
-  | { type: 'component:updated'; componentType: string; component: any };
+  | { type: 'component:updated'; componentType: string; component: any }
+  | { type: 'history:stateChanged'; canUndo: boolean; canRedo: boolean };
 
 export type MsgFromWebview =
   | { type: 'ready' }
@@ -151,4 +152,6 @@ export type MsgFromWebview =
   | { type: 'test:getModelTransitions'; workflowKey: string; stateKey: string }
   | { type: 'test:loadSchema'; transitionKey: string; schemaRef: { key: string; domain?: string; flow?: string; version?: string } }
   | { type: 'test:getStartTransitionSchema'; workflowKey: string }
-  | { type: 'test:getSubFlowModel'; workflowKey: string; stateKey: string };
+  | { type: 'test:getSubFlowModel'; workflowKey: string; stateKey: string }
+  | { type: 'history:undo' }
+  | { type: 'history:redo' };

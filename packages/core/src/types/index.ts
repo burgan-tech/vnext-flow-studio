@@ -21,3 +21,6 @@ export * from './extension';
 // Export all types from core.ts
 export * from './core';
 
+// Export all types from history.ts
+export * from './history';
+
