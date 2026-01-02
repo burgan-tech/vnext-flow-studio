@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **vNext Tools Sidebar**: New Activity Bar panel for project-level vnext-template tools
+  - **Create New Project**: Scaffold new vnext-template projects via `npx @burgan-tech/vnext-template`
+    - Prompts for domain name with validation
+    - Folder picker for project location
+    - Option to open in new window, current window, or stay in current workspace
+  - **Project Detection**: Automatically detects vnext-template projects via `vnext.config.json` or package.json scripts
+    - File system watcher for real-time detection
+    - Window focus listener for immediate updates after folder operations
+  - **Project Status Display**: Shows domain name, runtime version, schema version, and available scripts
+  - **Validate Project**: Run `npm run validate` to check project structure and schemas
+  - **Build Project**: Run `npm run build` with options for runtime, reference, or both package types
+  - **Initialize Domain**: Run `npm run setup` for domain initialization
+  - **Command Palette Integration**: All tools available via `Amorphie:` prefixed commands
+  - **Output Channel**: Dedicated "vNext Tools" output channel for command results
+
 - **Undo/Redo Functionality**: Added undo and redo support for workflow structure changes
   - Press `Cmd+Z` (Mac) or `Ctrl+Z` (Windows) to undo
   - Press `Cmd+Shift+Z` or `Cmd+Y` to redo

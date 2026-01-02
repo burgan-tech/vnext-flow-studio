@@ -36,6 +36,23 @@
     "LICENSE"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vnext-tools",
+          "title": "vNext Tools",
+          "icon": "$(tools)"
+        }
+      ]
+    },
+    "views": {
+      "vnext-tools": [
+        {
+          "id": "vnextToolsView",
+          "name": "Project Tools"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "flowEditor.open",
@@ -108,6 +125,43 @@
       {
         "command": "flowEditor.fixSchemaRegistrations",
         "title": "Amorphie: Fix Schema Registrations"
+      },
+      {
+        "command": "vnextTools.createProject",
+        "title": "Amorphie: Create New Project",
+        "icon": "$(add)"
+      },
+      {
+        "command": "vnextTools.validate",
+        "title": "Amorphie: Validate Project",
+        "icon": "$(check)"
+      },
+      {
+        "command": "vnextTools.build",
+        "title": "Amorphie: Build Project",
+        "icon": "$(package)"
+      },
+      {
+        "command": "vnextTools.buildRuntime",
+        "title": "Amorphie: Build Runtime Package"
+      },
+      {
+        "command": "vnextTools.buildReference",
+        "title": "Amorphie: Build Reference Package"
+      },
+      {
+        "command": "vnextTools.setup",
+        "title": "Amorphie: Initialize Domain",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "vnextTools.refreshStatus",
+        "title": "Amorphie: Refresh Project Status",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "vnextTools.openOutput",
+        "title": "Amorphie: Show Build Output"
       }
     ],
     "menus": {
@@ -173,6 +227,43 @@
         {
           "command": "flowEditor.createMapper",
           "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vnextTools.createProject"
+        },
+        {
+          "command": "vnextTools.validate",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vnextTools.build",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vnextTools.buildRuntime",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vnextTools.buildReference",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vnextTools.setup",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vnextTools.refreshStatus",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vnextTools.openOutput"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "vnextTools.refreshStatus",
+          "when": "view == vnextToolsView",
+          "group": "navigation"
         }
       ]
     },

@@ -5,6 +5,7 @@ import { registerCommands } from './commands';
 import { registerQuickFixCommands } from './quickfix';
 import { registerMapperEditor } from './mapper/MapperEditorProvider';
 import { registerGraphCommands } from './graph/graphCommands';
+import { VNextToolsProvider, registerVNextToolsCommands } from './vnext-tools';
 import { TaskQuickEditorProvider } from './taskEditor/TaskQuickEditorProvider';
 import { SettingsEditorProvider } from './settings/SettingsEditorProvider';
 import { TestPanelProvider } from './testing/TestPanelProvider';
@@ -795,6 +796,13 @@ export function activate(context: vscode.ExtensionContext) {
   registerCommands(context);
   registerQuickFixCommands(context);
   registerGraphCommands(context);
+
+  // Register vNext Tools sidebar and commands
+  const vnextToolsProvider = new VNextToolsProvider(context);
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('vnextToolsView', vnextToolsProvider)
+  );
+  registerVNextToolsCommands(context, vnextToolsProvider);
 
   // Register mapper editor
   registerMapperEditor(context, modelBridge);
