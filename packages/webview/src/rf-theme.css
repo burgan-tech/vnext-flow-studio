@@ -715,6 +715,22 @@ html::-webkit-scrollbar-corner,
   stroke: #c4b5fd;
 }
 
+/* Default auto transition (triggerKind=10) - thicker gold line */
+.trigger-default-auto .react-flow__edge-path {
+  stroke: #f59e0b;
+  stroke-width: 4;
+}
+
+/* Make default auto edges stand out more on hover */
+.trigger-default-auto:hover .react-flow__edge-path {
+  stroke-width: 5;
+}
+
+/* Make label background match gold for default auto */
+.trigger-default-auto .react-flow__edge-textbg {
+  stroke: #f59e0b;
+}
+
 /* Edge label backgrounds */
 .react-flow__edge-text {
   background: #ffffff;

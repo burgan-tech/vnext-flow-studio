@@ -13,7 +13,8 @@ import {
   Link2,
   ArrowRight,
   Trash2,
-  FileCode
+  FileCode,
+  Star
 } from 'lucide-react';
 import { ContextMenuSubmenu } from '../ContextMenuSubmenu';
 
@@ -21,6 +22,7 @@ interface TransitionToolbarProps {
   transitionLabel: string;
   position: { x: number; y: number };
   triggerType?: number; // 0=manual, 1=auto, 2=timeout, 3=event
+  triggerKind?: number; // 0=not applicable, 10=default auto transition
   onEditKey: () => void;
   onEditLabels: () => void;
   onEditTasks?: () => void; // Not available for start transitions
@@ -28,6 +30,7 @@ interface TransitionToolbarProps {
   onEditSchema?: () => void; // For manual, event, and start transitions
   onEditRule?: () => void; // Only for auto transitions (triggerType === 1)
   onEditTimeout?: () => void; // Only for timeout transitions
+  onToggleDefaultAuto?: () => void; // Toggle default auto transition (triggerKind=10)
   onMakeShared?: () => void;
   onConvertToRegular?: () => void;
   onConvertToManual?: () => void;
@@ -43,6 +46,7 @@ export function TransitionToolbar({
   transitionLabel: _transitionLabel,
   position,
   triggerType,
+  triggerKind,
   onEditKey,
   onEditLabels,
   onEditTasks,
@@ -50,6 +54,7 @@ export function TransitionToolbar({
   onEditSchema,
   onEditRule,
   onEditTimeout,
+  onToggleDefaultAuto,
   onMakeShared,
   onConvertToRegular,
   onConvertToManual,
@@ -161,6 +166,20 @@ export function TransitionToolbar({
             >
               <span className="state-toolbar__icon"><FileCode size={16} /></span>
               <span className="state-toolbar__label">Edit Rule</span>
+            </button>
+          </>
+        )}
+
+        {isAuto && onToggleDefaultAuto && (
+          <>
+            <div className="state-toolbar__divider" />
+            <button
+              className={`state-toolbar__button ${triggerKind === 10 ? 'state-toolbar__button--active' : ''}`}
+              onClick={onToggleDefaultAuto}
+              title={triggerKind === 10 ? "Remove default status (will require a rule)" : "Mark as default auto transition (no rule required)"}
+            >
+              <span className="state-toolbar__icon"><Star size={16} /></span>
+              <span className="state-toolbar__label">{triggerKind === 10 ? 'Unmark Default' : 'Make Default'}</span>
             </button>
           </>
         )}

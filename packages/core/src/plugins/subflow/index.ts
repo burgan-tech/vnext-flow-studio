@@ -32,6 +32,7 @@ const SUBFLOW_STATE_TERMINALS: TerminalRole[] = [
       requiredFields: ['key', 'target', 'triggerType', 'versionStrategy'],
       defaults: {
         triggerType: 1,
+        triggerKind: 10, // Default auto transition
         versionStrategy: 'Minor'
       }
     }
@@ -49,6 +50,7 @@ const SUBFLOW_STATE_TERMINALS: TerminalRole[] = [
       requiredFields: ['key', 'target', 'triggerType', 'versionStrategy'],
       defaults: {
         triggerType: 1,
+        triggerKind: 10, // Default auto transition
         versionStrategy: 'Minor'
       }
     }

@@ -92,11 +92,16 @@ const decorateEdges = (edges: Edge[]): Edge[] =>
     const triggerType = typeof edge.data?.triggerType === 'number'
       ? edge.data?.triggerType as number
       : undefined;
+    const triggerKind = typeof edge.data?.triggerKind === 'number'
+      ? edge.data?.triggerKind as number
+      : undefined;
     const triggerClass = triggerType !== undefined ? triggerClassMap[triggerType] : undefined;
+    // Add special class for default auto transitions (triggerKind=10)
+    const defaultAutoClass = triggerType === 1 && triggerKind === 10 ? 'trigger-default-auto' : undefined;
     const dash = edge.style?.strokeDasharray;
     const sharedClass = dash === '4 4' ? 'shared-transition' : undefined;
     const isShared = dash === '4 4';
-    const className = [edge.className, triggerClass, sharedClass].filter(Boolean).join(' ');
+    const className = [edge.className, triggerClass, defaultAutoClass, sharedClass].filter(Boolean).join(' ');
 
     // Force our floating edge renderer for consistent visuals
     const type = 'floating' as const;
@@ -1403,6 +1408,59 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     }
     setContextMenu(null);
   }, [workflow, postMessage, createTransitionTemplate]);
+
+  // Handle toggling default auto transition (triggerKind=10)
+  const handleToggleDefaultAuto = useCallback((edgeId: string) => {
+    if (!workflow) return;
+
+    const localMatch = /^t:local:([^:]+):(.+)$/.exec(edgeId);
+    const sharedMatch = /^t:shared:([^:]+):/.exec(edgeId);
+
+    if (localMatch) {
+      const [, from, transitionKey] = localMatch;
+      const state = workflow.attributes?.states?.find(s => s.key === from);
+      const transition = state?.transitions?.find(t => t.key === transitionKey);
+      if (transition) {
+        const currentKind = transition.triggerKind ?? 0;
+        const newKind = currentKind === 10 ? 0 : 10;
+
+        const updatedTransition = {
+          ...transition,
+          triggerKind: newKind,
+          // Remove rule if setting to default auto (default auto transitions cannot have rules)
+          rule: newKind === 10 ? undefined : transition.rule,
+        };
+
+        postMessage({
+          type: 'domain:updateTransition',
+          from,
+          transitionKey,
+          transition: updatedTransition,
+        });
+      }
+    } else if (sharedMatch) {
+      const [, transitionKey] = sharedMatch;
+      const transition = workflow.attributes?.sharedTransitions?.find(t => t.key === transitionKey);
+      if (transition) {
+        const currentKind = transition.triggerKind ?? 0;
+        const newKind = currentKind === 10 ? 0 : 10;
+
+        const updatedTransition = {
+          ...transition,
+          triggerKind: newKind,
+          // Remove rule if setting to default auto (default auto transitions cannot have rules)
+          rule: newKind === 10 ? undefined : transition.rule,
+        };
+
+        postMessage({
+          type: 'domain:updateSharedTransition',
+          transitionKey,
+          sharedTransition: updatedTransition,
+        });
+      }
+    }
+    setContextMenu(null);
+  }, [workflow, postMessage]);
 
   const handleAutoLayoutRequest = useCallback((direction: 'RIGHT' | 'DOWN' = 'RIGHT') => {
     // Collect measured node sizes from React Flow v12
@@ -2821,6 +2879,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         if (isLocal || isShared || isStart) {
           let transitionLabel = '';
           let triggerType: number | undefined;
+          let triggerKind: number | undefined;
           let transition: any = null;
 
           if (isLocal) {
@@ -2831,6 +2890,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               transition = state?.transitions?.find(t => t.key === transitionKey);
               transitionLabel = `${from} → ${transition?.target || '?'}`;
               triggerType = transition?.triggerType;
+              triggerKind = transition?.triggerKind;
             }
           } else if (isShared) {
             const match = /^t:shared:([^:]+):(.+)$/.exec(edgeId);
@@ -2841,6 +2901,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               const resolvedTarget = transition?.target === '$self' ? fromState : transition?.target;
               transitionLabel = `Shared: ${resolvedTarget || '?'}`;
               triggerType = transition?.triggerType;
+              triggerKind = transition?.triggerKind;
             }
           } else if (isStart) {
             const match = /^t:start:(.+)$/.exec(edgeId);
@@ -2849,6 +2910,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               transition = workflow.attributes?.startTransition;
               transitionLabel = `Start: ${transition?.target || '?'}`;
               triggerType = transition?.triggerType;
+              triggerKind = transition?.triggerKind;
             }
           }
 
@@ -2861,6 +2923,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               transitionLabel={transitionLabel}
               position={{ x: contextMenu.x, y: contextMenu.y }}
               triggerType={triggerType}
+              triggerKind={triggerKind}
               onEditKey={() => handleEditTransitionKey(edgeId)}
               onEditLabels={() => handleEditTransitionLabels(edgeId)}
               onEditTasks={() => handleOpenTransitionTaskPopup(edgeId)}
@@ -2868,6 +2931,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               onEditSchema={(supportsSchema || isStart) ? () => handleEditTransitionSchema(edgeId) : undefined}
               onEditRule={isAuto ? () => handleEditTransitionRule(edgeId) : undefined}
               onEditTimeout={isTimeout ? () => handleEditTransitionTimeout(edgeId) : undefined}
+              onToggleDefaultAuto={isAuto && !isStart ? () => handleToggleDefaultAuto(edgeId) : undefined}
               onMakeShared={isLocal ? () => handleMakeTransitionShared(edgeId) : undefined}
               onConvertToRegular={isShared ? () => handleConvertToRegular(edgeId) : undefined}
               onConvertToManual={!isStart ? () => handleConvertTransitionType(edgeId, 0) : undefined}

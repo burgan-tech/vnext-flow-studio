@@ -3,6 +3,7 @@
 export type Lang = 'en' | 'tr' | 'en-US' | 'tr-TR';
 export type VersionStrategy = 'Major' | 'Minor';
 export type TriggerType = 0 | 1 | 2 | 3; // Manual, Auto, Timeout, Event
+export type TriggerKind = 0 | 10; // 0=Not applicable, 10=Default auto transition
 export type StateType = 1 | 2 | 3 | 4 | 5; // Initial, Intermediate, Final, SubFlow, Wizard
 // StateSubType values:
 // 0 = No specific subtype (default)
@@ -104,6 +105,7 @@ export interface TransitionBase {
   key: string;
   target: string; // Can be a state key or special value "$self"
   triggerType: TriggerType;
+  triggerKind?: TriggerKind; // 0=Not applicable, 10=Default auto (only for triggerType=1)
   versionStrategy: VersionStrategy;
   labels?: Label[];
   rule?: Rule | null;

@@ -1280,6 +1280,7 @@ export class ModelBridge {
       target,
       versionStrategy: 'Major',
       triggerType,
+      triggerKind: triggerType === 1 ? 10 : 0, // Default auto transitions have triggerKind=10
       labels: [
         { label: key, language: 'en-US' },
         { label: key, language: 'tr-TR' }

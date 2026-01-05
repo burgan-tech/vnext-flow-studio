@@ -23,6 +23,12 @@ export const TriggerTypeInfo = {
   3: { label: 'Event', icon: '📥', description: 'Triggered by system events', supportsTimeout: false }
 } as const;
 
+// Trigger kind information for automatic transitions (only applies when triggerType=1)
+export const TriggerKindInfo = {
+  0: { label: 'Not Applicable', icon: '−', description: 'No automatic trigger kind' },
+  10: { label: 'Default Auto', icon: '★', description: 'Default automatic transition (no rule required)' }
+} as const;
+
 // State type information for UI display
 export const StateTypeInfo = {
   1: { label: 'Initial', icon: '🚀', description: 'Starting state of the workflow' },

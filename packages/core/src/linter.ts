@@ -577,18 +577,38 @@ export function lint(
 
     // Check that automatic transitions have rules when needed
     // Consider both local and shared transitions
+    // Skip rule requirement for default auto transitions (triggerKind=10)
     const autoTransitions = transitions.filter((t: Transition) => t.triggerType === 1); // Auto triggers
     const totalTransitions = transitions.length + sharedTransitionsForState.length;
     const totalAutoTransitions = autoTransitions.length + sharedAutoTransitions.length;
 
+    // Count default auto transitions (triggerKind=10) - only one allowed per state
+    const localDefaultAutoTransitions = autoTransitions.filter((t: Transition) => t.triggerKind === 10);
+    const sharedDefaultAutoTransitions = sharedAutoTransitions.filter((st: SharedTransition) => st.triggerKind === 10);
+    const totalDefaultAutoTransitions = localDefaultAutoTransitions.length + sharedDefaultAutoTransitions.length;
+
+    // E_MULTIPLE_DEFAULT_AUTO: Only one default auto transition allowed per state
+    if (totalDefaultAutoTransitions > 1) {
+      push(state.key, {
+        id: 'E_MULTIPLE_DEFAULT_AUTO',
+        severity: 'error',
+        message: `State '${state.key}' has ${totalDefaultAutoTransitions} default auto transitions. Only one allowed per state.`
+      });
+    }
+
     // Rules needed if:
     // - Multiple auto transitions exist (need to decide which one)
     // - Single auto transition but other transitions exist (need to decide when to auto vs wait for manual)
+    // BUT skip rule requirement for default auto transitions (triggerKind=10)
     const needsRules = totalAutoTransitions > 1 || (totalAutoTransitions === 1 && totalTransitions > 1);
 
     if (needsRules) {
-      // Check local auto transitions
+      // Check local auto transitions (skip triggerKind=10)
       for (const transition of autoTransitions) {
+        // Default auto transitions (triggerKind=10) don't need rules
+        if (transition.triggerKind === 10) {
+          continue;
+        }
         if (!transition.rule?.location) {
           push(state.key, {
             id: 'E_MISSING_RULE',
@@ -598,8 +618,12 @@ export function lint(
         }
       }
 
-      // Check shared auto transitions available from this state
+      // Check shared auto transitions available from this state (skip triggerKind=10)
       for (const sharedTransition of sharedAutoTransitions) {
+        // Default auto transitions (triggerKind=10) don't need rules
+        if (sharedTransition.triggerKind === 10) {
+          continue;
+        }
         if (!sharedTransition.rule?.location) {
           push(state.key, {
             id: 'E_MISSING_RULE',

@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Default Auto Transitions (triggerKind)**: New field to mark automatic transitions as "default"
+  - **TriggerKind Values**: `0` (Not applicable) and `10` (Default auto transition)
+  - **No Rule Required**: Default auto transitions (`triggerKind=10`) don't require rules - they execute automatically without conditions
+  - **Visual Distinction**: Default auto transitions display with thicker gold/amber colored edges for easy identification
+  - **Toolbar Toggle**: Right-click an auto transition and use "Make Default" / "Unmark Default" to toggle status
+  - **Auto-Default on Creation**: New auto transitions default to `triggerKind=10`
+  - **Linter Rules**:
+    - Error if multiple default auto transitions exist per state (only one allowed)
+    - Skips rule requirement for transitions with `triggerKind=10`
+  - **Rule Auto-Removal**: When marking a transition as default, any existing rule is automatically removed
+
+## [2.5.1] - 2025-01-05
+
+### Added
+
 - **vNext Tools Sidebar**: New Activity Bar panel for project-level vnext-template tools
   - **Create New Project**: Scaffold new vnext-template projects via `npx @burgan-tech/vnext-template`
     - Prompts for domain name with validation

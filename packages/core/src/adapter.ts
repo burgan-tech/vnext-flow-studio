@@ -154,6 +154,7 @@ export function toReactFlow(
           from: state.key,
           tKey: transition.key,
           triggerType: transition.triggerType,
+          triggerKind: transition.triggerKind,
           transition: transition,
           _comment: transition._comment
         }
@@ -175,6 +176,7 @@ export function toReactFlow(
       label: startLabel,
       data: {
         triggerType: st.triggerType,
+        triggerKind: st.triggerKind,
         isStartTransition: true,  // Mark this as the start transition
         transition: st,  // Include full transition data for editing
         _comment: st._comment
@@ -213,6 +215,7 @@ export function toReactFlow(
         data: {
           sharedKey: sharedTransition.key,
           triggerType: sharedTransition.triggerType,
+          triggerKind: sharedTransition.triggerKind,
           transition: sharedTransition,
           _comment: sharedTransition._comment
         }

@@ -33,6 +33,7 @@ const INTERMEDIATE_STATE_TERMINALS: TerminalRole[] = [
       requiredFields: ['key', 'target', 'triggerType', 'versionStrategy'],
       defaults: {
         triggerType: 1,
+        triggerKind: 10, // Default auto transition
         versionStrategy: 'Minor'
       }
     }
