@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.1] - 2025-01-05
+
 ### Added
 
 - **Default Auto Transitions (triggerKind)**: New field to mark automatic transitions as "default"
@@ -19,10 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Error if multiple default auto transitions exist per state (only one allowed)
     - Skips rule requirement for transitions with `triggerKind=10`
   - **Rule Auto-Removal**: When marking a transition as default, any existing rule is automatically removed
-
-## [2.5.1] - 2025-01-05
-
-### Added
 
 - **vNext Tools Sidebar**: New Activity Bar panel for project-level vnext-template tools
   - **Create New Project**: Scaffold new vnext-template projects via `npx @burgan-tech/vnext-template`
