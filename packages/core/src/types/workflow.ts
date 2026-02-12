@@ -11,7 +11,9 @@ export type StateType = 1 | 2 | 3 | 4 | 5; // Initial, Intermediate, Final, SubF
 // 2 = Error condition
 // 3 = Manually terminated (Cancelled)
 // 4 = Temporarily suspended
-export type StateSubType = 0 | 1 | 2 | 3 | 4;
+// 5 = Busy (processing in progress)
+// 6 = Human (waiting for human interaction)
+export type StateSubType = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface Label {
   label: string;

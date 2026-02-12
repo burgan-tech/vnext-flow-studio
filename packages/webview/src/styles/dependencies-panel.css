@@ -108,3 +108,59 @@
 .dependencies-panel .MuiTreeItem-iconContainer svg {
   font-size: 16px;
 }
+
+/* Dark theme support */
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel__header,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel__header {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel__empty,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel__empty {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel__state-label,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel__state-label {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel__dep-text,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel__dep-text {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel__dep-context,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel__dep-context {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel__dep-item:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel__dep-item:hover {
+  background-color: rgba(137, 180, 250, 0.1);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel .MuiTreeItem-content:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel .MuiTreeItem-content:hover {
+  background-color: rgba(137, 180, 250, 0.1);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel .MuiTreeItem-content.Mui-selected,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel .MuiTreeItem-content.Mui-selected {
+  background-color: rgba(137, 180, 250, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel .MuiTreeItem-content.Mui-selected:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel .MuiTreeItem-content.Mui-selected:hover {
+  background-color: rgba(137, 180, 250, 0.2);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel .MuiTreeItem-label,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel .MuiTreeItem-label {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .dependencies-panel .MuiTreeItem-iconContainer svg,
+body[data-vscode-theme-kind="vscode-high-contrast"] .dependencies-panel .MuiTreeItem-iconContainer svg {
+  color: #a6adc8;
+}

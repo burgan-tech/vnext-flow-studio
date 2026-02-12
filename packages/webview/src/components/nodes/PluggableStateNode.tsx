@@ -26,16 +26,49 @@ interface PluggableStateNodeProps {
     // Instance highlighting
     highlighted?: boolean;
     highlightedInHistory?: boolean;
+    // Monitoring overlay (Zeebe Operate style)
+    monitoringStatus?: 'completed' | 'active' | 'error' | 'human-waiting' | 'suspended' | 'unvisited';
+    monitoringVisitOrder?: number;
+    monitoringDuration?: number;
   };
   selected?: boolean;
   style?: React.CSSProperties;
   isConnectable?: boolean;
 }
 
+/** Format milliseconds into human-readable duration */
+const formatDuration = (ms: number): string => {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const min = Math.floor(ms / 60000);
+  const sec = Math.round((ms % 60000) / 1000);
+  return `${min}m ${sec}s`;
+};
+
+/** Monitoring status icon */
+const getMonitoringIcon = (status: string): string => {
+  switch (status) {
+    case 'completed': return '\u2713'; // checkmark
+    case 'active': return '\u25CF';    // filled circle
+    case 'error': return '\u2717';     // X mark
+    case 'human-waiting': return '\u23F3'; // hourglass
+    case 'suspended': return '\u23F8'; // pause
+    default: return '';
+  }
+};
+
 const getStateTypeClass = (stateType: StateType, stateSubType?: number): string => {
   switch (stateType) {
     case 1: return 'state-node--initial';
-    case 2: return 'state-node--intermediate';
+    case 2: {
+      // Intermediate states with optional sub-status
+      switch (stateSubType) {
+        case 4: return 'state-node--intermediate-suspended';
+        case 5: return 'state-node--intermediate-busy';
+        case 6: return 'state-node--intermediate-human';
+        default: return 'state-node--intermediate';
+      }
+    }
     case 3: {
       // Final states with sub-status specific colors
       switch (stateSubType) {
@@ -146,7 +179,10 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
     designHints,
     onTaskBadgeClick,
     highlighted,
-    highlightedInHistory
+    highlightedInHistory,
+    monitoringStatus,
+    monitoringVisitOrder,
+    monitoringDuration
   } = data;
 
   const { postMessage } = useBridge();
@@ -239,6 +275,9 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
   // Build class name with plugin-specific styling
   const pluginClass = pluginId ? `state-node--plugin-${pluginId.toLowerCase()}` : '';
 
+  const isMonitoring = monitoringStatus !== undefined;
+  const monitoringClass = isMonitoring ? `state-node--monitor-${monitoringStatus}` : '';
+
   const classNames = [
     'react-flow__node-default',
     'state-node',
@@ -247,7 +286,8 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
     selected ? 'selected' : '',
     highlighted ? 'state-node--highlighted' : '',
     highlightedInHistory ? 'state-node--history' : '',
-    isCancelTarget ? 'state-node--cancel-target' : ''
+    isCancelTarget ? 'state-node--cancel-target' : '',
+    monitoringClass
   ].filter(Boolean).join(' ');
 
   // Render terminal labels for plugin nodes (currently disabled to keep nodes clean)
@@ -261,6 +301,28 @@ export function PluggableStateNode({ data, selected, style: externalStyle, isCon
     <div className={classNames} data-variant={variant} data-plugin-id={pluginId} style={{ width: `${calculatedWidth}px`, height: `${calculatedHeight}px`, ...externalStyle }}>
       {/* Resizable card per RF v12 UI */}
       <NodeResizer isVisible={selected} minWidth={180} minHeight={80} handleStyle={{ borderRadius: 4 }} />
+
+      {/* Monitoring badges (Zeebe Operate style) */}
+      {isMonitoring && monitoringStatus !== 'unvisited' && (
+        <>
+          {/* Status badge - top left */}
+          <div className={`monitoring-badge monitoring-badge--status monitoring-badge--${monitoringStatus}`} title={monitoringStatus}>
+            {getMonitoringIcon(monitoringStatus!)}
+          </div>
+          {/* Visit order badge - top right */}
+          {monitoringVisitOrder !== undefined && (
+            <div className="monitoring-badge monitoring-badge--order" title={`Visit order: #${monitoringVisitOrder}`}>
+              {monitoringVisitOrder}
+            </div>
+          )}
+          {/* Duration badge - bottom center */}
+          {monitoringDuration !== undefined && monitoringDuration > 0 && (
+            <div className="monitoring-badge monitoring-badge--duration" title={`Duration: ${formatDuration(monitoringDuration)}`}>
+              {formatDuration(monitoringDuration)}
+            </div>
+          )}
+        </>
+      )}
 
       {/* Shape is the visual rectangle used for edge intersections; handles live inside */}
       <div className="state-node__shape">

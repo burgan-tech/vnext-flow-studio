@@ -816,23 +816,19 @@ export function MappingSection({
         {value.mode === 'code' && (
           <div className="mapping-section__code">
             {/* Quick Templates Section */}
-            <div style={{ marginBottom: '16px' }}>
-              <label className="mapping-section__label" style={{ marginBottom: '10px', display: 'block' }}>
+            <div className="mapping-section__templates-section">
+              <label className="mapping-section__label">
                 Quick Templates
               </label>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                gap: '8px'
-              }}>
+              <div className="mapping-section__templates-grid">
                 {TEMPLATES.map((template, index) => {
                   const Icon = template.icon;
-                  const isHovered = hoveredTemplateIndex === index;
 
                   return (
-                    <div key={index} style={{ position: 'relative' }}>
+                    <div key={index} className="mapping-section__template-card-wrapper">
                       <button
                         type="button"
+                        className="mapping-section__template-card"
                         onClick={() => handleCreateFromTemplate(template.code)}
                         onMouseEnter={(e) => {
                           setHoveredTemplateIndex(index);
@@ -847,27 +843,11 @@ export function MappingSection({
                           });
                         }}
                         onMouseLeave={() => setHoveredTemplateIndex(null)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          background: isHovered ? '#f8fafc' : '#ffffff',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '13px',
-                          fontWeight: 500,
-                          color: '#334155',
-                          textAlign: 'left'
-                        }}
                       >
-                        <Icon size={16} style={{ flexShrink: 0, color: '#64748b' }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, color: '#0f172a' }}>{template.name}</div>
-                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                        <Icon size={16} className="mapping-section__template-card-icon" />
+                        <div className="mapping-section__template-card-content">
+                          <div className="mapping-section__template-card-name">{template.name}</div>
+                          <div className="mapping-section__template-card-desc">
                             {template.description}
                           </div>
                         </div>
@@ -911,52 +891,25 @@ export function MappingSection({
 
               return (
                 <div
+                  className="mapping-section__tooltip"
                   style={{
-                    position: 'fixed',
                     top: `${buttonCenterY}px`,
                     left: `${leftPos}px`,
                     transform: 'translateY(-50%)',
                     width: `${actualTooltipWidth}px`,
-                    maxHeight: 'min(500px, 80vh)',
-                    background: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                    zIndex: 100000,
-                    overflow: 'hidden',
-                    pointerEvents: 'none',
-                    display: 'flex',
-                    flexDirection: 'column'
                   }}
                 >
-                  <div style={{
-                    padding: '12px 14px',
-                    borderBottom: '1px solid #e2e8f0',
-                    background: '#f8fafc',
-                    flexShrink: 0
-                  }}>
-                    <div style={{
-                      fontWeight: 600,
-                      color: '#0f172a',
-                      fontSize: '13px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      <Icon size={14} style={{ color: '#64748b' }} />
+                  <div className="mapping-section__tooltip-header">
+                    <div className="mapping-section__tooltip-title">
+                      <Icon size={14} className="mapping-section__tooltip-title-icon" />
                       {template.name}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    <div className="mapping-section__tooltip-desc">
                       {template.description}
                     </div>
                   </div>
-                  <div style={{
-                    flex: 1,
-                    overflow: 'hidden',
-                    minHeight: '300px',
-                    position: 'relative'
-                  }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+                  <div className="mapping-section__tooltip-body">
+                    <div className="mapping-section__tooltip-editor">
                       <Editor
                         height="100%"
                         defaultLanguage="csharp"
@@ -1004,22 +957,12 @@ export function MappingSection({
 
             {/* Open in VS Code button */}
             {value.location && (
-              <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+              <div className="mapping-section__vscode-btn-wrapper">
                 <button
                   type="button"
                   className="mapping-section__vscode-btn"
                   onClick={handleOpenInVSCode}
                   title="Open script file in VS Code for editing"
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    backgroundColor: '#3b82f6',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 500
-                  }}
                 >
                   📝 Open in VS Code
                 </button>
@@ -1027,7 +970,7 @@ export function MappingSection({
             )}
 
             {isCodeBase64 && (
-              <p className="mapping-section__hint" style={{ marginTop: '8px', fontSize: '11px', color: '#3b82f6' }}>
+              <p className="mapping-section__hint mapping-section__hint--info">
                 ℹ️ Viewing script content (read-only)
               </p>
             )}

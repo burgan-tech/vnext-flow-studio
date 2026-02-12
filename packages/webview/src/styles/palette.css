@@ -181,3 +181,51 @@
   user-select: none;
   pointer-events: none;
 }
+
+/* ===== Dark Theme ===== */
+body[data-vscode-theme-kind="vscode-dark"] .flow-canvas__toolbar-section + .flow-canvas__toolbar-section,
+body[data-vscode-theme-kind="vscode-high-contrast"] .flow-canvas__toolbar-section + .flow-canvas__toolbar-section {
+  border-top-color: rgba(148, 163, 184, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .flow-canvas__variants,
+body[data-vscode-theme-kind="vscode-high-contrast"] .flow-canvas__variants {
+  background: rgba(30, 30, 46, 0.95);
+  border-color: rgba(148, 163, 184, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .flow-canvas__variant-item,
+body[data-vscode-theme-kind="vscode-high-contrast"] .flow-canvas__variant-item {
+  background: rgba(30, 30, 46, 0.8) !important;
+  color: #a6adc8 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  box-shadow: none !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .flow-canvas__variant-item::before,
+body[data-vscode-theme-kind="vscode-high-contrast"] .flow-canvas__variant-item::before {
+  background: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .flow-canvas__variant-item:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .flow-canvas__variant-item:hover {
+  background: rgba(137, 180, 250, 0.15) !important;
+  border-color: rgba(137, 180, 250, 0.3) !important;
+  color: #cdd6f4 !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .flow-canvas__variant-icon,
+body[data-vscode-theme-kind="vscode-high-contrast"] .flow-canvas__variant-icon {
+  color: #a6adc8 !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .flow-canvas__variants::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .flow-canvas__variants::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .flow-canvas__variants::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .flow-canvas__variants::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}

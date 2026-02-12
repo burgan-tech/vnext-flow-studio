@@ -1154,6 +1154,11 @@ export class ModelBridge {
           await vscode.commands.executeCommand('amorphie.openTestPanel', message.workflow);
           break;
 
+        case 'monitor:openPanel':
+          console.log('[ModelBridge] monitor:openPanel received, workflow:', JSON.stringify(message.workflow));
+          await vscode.commands.executeCommand('amorphie.openInstanceMonitor', message.workflow);
+          break;
+
         case 'request:lint':
           await this.performLinting(model, panel);
           break;
@@ -1163,7 +1168,7 @@ export class ModelBridge {
           break;
 
         case 'request:autoLayout':
-          await this.performAutoLayout(model, message.nodeSizes, message.edgeLabelSizes, message.direction);
+          await this.performAutoLayout(model, message.nodeSizes, message.edgeLabelSizes, message.direction, message.preset);
           break;
 
         case 'navigate:subflow':
@@ -2743,11 +2748,12 @@ export class ModelBridge {
     model: WorkflowModel,
     nodeSizes?: Record<string, { width: number; height: number }>,
     edgeLabelSizes?: Record<string, { width: number; height: number }>,
-    direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP'
+    direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP',
+    preset?: 'smart'
   ): Promise<void> {
     const workflow = model.getWorkflow();
     const currentDiagram = model.getDiagram();
-    const newDiagram = await autoLayout(workflow, currentDiagram, { nodeSizes, edgeLabelSizes, direction });
+    const newDiagram = await autoLayout(workflow, currentDiagram, { nodeSizes, edgeLabelSizes, direction, preset });
     model.setDiagram(newDiagram);
     await this.saveModel(model);
   }
@@ -3875,6 +3881,7 @@ export class ModelBridge {
       key?: string;
       domain?: string;
       version?: string;
+      flowVersion?: string;
       labels?: Array<{ label: string; language: string }>;
       tags?: string[];
       type?: 'C' | 'F' | 'S' | 'P';
@@ -3969,6 +3976,38 @@ export class ModelBridge {
     for (const [_panelKey, panel] of this.config.activePanels) {
       panel.webview.postMessage({
         type: 'instance:clearHighlight'
+      });
+    }
+  }
+
+  /**
+   * Broadcast monitoring overlay to all workflow editor panels (Zeebe Operate style)
+   */
+  public broadcastMonitoringOverlay(instanceId: string, workflowKey: string, overlay: any): void {
+    for (const [panelKey, panel] of this.config.activePanels) {
+      const model = this.panelModelMap.get(panelKey);
+      if (model) {
+        const workflowState = model.getModelState();
+        const currentWorkflowKey = workflowState.workflow.key;
+        if (currentWorkflowKey === workflowKey) {
+          panel.webview.postMessage({
+            type: 'instance:monitoringOverlay',
+            instanceId,
+            workflowKey,
+            overlay
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Clear monitoring overlay from all workflow editor panels
+   */
+  public clearMonitoringOverlay(): void {
+    for (const [_panelKey, panel] of this.config.activePanels) {
+      panel.webview.postMessage({
+        type: 'instance:clearMonitoringOverlay'
       });
     }
   }

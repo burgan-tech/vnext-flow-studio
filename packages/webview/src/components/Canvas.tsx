@@ -3,6 +3,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  MiniMap,
   Panel,
   Node,
   Edge,
@@ -24,7 +25,7 @@ import {
   reconnectEdge
 } from '@xyflow/react';
 import { toSvg } from 'html-to-image';
-import { Boxes, Rocket, BookOpen, Network, Settings, PlayCircle } from 'lucide-react';
+import { Boxes, Rocket, BookOpen, Network, Settings, PlayCircle, Activity, Sun, Moon } from 'lucide-react';
 import { PluggableStateNode } from './nodes/PluggableStateNode';
 import { LayerControlButton } from './LayerControlButton';
 import { DocumentationViewer } from './DocumentationViewer';
@@ -135,12 +136,29 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showDocumentation, setShowDocumentation] = useState(false);
   const [activePanel, setActivePanel] = useState<'states' | 'deploy' | 'dependencies' | 'settings' | null>(null);
+
+  // Dark/Light mode toggle
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return document.body.getAttribute('data-vscode-theme-kind') === 'vscode-dark' ||
+           document.body.getAttribute('data-vscode-theme-kind') === 'vscode-high-contrast';
+  });
+
+  const toggleTheme = useCallback(() => {
+    const newIsDark = !isDarkMode;
+    setIsDarkMode(newIsDark);
+    if (newIsDark) {
+      document.body.setAttribute('data-vscode-theme-kind', 'vscode-dark');
+    } else {
+      document.body.setAttribute('data-vscode-theme-kind', 'vscode-light');
+    }
+  }, [isDarkMode]);
   const [deployStatus, setDeployStatus] = useState<{ ready: boolean; configured: boolean; environment?: { id: string; name?: string; baseUrl: string; domain: string }; apiReachable: boolean; error?: string } | null>(null);
   const [deployProgress, setDeployProgress] = useState<{ step: string; current: number; total: number; workflow?: { key: string; domain: string; filePath: string }; message: string; percentage: number } | null>(null);
   const [deployResult, setDeployResult] = useState<{ success: boolean; message: string; results?: Array<{ success: boolean; key: string; domain: string; error?: string }> } | null>(null);
   const [highlightedState, setHighlightedState] = useState<string | null>(null);
   const [_connectedInstanceId, setConnectedInstanceId] = useState<string | null>(null);
   const [highlightedHistory, setHighlightedHistory] = useState<string[]>([]);
+  const [monitoringOverlay, setMonitoringOverlay] = useState<any | null>(null);
 
   // Task Mapping Popup state
   const [taskPopupState, setTaskPopupState] = useState<{
@@ -174,6 +192,123 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
     oldSource: string;
     oldTarget: string;
   } | null>(null);
+
+  // Clipboard for copy/paste
+  const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
+
+  // Keyboard shortcuts (Copy, Paste, Select All, Duplicate, Arrow nudge)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if user is typing in an input
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement ||
+          active instanceof HTMLTextAreaElement ||
+          active?.getAttribute('contenteditable') === 'true') {
+        return;
+      }
+
+      const isMeta = e.metaKey || e.ctrlKey;
+
+      // Ctrl+C / Cmd+C — Copy selected nodes
+      if (isMeta && e.key === 'c' && !e.shiftKey) {
+        const selectedNodes = nodes.filter(n => n.selected && n.id !== '__start__' && n.id !== '__timeout__');
+        if (selectedNodes.length === 0) return;
+        const selectedIds = new Set(selectedNodes.map(n => n.id));
+        const connectedEdges = edges.filter(
+          e => selectedIds.has(e.source) && selectedIds.has(e.target)
+        );
+        clipboardRef.current = { nodes: selectedNodes, edges: connectedEdges };
+      }
+
+      // Ctrl+V / Cmd+V — Paste copied nodes
+      if (isMeta && e.key === 'v' && !e.shiftKey && clipboardRef.current) {
+        const { nodes: copiedNodes } = clipboardRef.current;
+        if (copiedNodes.length === 0) return;
+
+        const pasteOffset = 50;
+        for (const node of copiedNodes) {
+          const nodeData = node.data as any;
+          const newKey = `${nodeData?.key || node.id}-copy-${Date.now()}`;
+          const newState = {
+            key: newKey,
+            stateType: nodeData?.stateType || 2,
+            versionStrategy: 'Minor' as const,
+            labels: [{ label: newKey, language: 'en' }],
+            transitions: [],
+          };
+          postMessage({
+            type: 'domain:addState',
+            state: newState,
+            position: {
+              x: node.position.x + pasteOffset,
+              y: node.position.y + pasteOffset,
+            },
+          });
+        }
+      }
+
+      // Ctrl+A / Cmd+A — Select all nodes
+      if (isMeta && e.key === 'a' && !e.shiftKey) {
+        e.preventDefault();
+        setNodes(nds => nds.map(n => ({ ...n, selected: true })));
+      }
+
+      // Ctrl+D / Cmd+D — Duplicate selected nodes
+      if (isMeta && e.key === 'd' && !e.shiftKey) {
+        e.preventDefault();
+        const selectedNodes = nodes.filter(n => n.selected && n.id !== '__start__' && n.id !== '__timeout__');
+        if (selectedNodes.length === 0) return;
+        for (const node of selectedNodes) {
+          const nodeData = node.data as any;
+          const newKey = `${nodeData?.key || node.id}-dup-${Date.now()}`;
+          const newState = {
+            key: newKey,
+            stateType: nodeData?.stateType || 2,
+            versionStrategy: 'Minor' as const,
+            labels: [{ label: newKey, language: 'en' }],
+            transitions: [],
+          };
+          postMessage({
+            type: 'domain:addState',
+            state: newState,
+            position: {
+              x: node.position.x + 60,
+              y: node.position.y + 60,
+            },
+          });
+        }
+      }
+
+      // Arrow keys — Nudge selected nodes (Shift = 10x step)
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const selectedNodes = nodes.filter(n => n.selected);
+        if (selectedNodes.length === 0) return;
+        e.preventDefault();
+        const step = e.shiftKey ? 40 : 20; // snap grid aligned
+        const dx = e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0;
+        const dy = e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0;
+        const selectedIds = new Set(selectedNodes.map(n => n.id));
+        setNodes(nds => {
+          const updated = nds.map(n => {
+            if (!selectedIds.has(n.id)) return n;
+            return { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } };
+          });
+          // Persist updated positions via diagram
+          const newNodePos: Record<string, { x: number; y: number }> = {};
+          for (const n of updated) {
+            if (selectedIds.has(n.id)) {
+              newNodePos[n.id] = n.position;
+            }
+          }
+          postMessage({ type: 'persist:diagram', diagram: { ...diagram, nodePos: { ...diagram.nodePos, ...newNodePos } } });
+          return updated;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [nodes, edges, postMessage, diagram]);
 
   // Layer visibility state - use diagram settings if available, otherwise localStorage
   const [showRegularTransitions, setShowRegularTransitions] = useState(() => {
@@ -754,20 +889,55 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           break;
         case 'instance:highlightHistory':
           console.log('[Canvas] Highlighting history:', message.history, 'currentState:', message.currentState);
-          setHighlightedHistory(message.history || []);
-          setHighlightedState(message.currentState);
-          // Focus on current state node
-          setTimeout(() => {
-            const node = nodes.find(n => n.id === message.currentState);
-            if (node && reactFlowInstance) {
-              console.log('[Canvas] Focusing on node:', message.currentState);
-              reactFlowInstance.fitView({
-                nodes: [node],
-                duration: 800,
-                padding: 0.5
-              });
+          setHighlightedHistory((prev) => {
+            const newHistory = message.history || [];
+            // Only fitView when history actually changes (avoid constant focus during polling)
+            const isNewHistory = prev.length !== newHistory.length ||
+              prev.join(',') !== newHistory.join(',');
+
+            if (isNewHistory && message.currentState) {
+              setTimeout(() => {
+                const node = nodes.find(n => n.id === message.currentState);
+                if (node && reactFlowInstance) {
+                  console.log('[Canvas] Focusing on node:', message.currentState);
+                  reactFlowInstance.fitView({
+                    nodes: [node],
+                    duration: 800,
+                    padding: 0.5
+                  });
+                }
+              }, 100);
             }
-          }, 100);
+            return newHistory;
+          });
+          setHighlightedState(message.currentState);
+          break;
+        case 'instance:monitoringOverlay':
+          console.log('[Canvas] Received monitoring overlay for instance:', message.instanceId);
+          setMonitoringOverlay((prev: any) => {
+            // Only fitView when overlay is for a different instance (avoid repeated focus)
+            const isNewOverlay = !prev || prev.instanceId !== message.overlay?.instanceId;
+            if (isNewOverlay && message.overlay?.currentState) {
+              setTimeout(() => {
+                const node = nodes.find(n => n.id === message.overlay.currentState);
+                if (node && reactFlowInstance) {
+                  reactFlowInstance.fitView({
+                    nodes: [node],
+                    duration: 800,
+                    padding: 0.5
+                  });
+                }
+              }, 100);
+            }
+            return message.overlay;
+          });
+          // Clear simple highlighting when monitoring overlay is active
+          setHighlightedState(null);
+          setHighlightedHistory([]);
+          break;
+        case 'instance:clearMonitoringOverlay':
+          console.log('[Canvas] Clearing monitoring overlay');
+          setMonitoringOverlay(null);
           break;
       }
     });
@@ -775,6 +945,8 @@ ${documentation.split('\n').slice(1).join('\n')}`;
 
   // Update node highlighting when highlightedState or history changes
   useEffect(() => {
+    // Skip simple highlighting if monitoring overlay is active
+    if (monitoringOverlay) return;
     console.log('[Canvas] Updating node highlighting, highlightedState:', highlightedState, 'history:', highlightedHistory);
     setNodes((nds) => {
       const updated = nds.map((node) => ({
@@ -782,14 +954,84 @@ ${documentation.split('\n').slice(1).join('\n')}`;
         data: {
           ...node.data,
           highlighted: node.id === highlightedState,
-          highlightedInHistory: highlightedHistory.length > 0 && highlightedHistory.includes(node.id)
+          highlightedInHistory: highlightedHistory.length > 0 && highlightedHistory.includes(node.id),
+          monitoringStatus: undefined,
+          monitoringVisitOrder: undefined,
+          monitoringDuration: undefined
         }
       }));
       console.log('[Canvas] Updated nodes - highlighted:', updated.filter(n => n.data.highlighted).map(n => n.id));
       console.log('[Canvas] Updated nodes - in history:', updated.filter(n => n.data.highlightedInHistory).map(n => n.id));
       return updated;
     });
-  }, [highlightedState, highlightedHistory]);
+  }, [highlightedState, highlightedHistory, monitoringOverlay]);
+
+  // Update nodes and edges when monitoring overlay changes (Zeebe Operate style)
+  useEffect(() => {
+    if (!monitoringOverlay) {
+      // Clear monitoring props from nodes and edges
+      setNodes((nds) => nds.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          monitoringStatus: undefined,
+          monitoringVisitOrder: undefined,
+          monitoringDuration: undefined,
+          highlighted: false,
+          highlightedInHistory: false
+        }
+      })));
+      setEdges((eds) => eds.map((edge) => ({
+        ...edge,
+        className: (edge.className || '').replace(/\s*monitoring-\S+/g, '').trim() || undefined,
+        data: { ...edge.data, monitoringStatus: undefined }
+      })));
+      return;
+    }
+
+    console.log('[Canvas] Applying monitoring overlay, states:', Object.keys(monitoringOverlay.states), 'edges:', Object.keys(monitoringOverlay.edges));
+
+    // Update nodes with monitoring status
+    setNodes((nds) => nds.map((node) => {
+      const stateOverlay = monitoringOverlay.states[node.id];
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          highlighted: false,
+          highlightedInHistory: false,
+          monitoringStatus: stateOverlay?.status || 'unvisited',
+          monitoringVisitOrder: stateOverlay?.visitOrder,
+          monitoringDuration: stateOverlay?.duration
+        }
+      };
+    }));
+
+    // Update edges with monitoring status
+    setEdges((eds) => eds.map((edge) => {
+      let edgeOverlay = monitoringOverlay.edges[edge.id];
+
+      // Prefix matching fallback (when we don't know exact transition key)
+      if (!edgeOverlay) {
+        for (const [key, overlay] of Object.entries(monitoringOverlay.edges)) {
+          if ((overlay as any)?._matchPrefix && edge.id.startsWith(key)) {
+            edgeOverlay = overlay;
+            break;
+          }
+        }
+      }
+
+      const monitoringStatus = edgeOverlay ? (edgeOverlay as any).status : 'unvisited';
+      const existingClasses = (edge.className || '').replace(/\s*monitoring-\S+/g, '').trim();
+      const newClassName = [existingClasses, `monitoring-${monitoringStatus}`].filter(Boolean).join(' ');
+
+      return {
+        ...edge,
+        className: newClassName,
+        data: { ...edge.data, monitoringStatus }
+      };
+    }));
+  }, [monitoringOverlay]);
 
   // Check CLI status when deploy panel is opened
   useEffect(() => {
@@ -1462,7 +1704,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
     setContextMenu(null);
   }, [workflow, postMessage]);
 
-  const handleAutoLayoutRequest = useCallback((direction: 'RIGHT' | 'DOWN' = 'RIGHT') => {
+  const handleAutoLayoutRequest = useCallback((direction: 'RIGHT' | 'DOWN' = 'RIGHT', preset?: 'smart') => {
     // Collect measured node sizes from React Flow v12
     const sizeMap: Record<string, { width: number; height: number }> = {};
     for (const n of nodes) {
@@ -1505,7 +1747,7 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       }
     }
 
-    postMessage({ type: 'request:autoLayout', nodeSizes: sizeMap, edgeLabelSizes, direction });
+    postMessage({ type: 'request:autoLayout', nodeSizes: sizeMap, edgeLabelSizes, direction, preset });
     setContextMenu(null);
   }, [postMessage, nodes, edges]);
 
@@ -2482,6 +2724,30 @@ ${documentation.split('\n').slice(1).join('\n')}`;
                 }
               }}
             />
+            <ToolbarIconButton
+              icon={Activity}
+              label="Instance Monitor"
+              isActive={false}
+              onClick={() => {
+                if (workflow) {
+                  postMessage({
+                    type: 'monitor:openPanel',
+                    workflow: {
+                      key: workflow.key,
+                      domain: workflow.domain,
+                      version: workflow.version
+                    }
+                  });
+                }
+              }}
+            />
+            <div className="toolbar-icon-divider" />
+            <ToolbarIconButton
+              icon={isDarkMode ? Sun : Moon}
+              label={isDarkMode ? 'Light Mode' : 'Dark Mode'}
+              isActive={false}
+              onClick={toggleTheme}
+            />
           </div>
 
           {/* Flyout Panel for States */}
@@ -2789,6 +3055,29 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             />
           </FlyoutPanel>
 
+          {/* Monitoring overlay banner */}
+          {monitoringOverlay && (
+            <div className="monitoring-banner">
+              <div className="monitoring-banner__info">
+                <span>Instance: {monitoringOverlay.instanceId?.substring(0, 8)}...</span>
+                <span className={`monitoring-banner__status monitoring-banner__status--${monitoringOverlay.instanceStatus === 'A' ? 'active' : monitoringOverlay.instanceStatus === 'C' || monitoringOverlay.instanceStatus === 'F' ? 'completed' : 'error'}`}>
+                  {monitoringOverlay.instanceStatus === 'A' ? 'Active' : monitoringOverlay.instanceStatus === 'C' ? 'Completed' : monitoringOverlay.instanceStatus === 'F' ? 'Finished' : monitoringOverlay.instanceStatus}
+                </span>
+                <span>Current: {monitoringOverlay.currentState}</span>
+              </div>
+              <button
+                className="monitoring-banner__close"
+                onClick={() => {
+                  setMonitoringOverlay(null);
+                  postMessage({ type: 'monitor:clearOverlay' } as any);
+                }}
+                title="Exit monitoring view"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -2813,10 +3102,16 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             edgesFocusable={true}
             elementsSelectable={true}
             selectNodesOnDrag={false}
+            deleteKeyCode={['Backspace', 'Delete']}
+            multiSelectionKeyCode="Shift"
+            snapToGrid={true}
+            snapGrid={[20, 20]}
             defaultEdgeOptions={defaultEdgeOptions}
             defaultMarkerColor="#94a3b8"
             fitView
+            fitViewOptions={{ padding: 0.2 }}
             defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            disableKeyboardA11y={true}
             onInit={setReactFlowInstance}
             className={isConnecting ? 'connecting' : ''}
             onDrop={onDropCanvas}
@@ -2827,6 +3122,19 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             onPaneClick={handlePaneClick}
           >
             <Background />
+            <MiniMap
+              position="bottom-right"
+              pannable
+              zoomable
+              nodeColor={(node: Node) => {
+                const st = (node.data as any)?.stateType;
+                if (st === 1) return '#22c55e'; // Initial - green
+                if (st === 3) return '#ef4444'; // Finish - red
+                if (st === 4) return '#a855f7'; // SubFlow - purple
+                return '#3b82f6'; // Intermediate - blue
+              }}
+              style={{ height: 120, width: 180 }}
+            />
             <Controls position="bottom-left" >
               <LayerControlButton
                 showRegularTransitions={showRegularTransitions}
@@ -2837,6 +3145,28 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             </Controls>
             <Panel position="bottom-left" style={{ left: 20, bottom: 158 }}>
             </Panel>
+            {nodes.length === 0 && (
+              <Panel position="top-center" style={{ marginTop: '20vh' }}>
+                <div style={{
+                  textAlign: 'center',
+                  padding: '32px 48px',
+                  background: 'var(--rf-surface, rgba(255,255,255,0.9))',
+                  backdropFilter: 'blur(8px)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--rf-border, rgba(148,163,184,0.25))',
+                  boxShadow: '0 4px 12px var(--rf-shadow, rgba(15,23,42,0.08))',
+                }}>
+                  <div style={{ fontSize: '36px', marginBottom: '12px' }}>+</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rf-text, #334155)', marginBottom: '8px' }}>
+                    No states yet
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--rf-text-secondary, #64748b)', lineHeight: 1.5 }}>
+                    Click the <strong>States</strong> button on the left toolbar<br/>
+                    to add your first state to the workflow.
+                  </div>
+                </div>
+              </Panel>
+            )}
           </ReactFlow>
         </div>
       </div>
@@ -2986,6 +3316,10 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           onClick={(event) => event.stopPropagation()}
           onContextMenu={(event) => event.preventDefault()}
         >
+          <button type="button" className="flow-context-menu__item" onClick={() => handleAutoLayoutRequest('RIGHT', 'smart')}>
+            ✨ Smart Layout
+          </button>
+          <div className="flow-context-menu__divider" />
           <button type="button" className="flow-context-menu__item" onClick={() => handleAutoLayoutRequest('RIGHT')}>
             Auto Layout (Left to Right)
           </button>

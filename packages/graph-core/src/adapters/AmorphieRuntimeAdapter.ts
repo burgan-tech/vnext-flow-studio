@@ -152,7 +152,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Use the flow from the component definition
-      const url = `${envConfig.baseUrl}/api/v1/${domain}/workflows/${flow}/instances/${instanceId}/transitions/activate?version=${version}&sync=true`;
+      const url = `${envConfig.baseUrl}/api/v1.0/${domain}/workflows/${flow}/instances/${instanceId}/transitions/activate?version=${version}&sync=true`;
 
       const response = await this.fetchWithAuth(url, envConfig, {
         method: 'PATCH'
@@ -181,7 +181,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
    */
   async reinitializeSystem(envConfig: EnvironmentConfig): Promise<{ success: boolean; error?: string }> {
     try {
-      const url = `${envConfig.baseUrl}/api/v1/admin/re-initialize`;
+      const url = `${envConfig.baseUrl}/api/v1.0/admin/re-initialize`;
 
       const controller = new AbortController();
       const timeout = 10000; // 10 second timeout for reinit
@@ -267,7 +267,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
       const flowVersion = definition.flowVersion || '1.0.0';
 
       // Use the flow from the definition (e.g., sys-flows, sys-tasks, sys-schemas, etc.)
-      const url = `${envConfig.baseUrl}/api/v1/${domain}/workflows/${flow}/instances/start?version=${flowVersion}&sync=true`;
+      const url = `${envConfig.baseUrl}/api/v1.0/${domain}/workflows/${flow}/instances/start?version=${flowVersion}&sync=true`;
 
       // Send the full document directly (no wrapper)
       console.log('[AmorphieRuntimeAdapter] Creating component:', {
@@ -322,7 +322,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
       const flowVersion = definition.flowVersion || '1.0.0';
 
       // Use the flow from the definition (e.g., sys-flows, sys-tasks, sys-schemas, etc.)
-      const url = `${envConfig.baseUrl}/api/v1/${domain}/workflows/${flow}/instances/start?version=${flowVersion}&sync=true`;
+      const url = `${envConfig.baseUrl}/api/v1.0/${domain}/workflows/${flow}/instances/start?version=${flowVersion}&sync=true`;
 
       // The key should always be at the root level of the definition
       if (!definition.key) {
@@ -384,7 +384,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
       params.append('filter', filter);
     }
 
-    return `${baseUrl}/api/v1/${domain}/workflows/${workflowName}/instances?${params}`;
+    return `${baseUrl}/api/v1.0/${domain}/workflows/${workflowName}/instances?${params}`;
   }
 
   /**
@@ -480,7 +480,7 @@ export class AmorphieRuntimeAdapter implements RuntimeAdapter {
       // Now try to fetch from data extension endpoint if available
       if (fullInstance.extensions?.data?.href) {
         try {
-          const dataUrl = `${envConfig.baseUrl}/api/v1/${fullInstance.extensions.data.href}`;
+          const dataUrl = `${envConfig.baseUrl}/api/v1.0/${fullInstance.extensions.data.href}`;
           const response = await this.fetchWithAuth(dataUrl, envConfig);
           if (response.ok) {
             const data = await response.json();

@@ -78,3 +78,61 @@
   transform: translateY(0);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
+
+/* ===== Dark Theme ===== */
+body[data-vscode-theme-kind="vscode-dark"] .task-badge,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge {
+  background: rgba(30, 30, 46, 0.9);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-badge:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-badge__label,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge__label {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-badge--valid,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge--valid {
+  border-color: #a6e3a1;
+  background: rgba(166, 227, 161, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-badge--valid:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge--valid:hover {
+  border-color: #a6e3a1;
+  background: rgba(166, 227, 161, 0.25);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-badge--warning,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge--warning {
+  border-color: #f9e2af;
+  background: rgba(249, 226, 175, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-badge--warning:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge--warning:hover {
+  border-color: #f9e2af;
+  background: rgba(249, 226, 175, 0.25);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-badge--error,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge--error {
+  border-color: #f38ba8;
+  background: rgba(243, 139, 168, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-badge--error:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge--error:hover {
+  border-color: #f38ba8;
+  background: rgba(243, 139, 168, 0.25);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-badge:active,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-badge:active {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}

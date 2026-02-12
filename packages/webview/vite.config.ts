@@ -17,7 +17,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         mapper: resolve(__dirname, 'mapper.html'),
-        testRunner: resolve(__dirname, 'testRunner.html')
+        testRunner: resolve(__dirname, 'testRunner.html'),
+        instanceMonitor: resolve(__dirname, 'instanceMonitor.html')
       }
     }
   },

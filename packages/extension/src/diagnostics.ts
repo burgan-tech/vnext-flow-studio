@@ -481,6 +481,48 @@ export function createCodeActionProvider(): vscode.CodeActionProvider {
             actions.push(action);
             break;
           }
+          case 'W_MISSING_FLOW_VERSION': {
+            const action = new vscode.CodeAction(
+              'Set flowVersion to "1.0.0"',
+              vscode.CodeActionKind.QuickFix
+            );
+            action.diagnostics = [diagnostic];
+            action.command = {
+              command: 'flowEditor.setFlowVersion',
+              title: 'Set flowVersion',
+              arguments: [document.uri]
+            };
+            actions.push(action);
+            break;
+          }
+          case 'E_LABELS_EMPTY': {
+            const action = new vscode.CodeAction(
+              'Add default label',
+              vscode.CodeActionKind.QuickFix
+            );
+            action.diagnostics = [diagnostic];
+            action.command = {
+              command: 'flowEditor.addDefaultLabel',
+              title: 'Add default label',
+              arguments: [document.uri, diagnostic]
+            };
+            actions.push(action);
+            break;
+          }
+          case 'E_FINAL_OUT': {
+            const action = new vscode.CodeAction(
+              'Remove outgoing transitions from final state',
+              vscode.CodeActionKind.QuickFix
+            );
+            action.diagnostics = [diagnostic];
+            action.command = {
+              command: 'flowEditor.removeFinalTransitions',
+              title: 'Remove transitions',
+              arguments: [document.uri, diagnostic]
+            };
+            actions.push(action);
+            break;
+          }
         }
       }
 

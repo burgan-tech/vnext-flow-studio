@@ -135,6 +135,10 @@ export class TestPanelProvider {
           await this.handleListInstances(message, panel);
           break;
 
+        case 'test:attachInstance':
+          await this.handleAttachInstance(message, panel, panelKey || '');
+          break;
+
         case 'test:connectInstance':
           this.handleConnectInstance(message);
           break;
@@ -440,6 +444,93 @@ export class TestPanelProvider {
         type: 'test:error',
         error: error.message
       } as MsgToWebview);
+    }
+  }
+
+  /**
+   * Handle attach to external instance (e.g. started via Postman)
+   * Fetches current state and transition history, then sends to webview + canvas
+   */
+  private static async handleAttachInstance(
+    message: any,
+    panel: vscode.WebviewPanel,
+    panelKey: string
+  ): Promise<void> {
+    try {
+      const { instanceId, workflowKey, domain } = message;
+
+      console.log('[TestPanelProvider] Attaching to external instance:', instanceId);
+
+      // Fetch current instance status
+      const status = await this.testService.getInstanceStatus(instanceId, {
+        key: workflowKey,
+        domain
+      });
+
+      console.log('[TestPanelProvider] Instance status:', {
+        state: status.state,
+        isFinal: status.isFinal,
+        transitions: status.availableTransitions,
+        dataKeys: Object.keys(status.data || {})
+      });
+
+      // Try to extract visited states from instance data if available
+      // The runtime may return transition history in the data
+      let visitedStates: string[] = [];
+
+      // Check if the data has state history info
+      if (status.data?.stateHistory && Array.isArray(status.data.stateHistory)) {
+        visitedStates = status.data.stateHistory;
+      } else if (status.data?.history && Array.isArray(status.data.history)) {
+        visitedStates = status.data.history.map((h: any) => h.state || h.stateKey || h);
+      }
+
+      // Always include the current state
+      if (status.state && !visitedStates.includes(status.state)) {
+        visitedStates.push(status.state);
+      }
+
+      // Send attach result to webview
+      panel.webview.postMessage({
+        type: 'test:attachResult',
+        instanceId,
+        currentState: status.state,
+        data: status.data,
+        transitions: status.availableTransitions || [],
+        visitedStates,
+        isFinal: status.isFinal
+      } as any);
+
+      // Broadcast highlighting to canvas
+      if (this.modelBridge) {
+        // If we have visited states, highlight the history path
+        if (visitedStates.length > 0) {
+          this.modelBridge.broadcastHistoryHighlight(
+            workflowKey,
+            visitedStates,
+            status.state
+          );
+        } else {
+          // Otherwise just highlight the current state
+          this.modelBridge.broadcastInstanceHighlight(
+            instanceId,
+            workflowKey,
+            status.state
+          );
+        }
+      }
+
+      // Start polling if instance is still active
+      if (!status.isFinal) {
+        this.startPolling(panelKey, instanceId, workflowKey, domain, panel);
+      }
+
+    } catch (error: any) {
+      console.error('[TestPanelProvider] Error attaching to instance:', error);
+      panel.webview.postMessage({
+        type: 'test:attachResult',
+        error: error.message
+      } as any);
     }
   }
 

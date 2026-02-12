@@ -39,23 +39,44 @@ export class WorkflowTestService {
   }
 
   /**
-   * Test API connectivity
+   * Test API connectivity — tries multiple health endpoints
    */
   private async testConnection(env: EnvironmentConfig): Promise<boolean> {
+    const healthPaths = ['/health', '/api/health', '/healthz', '/api/v1.0/health'];
+
+    for (const path of healthPaths) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), env.timeout || 3000);
+
+        const response = await fetch(`${env.baseUrl}${path}`, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: this.getAuthHeaders(env)
+        });
+
+        clearTimeout(timeoutId);
+        if (response.ok || response.status < 500) {
+          return true;
+        }
+      } catch {
+        // Try next path
+      }
+    }
+
+    // Last resort: try base URL itself
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), env.timeout || 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      const response = await fetch(`${env.baseUrl}/health`, {
+      const response = await fetch(env.baseUrl, {
         method: 'GET',
-        signal: controller.signal,
-        headers: this.getAuthHeaders(env)
+        signal: controller.signal
       });
-
       clearTimeout(timeoutId);
-      return response.ok;
-    } catch (error) {
-      console.error('API connection test failed:', error);
+      return response.status < 500;
+    } catch {
+      console.error('API connection test failed for:', env.baseUrl);
       return false;
     }
   }
@@ -73,7 +94,7 @@ export class WorkflowTestService {
     }
 
     // Note: sync=true not supported on start endpoint (causes 500 error)
-    const url = `${env.baseUrl}/api/v1/${workflow.domain}/workflows/${workflow.key}/instances/start?version=${workflow.version}`;
+    const url = `${env.baseUrl}/api/v1.0/${workflow.domain}/workflows/${workflow.key}/instances/start?version=${workflow.version}`;
 
     // Generate unique idempotency key
     const idempotencyKey = `${workflow.key}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -196,7 +217,7 @@ export class WorkflowTestService {
     }
 
     // Execute the transition (sync=true for immediate response)
-    const url = `${env.baseUrl}/api/v1/${workflow.domain}/workflows/${workflow.key}/instances/${instanceId}/transitions/${transitionKey}?sync=true`;
+    const url = `${env.baseUrl}/api/v1.0/${workflow.domain}/workflows/${workflow.key}/instances/${instanceId}/transitions/${transitionKey}?sync=true`;
 
     // Platform expects input data wrapped in attributes field (same as startInstance)
     const bodyData = {
@@ -316,21 +337,41 @@ export class WorkflowTestService {
   }
 
   /**
-   * List all instances for a workflow
+   * List instances for a workflow with pagination support
    */
-  async listInstances(workflow: { key: string; domain: string }): Promise<
-    Array<{
+  async listInstances(
+    workflow: { key: string; domain: string },
+    options?: { page?: number; pageSize?: number; state?: string }
+  ): Promise<{
+    instances: Array<{
       instanceId: string;
       state: string;
+      status?: string;
       created: string;
-    }>
-  > {
+    }>;
+    pagination?: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+      totalPages: number;
+    };
+  }> {
     const env = EnvironmentManager.getActiveEnvironment();
     if (!env) {
       throw new Error('No environment configured');
     }
 
-    const url = `${env.baseUrl}/api/v1/${workflow.domain}/workflows/${workflow.key}/instances`;
+    const page = options?.page || 1;
+    const pageSize = options?.pageSize || 20;
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize)
+    });
+    if (options?.state) {
+      params.set('state', options.state);
+    }
+
+    const url = `${env.baseUrl}/api/v1.0/${workflow.domain}/workflows/${workflow.key}/instances?${params.toString()}`;
 
     try {
       const response = await fetch(url, {
@@ -344,13 +385,55 @@ export class WorkflowTestService {
       }
 
       const result = await response.json();
-      const instances = Array.isArray(result) ? result : result.instances || [];
 
-      return instances.map((inst: any) => ({
+      // Parse response — Amorphie runtime returns: { links: { self, first, next, prev }, items: [...] }
+      let rawInstances: any[];
+      let pagination: any = undefined;
+
+      if (result.items && result.links) {
+        // Amorphie runtime paginated format: { links: {...}, items: [...] }
+        rawInstances = result.items;
+        // Build pagination from links (runtime doesn't return totalCount)
+        const hasNext = !!(result.links.next && result.links.next !== '');
+        const hasPrev = !!(result.links.prev && result.links.prev !== '');
+        // Estimate: if there's a next page, we don't know total — set totalPages high enough
+        // Parse current page from URL if possible
+        let currentPage = page;
+        try {
+          if (result.links.self) {
+            const selfUrl = new URL(result.links.self, env.baseUrl);
+            const p = selfUrl.searchParams.get('page');
+            if (p) currentPage = parseInt(p, 10);
+          }
+        } catch { /* ignore */ }
+
+        pagination = {
+          page: currentPage,
+          pageSize: pageSize,
+          totalCount: hasNext ? (currentPage * pageSize) + 1 : (currentPage - 1) * pageSize + rawInstances.length,
+          totalPages: hasNext ? currentPage + 1 : currentPage,
+          hasNext,
+          hasPrev
+        };
+      } else if (result.pagination) {
+        // Standard paginated response
+        rawInstances = result.data || result.items || [];
+        pagination = result.pagination;
+      } else if (Array.isArray(result)) {
+        // Flat array (no pagination from API)
+        rawInstances = result;
+      } else {
+        rawInstances = result.items || result.data || result.instances || [];
+      }
+
+      const instances = rawInstances.map((inst: any) => ({
         instanceId: inst.instanceId || inst.id,
-        state: inst.state || inst.currentState,
+        state: inst.state || inst.currentState || 'unknown',
+        status: inst.status,
         created: inst.created || inst.createdAt || new Date().toISOString()
       }));
+
+      return { instances, pagination };
     } catch (error: any) {
       console.error('List instances error:', error);
       throw new Error(`Failed to list instances: ${error.message}`);
@@ -378,8 +461,8 @@ export class WorkflowTestService {
       throw new Error('No environment configured');
     }
 
-    // Use the functions/state endpoint - note the /api/v1/ prefix
-    const url = `${env.baseUrl}/api/v1/${workflow.domain}/workflows/${workflow.key}/instances/${instanceId}/functions/state`;
+    // Use the functions/state endpoint - note the /api/v1.0/ prefix
+    const url = `${env.baseUrl}/api/v1.0/${workflow.domain}/workflows/${workflow.key}/instances/${instanceId}/functions/state`;
 
     try {
       const response = await fetch(url, {
@@ -406,7 +489,7 @@ export class WorkflowTestService {
         transitions,
         dataHref: result.data?.href,
         viewHref: result.view?.href,
-        isFinal: result.status === 'C' || result.status === 'F', // C=completed, F=failed
+        isFinal: result.status === 'C' || result.status === 'F', // C=Completed, F=Finished (both are final)
         activeCorrelations: result.activeCorrelations // Include activeCorrelations from API
       };
     } catch (error: any) {
@@ -435,16 +518,16 @@ export class WorkflowTestService {
   /**
    * Fetch instance data from href
    */
-  private async fetchInstanceDataFromHref(href: string): Promise<any> {
+  async fetchInstanceDataFromHref(href: string): Promise<any> {
     const env = EnvironmentManager.getActiveEnvironment();
     if (!env) {
       throw new Error('No environment configured');
     }
 
-    // The href is relative (starts with /), prepend the base URL and /api/v1/
+    // The href is relative (starts with /), prepend the base URL and /api/v1.0/
     // Remove leading slash from href to avoid double slash
     const cleanHref = href.startsWith('/') ? href.substring(1) : href;
-    const url = `${env.baseUrl}/api/v1/${cleanHref}`;
+    const url = `${env.baseUrl}/api/v1.0/${cleanHref}`;
 
     console.log('[WorkflowTestService] Fetching instance data from href:', url);
 
