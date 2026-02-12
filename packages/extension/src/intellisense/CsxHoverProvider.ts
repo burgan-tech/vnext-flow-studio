@@ -279,7 +279,7 @@ export class CsxHoverProvider implements vscode.HoverProvider {
  * Register the CSX Hover Provider
  */
 export function registerCsxHoverProvider(
-  context: vscode.ExtensionContext
+  _context: vscode.ExtensionContext
 ): vscode.Disposable {
   const provider = new CsxHoverProvider();
 

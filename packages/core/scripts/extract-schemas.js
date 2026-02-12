@@ -13,8 +13,8 @@
  * to provide autocomplete, validation, and hover documentation in JSON editors.
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs'); // eslint-disable-line @typescript-eslint/no-require-imports
+const path = require('path'); // eslint-disable-line @typescript-eslint/no-require-imports
 
 // Resolve paths relative to the monorepo root
 const scriptDir = __dirname;
@@ -45,7 +45,7 @@ async function main() {
   // 1. Load the vnext-schema package
   let vnextSchema;
   try {
-    vnextSchema = require('@burgan-tech/vnext-schema');
+    vnextSchema = require('@burgan-tech/vnext-schema'); // eslint-disable-line @typescript-eslint/no-require-imports
   } catch (error) {
     log('❌ Cannot find @burgan-tech/vnext-schema package.', 'red');
     log('   Run: npm install --save-dev @burgan-tech/vnext-schema', 'yellow');

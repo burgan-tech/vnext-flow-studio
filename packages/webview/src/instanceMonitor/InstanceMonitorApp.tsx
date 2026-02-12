@@ -300,7 +300,7 @@ export function InstanceMonitorApp() {
     }
   }, [workflow, hasClickHouse]);
 
-  const handleRefreshInstances = useCallback((keepPage?: boolean) => {
+  const handleRefreshInstances = useCallback((_keepPage?: boolean) => {
     if (!workflow) {
       console.warn('[InstanceMonitor] handleRefreshInstances called but workflow is null');
       return;

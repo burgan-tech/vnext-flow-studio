@@ -647,7 +647,7 @@ export class CsxCompletionProvider implements vscode.CompletionItemProvider {
  * Register the CSX Completion Provider
  */
 export function registerCsxCompletionProvider(
-  context: vscode.ExtensionContext
+  _context: vscode.ExtensionContext
 ): vscode.Disposable {
   const provider = new CsxCompletionProvider();
 
