@@ -1,9 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { ExecutionTask, TaskRef, Mapping } from '@amorphie-workflow/core';
 import { MappingSection, type MappingData } from './MappingSection';
 import { TaskSearchPanel } from './TaskSearchPanel';
 import { TaskCreationModal } from './TaskCreationModal';
 import { useBridge } from '../../hooks/useBridge';
+
+/**
+ * Detect mapping mode from Mapping data (same logic as TransitionMappingPopup)
+ */
+function detectMappingMode(mapping: Mapping | null | undefined): MappingData {
+  if (!mapping || (!mapping.location && !mapping.code)) {
+    return { mode: 'none' };
+  }
+
+  const location = mapping.location || '';
+  const code = mapping.code || '';
+
+  // Determine mode based on location
+  if (location.endsWith('.mapper.json')) {
+    return {
+      mode: 'mapper',
+      mapperRef: location,
+      location,
+      code,
+    };
+  } else if (location || code) {
+    return {
+      mode: 'code',
+      location,
+      code,
+    };
+  }
+
+  return { mode: 'none' };
+}
 
 interface TaskDetailsPanelProps {
   task: ExecutionTask | null;
@@ -36,11 +66,13 @@ export function TaskDetailsPanel({
 
   const [taskRefInput, setTaskRefInput] = useState('');
   const [inputMapping, setInputMapping] = useState<MappingData>({
-    mode: 'code',
+    mode: 'none',
     code: '',
     location: '',
   });
   const [showTaskCreationModal, setShowTaskCreationModal] = useState(false);
+  // Track the last taskIndex we synced from to prevent useEffect from overwriting user mode changes
+  const lastSyncedTaskRef = useRef<{ taskIndex: number | null; taskKey: string | null }>({ taskIndex: null, taskKey: null });
 
   // Listen for task:created messages to auto-populate task reference
   useEffect(() => {
@@ -66,11 +98,12 @@ export function TaskDetailsPanel({
     return unsubscribe;
   }, [onMessage, task, taskIndex, onUpdateTask]);
 
-  // Update local state when task or taskIndex changes
+  // Update local state when a DIFFERENT task is selected (not when same task's mapping changes)
   useEffect(() => {
     if (!task || taskIndex === null) {
       setTaskRefInput('');
-      setInputMapping({ mode: 'code', code: '', location: '' });
+      setInputMapping({ mode: 'none', code: '', location: '' });
+      lastSyncedTaskRef.current = { taskIndex: null, taskKey: null };
       return;
     }
 
@@ -85,16 +118,17 @@ export function TaskDetailsPanel({
     }
     setTaskRefInput(taskRef);
 
-    // Extract mapping info
-    if (task.mapping) {
-      setInputMapping({
-        mode: 'code',
-        code: task.mapping.code || '',
-        location: task.mapping.location || '',
-      });
-    } else {
-      // Clear mapping if task doesn't have one
-      setInputMapping({ mode: 'code', code: '', location: '' });
+    // Only reset mapping when a different task is selected (by index or identity)
+    // This prevents overwriting user mode changes when onUpdateTask triggers a re-render
+    const taskKey = taskRef || `task-${taskIndex}`;
+    const isSameTask = lastSyncedTaskRef.current.taskIndex === taskIndex &&
+                       lastSyncedTaskRef.current.taskKey === taskKey;
+
+    if (!isSameTask) {
+      // Different task selected — detect mode from stored mapping data
+      const detected = detectMappingMode(task.mapping);
+      setInputMapping(detected);
+      lastSyncedTaskRef.current = { taskIndex, taskKey };
     }
   }, [task, taskIndex]);
 
@@ -159,12 +193,28 @@ export function TaskDetailsPanel({
 
   const handleInputMappingChange = (data: MappingData) => {
     setInputMapping(data);
-    const updatedTask: ExecutionTask = {
-      ...task,
-      mapping: {
+
+    let mapping: Mapping | undefined;
+    if (data.mode === 'none') {
+      // Clear mapping when mode is 'none'
+      mapping = { location: '', code: '' } as Mapping;
+    } else if (data.mode === 'mapper') {
+      // Use mapper reference as location
+      mapping = {
+        location: data.mapperRef || data.location || '',
+        code: data.code || '',
+      } as Mapping;
+    } else {
+      // Code mode
+      mapping = {
         location: data.location || '',
         code: data.code || '',
-      } as Mapping,
+      } as Mapping;
+    }
+
+    const updatedTask: ExecutionTask = {
+      ...task,
+      mapping,
     };
     onUpdateTask(updatedTask);
   };

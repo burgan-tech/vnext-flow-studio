@@ -127,6 +127,15 @@
         "title": "Amorphie: Fix Schema Registrations"
       },
       {
+        "command": "amorphie.openTestPanel",
+        "title": "Amorphie: Open Test Panel"
+      },
+      {
+        "command": "amorphie.openInstanceMonitor",
+        "title": "Amorphie: Open Instance Monitor",
+        "icon": "$(pulse)"
+      },
+      {
         "command": "vnextTools.createProject",
         "title": "Amorphie: Create New Project",
         "icon": "$(add)"
@@ -404,6 +413,30 @@
                 "type": "boolean",
                 "description": "Whether to verify SSL certificates",
                 "default": true
+              },
+              "monitoring": {
+                "type": "object",
+                "description": "Monitoring / analytics configuration (ClickHouse) for Instance Monitor",
+                "properties": {
+                  "clickhouseUrl": {
+                    "type": "string",
+                    "description": "ClickHouse HTTP endpoint (e.g., http://localhost:8123)"
+                  },
+                  "clickhouseDatabase": {
+                    "type": "string",
+                    "description": "ClickHouse database name",
+                    "default": "workflow_analytics"
+                  },
+                  "clickhouseUser": {
+                    "type": "string",
+                    "description": "ClickHouse user",
+                    "default": "default"
+                  },
+                  "clickhousePassword": {
+                    "type": "string",
+                    "description": "ClickHouse password"
+                  }
+                }
               }
             }
           }

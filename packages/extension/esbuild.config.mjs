@@ -47,18 +47,26 @@ try {
   console.warn('Webview dist not found; run `npm run -w packages/webview build` first.');
 }
 
-// Copy canonical schemas into extension package so jsonValidation can resolve them
+// Verify that JSON schema files exist in schemas/ directory
+// (extracted by `npm run -w packages/core extract-schemas` from @burgan-tech/vnext-schema)
 const schemaFiles = [
   'workflow-definition.schema.json',
   'task-definition.schema.json',
   'schema-definition.schema.json',
   'view-definition.schema.json',
   'function-definition.schema.json',
-  'extension-definition.schema.json'
+  'extension-definition.schema.json',
+  'core-schema.schema.json'
 ];
 
+const schemasDir = resolve(extDir, 'schemas');
+let schemaCount = 0;
 for (const schemaFile of schemaFiles) {
-  const schemaSrc = resolve(extDir, `../../schemas/schemas/${schemaFile}`);
-  const schemaDest = resolve(extDir, `schemas/${schemaFile}`);
-  await safeCopy(schemaSrc, schemaDest);
+  try {
+    await stat(resolve(schemasDir, schemaFile));
+    schemaCount++;
+  } catch {
+    console.warn(`Schema file missing: schemas/${schemaFile} — run: npm run -w packages/core extract-schemas`);
+  }
 }
+console.log(`Verified ${schemaCount}/${schemaFiles.length} schema files in schemas/`);

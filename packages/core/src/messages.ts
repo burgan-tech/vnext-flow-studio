@@ -1,5 +1,39 @@
 import type { Workflow, Diagram, State, Transition, SharedTransition, TaskComponentDefinition } from './types/index.js';
 
+/* ── Monitoring Overlay types (Zeebe Operate-style) ── */
+
+export interface MonitoringOverlayData {
+  states: Record<string, StateOverlay>;
+  edges: Record<string, EdgeOverlay>;
+  instanceId: string;
+  instanceStatus: string; // A, C, F, S
+  currentState: string;
+}
+
+export interface StateOverlay {
+  status: 'completed' | 'active' | 'error' | 'human-waiting' | 'suspended' | 'unvisited';
+  visitOrder?: number;
+  enterTime?: string;
+  exitTime?: string;
+  duration?: number;       // ms
+  stateData?: any;
+  tasks?: TaskOverlayInfo[];
+}
+
+export interface TaskOverlayInfo {
+  taskKey: string;
+  taskType: string;
+  status: 'success' | 'error' | 'running' | 'skipped';
+  duration?: number;
+  errorMessage?: string;
+}
+
+export interface EdgeOverlay {
+  status: 'traversed' | 'active' | 'error' | 'unvisited';
+  traversalTime?: string;
+  duration?: number;
+}
+
 export type MsgToWebview =
   | {
       type: 'init';
@@ -46,6 +80,8 @@ export type MsgToWebview =
   | { type: 'instance:highlight'; stateKey: string; instanceId: string }
   | { type: 'instance:clearHighlight' }
   | { type: 'instance:highlightHistory'; workflowKey: string; history: string[]; currentState: string }
+  | { type: 'instance:monitoringOverlay'; instanceId: string; workflowKey: string; overlay: MonitoringOverlayData }
+  | { type: 'instance:clearMonitoringOverlay' }
   | { type: 'script:updated'; script: any; scriptType: 'mapper' | 'rule' }
   | { type: 'component:updated'; componentType: string; component: any }
   | { type: 'history:stateChanged'; canUndo: boolean; canRedo: boolean };
@@ -75,6 +111,7 @@ export type MsgFromWebview =
       nodeSizes?: Record<string, { width: number; height: number }>;
       edgeLabelSizes?: Record<string, { width: number; height: number }>;
       direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP';
+      preset?: 'smart';
     }
   | { type: 'request:exportDocumentation'; content: string; filename: string; svgContent?: string; svgFilename?: string }
   | {
@@ -137,6 +174,7 @@ export type MsgFromWebview =
   | { type: 'workflow:getSettings' }
   | { type: 'workflow:updateSettings'; data: { key?: string; domain?: string; version?: string; labels?: Array<{ label: string; language: string }>; tags?: string[]; type?: 'C' | 'F' | 'S' | 'P'; subFlowType?: 'S' | 'P'; functions?: any[]; extensions?: any[] } }
   | { type: 'test:openPanel'; workflow: { key: string; domain: string; version: string } }
+  | { type: 'monitor:openPanel'; workflow: { key: string; domain: string; version: string } }
   | { type: 'test:start'; workflowKey: string; domain: string; version: string; inputData: any }
   | { type: 'test:checkStatus' }
   | { type: 'test:pollInstance'; instanceId: string; workflowKey: string; domain: string }
@@ -153,5 +191,7 @@ export type MsgFromWebview =
   | { type: 'test:loadSchema'; transitionKey: string; schemaRef: { key: string; domain?: string; flow?: string; version?: string } }
   | { type: 'test:getStartTransitionSchema'; workflowKey: string }
   | { type: 'test:getSubFlowModel'; workflowKey: string; stateKey: string }
+  | { type: 'monitor:showOnFlow'; instanceId: string; workflowKey: string; domain: string }
+  | { type: 'monitor:clearOverlay' }
   | { type: 'history:undo' }
   | { type: 'history:redo' };

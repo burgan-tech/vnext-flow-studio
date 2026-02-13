@@ -14,7 +14,12 @@ const TASK_TYPES = [
   { value: '4', label: 'Dapr PubSub' },
   { value: '5', label: 'Human Task' },
   { value: '6', label: 'HTTP Task' },
-  { value: '7', label: 'Script Task' }
+  { value: '7', label: 'Script Task' },
+  { value: '10', label: 'Notification Task' },
+  { value: '11', label: 'Start Flow Task' },
+  { value: '12', label: 'Trigger Transition Task' },
+  { value: '13', label: 'Get Instance Data Task' },
+  { value: '14', label: 'Sub Process Task' },
 ];
 
 export function TaskCreationModal({ onClose, onCreate, workflowDomain }: TaskCreationModalProps) {

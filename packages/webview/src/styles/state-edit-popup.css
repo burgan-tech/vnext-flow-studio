@@ -409,3 +409,261 @@
 .state-edit-popup *::-webkit-scrollbar-thumb:hover {
   background: #94a3b8 !important;
 }
+
+/* ===== Dark Theme ===== */
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup {
+  background: rgba(30, 30, 46, 0.95);
+  border-color: rgba(148, 163, 184, 0.15);
+  color: #cdd6f4;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__header,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__header {
+  background: rgba(30, 30, 46, 0.6);
+  border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__title,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__title {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__dirty,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__dirty {
+  color: #f38ba8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__close-btn,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__close-btn {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__close-btn:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__close-btn:hover {
+  background: rgba(137, 180, 250, 0.1);
+  color: #cdd6f4;
+}
+
+/* Tabs */
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__tabs,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__tabs {
+  background: rgba(30, 30, 46, 0.6);
+  border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__tab,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__tab {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__tab:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__tab:hover {
+  background: rgba(137, 180, 250, 0.1);
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__tab.active,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__tab.active {
+  color: #89b4fa;
+  border-bottom-color: #89b4fa;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__tab-remove,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__tab-remove {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__tab-remove:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__tab-remove:hover {
+  color: #f38ba8;
+}
+
+/* Content */
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__info,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__info {
+  background: rgba(30, 30, 46, 0.6);
+  border-color: rgba(148, 163, 184, 0.15);
+  color: #a6adc8;
+}
+
+/* Footer */
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__footer,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__footer {
+  background: rgba(30, 30, 46, 0.6);
+  border-top-color: rgba(148, 163, 184, 0.15);
+}
+
+/* Buttons */
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__btn--primary,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__btn--primary {
+  background: #89b4fa;
+  color: #1e1e2e;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__btn--primary:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__btn--primary:hover {
+  background: #74c7ec;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__btn--primary:disabled,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__btn--primary:disabled {
+  background: rgba(148, 163, 184, 0.2);
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__btn--secondary,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__btn--secondary {
+  background: rgba(148, 163, 184, 0.15);
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__btn--secondary:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__btn--secondary:hover {
+  background: rgba(148, 163, 184, 0.25);
+  color: #cdd6f4;
+}
+
+/* Form Fields */
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__label,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__label {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__required,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__required {
+  color: #f38ba8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__input,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__input {
+  color: #cdd6f4;
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__input:focus,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__input:focus {
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__input::placeholder,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__input::placeholder {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__input--error,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__input--error {
+  border-color: #f38ba8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__input--error:focus,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__input--error:focus {
+  box-shadow: 0 0 0 3px rgba(243, 139, 168, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__error,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__error {
+  color: #f38ba8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup__help,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup__help {
+  color: #6c7086;
+}
+
+/* State References */
+body[data-vscode-theme-kind="vscode-dark"] .state-references__section-title,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__section-title {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__subsection-title,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__subsection-title {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__item,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__item {
+  background: rgba(30, 30, 46, 0.6);
+  border-color: rgba(148, 163, 184, 0.15);
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__badge,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__badge {
+  background: #89b4fa;
+  color: #1e1e2e;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__transition-badge,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__transition-badge {
+  background: rgba(148, 163, 184, 0.2);
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__transition-badge--local,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__transition-badge--local {
+  background: rgba(137, 180, 250, 0.2);
+  color: #89b4fa;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__transition-badge--shared,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__transition-badge--shared {
+  background: rgba(249, 226, 175, 0.2);
+  color: #f9e2af;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__transition-badge--start,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__transition-badge--start {
+  background: rgba(166, 227, 161, 0.2);
+  color: #a6e3a1;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__transition-badge--timeout,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__transition-badge--timeout {
+  background: rgba(243, 139, 168, 0.2);
+  color: #f38ba8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__transition-key,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__transition-key {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-references__empty,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-references__empty {
+  color: #6c7086;
+}
+
+/* Scrollbars Dark */
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup ::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup *::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup ::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup *::-webkit-scrollbar-track {
+  background: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup ::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup *::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup ::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup *::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3) !important;
+  border-color: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup ::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-dark"] .state-edit-popup *::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup ::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .state-edit-popup *::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5) !important;
+}

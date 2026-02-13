@@ -441,6 +441,15 @@ export function lint(
     }
   };
 
+  // Warn if flowVersion is missing
+  if (!workflow.flowVersion) {
+    push('__workflow__', {
+      id: 'W_MISSING_FLOW_VERSION',
+      severity: 'warning',
+      message: 'flowVersion is not set. Runtime requires flowVersion (e.g. "1.0.0")'
+    });
+  }
+
   for (const state of workflow.attributes.states) {
     if (stateKeys.has(state.key)) {
       duplicateStateKeys.add(state.key);
@@ -487,7 +496,7 @@ export function lint(
       push('__start__', {
         id: 'E_START_TARGET',
         severity: 'error',
-        message: `startTransition.target '${startTransition.target}' not found`
+        message: `startTransition.target '${startTransition.target}' not found. Add a state with this key or update the start transition target.`
       });
     }
 
@@ -650,7 +659,7 @@ export function lint(
       push(state.key, {
         id: 'E_FINAL_OUT',
         severity: 'warning',
-        message: 'Final states should not have outgoing transitions'
+        message: 'Final states should not have outgoing transitions. Use Quick Fix to remove them.'
       });
     }
 

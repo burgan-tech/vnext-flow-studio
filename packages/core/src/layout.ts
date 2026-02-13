@@ -11,6 +11,7 @@ export interface AutoLayoutOptions {
   nodeSizes?: Record<string, { width: number; height: number }>;
   edgeLabelSizes?: Record<string, { width: number; height: number }>;
   direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP';
+  preset?: 'smart';
 }
 
 const DEFAULT_START_X = 100;
@@ -222,20 +223,33 @@ export async function autoLayout(
     });
   }
 
+  // Smart preset: wider spacing, better readability, prioritize straight edges
+  const isSmart = options.preset === 'smart';
+  const columnSpacing = isSmart ? 280 : (options.columnSpacing ?? DEFAULT_COLUMN_SPACING);
+  const rowSpacing = isSmart ? 160 : (options.rowSpacing ?? DEFAULT_ROW_SPACING);
+
   const layoutOptions: Record<string, string> = {
     ...BASE_LAYOUT_OPTIONS,
     'elk.direction': options.direction ?? 'RIGHT', // Direction can be RIGHT, DOWN, LEFT, or UP
     // Correct ELK property names for layered algorithm spacing
-    'elk.layered.spacing.nodeNodeBetweenLayers': String(options.columnSpacing ?? DEFAULT_COLUMN_SPACING),
-    'elk.spacing.nodeNode': String(options.rowSpacing ?? DEFAULT_ROW_SPACING),
+    'elk.layered.spacing.nodeNodeBetweenLayers': String(columnSpacing),
+    'elk.spacing.nodeNode': String(rowSpacing),
     // Edge routing improvements to reduce overlap and accommodate labels
-    'elk.spacing.edgeNode': '40', // More space between edges and nodes for labels
-    'elk.spacing.edgeEdge': '25', // More spacing between parallel edges for labels
+    'elk.spacing.edgeNode': isSmart ? '60' : '40', // More space between edges and nodes for labels
+    'elk.spacing.edgeEdge': isSmart ? '35' : '25', // More spacing between parallel edges for labels
     'elk.spacing.portPort': '20',
-    'elk.layered.spacing.edgeSpacingFactor': '2.0', // More space between parallel edges for labels
+    'elk.layered.spacing.edgeSpacingFactor': isSmart ? '2.5' : '2.0', // More space between parallel edges for labels
     'elk.layered.edgeRouting.selfLoopSpacing': '30', // Space for self-loops if any
     'elk.edgeLabels.inline': 'false', // Keep labels separate from edge path
-    'elk.spacing.edgeLabel': '10' // Space around edge labels
+    'elk.spacing.edgeLabel': isSmart ? '15' : '10', // Space around edge labels
+    // Smart preset: additional optimizations for readability
+    ...(isSmart ? {
+      'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX', // Better node placement for readability
+      'elk.layered.nodePlacement.favorStraightEdges': 'true',
+      'elk.layered.thoroughness': '200', // Extra optimization passes
+      'elk.layered.crossingMinimization.greedySwitch.type': 'TWO_SIDED',
+      'elk.layered.layering.strategy': 'NETWORK_SIMPLEX', // Better layer assignment for flow order
+    } : {})
   };
 
   const graph: any = {

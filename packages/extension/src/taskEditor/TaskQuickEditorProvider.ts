@@ -777,7 +777,12 @@ async function createNewTask(contextUri?: vscode.Uri) {
       { label: 'Type 4 - Dapr PubSub', value: '4' },
       { label: 'Type 5 - Human Task', value: '5' },
       { label: 'Type 6 - HTTP Task', value: '6' },
-      { label: 'Type 7 - Script Task', value: '7' }
+      { label: 'Type 7 - Script Task', value: '7' },
+      { label: 'Type 10 - Notification Task', value: '10' },
+      { label: 'Type 11 - Start Flow Task', value: '11' },
+      { label: 'Type 12 - Trigger Transition Task', value: '12' },
+      { label: 'Type 13 - Get Instance Data Task', value: '13' },
+      { label: 'Type 14 - Sub Process Task', value: '14' }
     ],
     {
       placeHolder: 'Select task type'
@@ -901,6 +906,39 @@ function createTaskTemplate(name: string, type: string): any {
       break;
     case '7': // Script Task
       // Minimal config for script task
+      break;
+    case '10': // Notification Task
+      base.attributes.config = {
+        metadata: {}
+      };
+      break;
+    case '11': // Start Flow Task
+      base.attributes.config = {
+        domain: '',
+        flow: 'sys-flows',
+        body: {}
+      };
+      break;
+    case '12': // Trigger Transition Task
+      base.attributes.config = {
+        domain: '',
+        flow: 'sys-flows',
+        instanceId: '',
+        transitionKey: ''
+      };
+      break;
+    case '13': // Get Instance Data Task
+      base.attributes.config = {
+        domain: '',
+        flow: 'sys-flows',
+        instanceId: ''
+      };
+      break;
+    case '14': // Sub Process Task
+      base.attributes.config = {
+        domain: '',
+        flow: 'sys-flows'
+      };
       break;
   }
 

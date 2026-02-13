@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 interface ToolbarIconButtonProps {
@@ -9,15 +9,27 @@ interface ToolbarIconButtonProps {
 }
 
 export function ToolbarIconButton({ icon: Icon, label, isActive = false, onClick }: ToolbarIconButtonProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
   return (
-    <button
-      className={`toolbar-icon-btn ${isActive ? 'toolbar-icon-btn--active' : ''}`}
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      type="button"
+    <div
+      className="toolbar-icon-btn-wrapper"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
     >
-      <Icon size={20} />
-    </button>
+      <button
+        className={`toolbar-icon-btn ${isActive ? 'toolbar-icon-btn--active' : ''}`}
+        onClick={onClick}
+        aria-label={label}
+        type="button"
+      >
+        <Icon size={20} />
+      </button>
+      {showTooltip && (
+        <div className="toolbar-icon-tooltip">
+          {label}
+        </div>
+      )}
+    </div>
   );
 }

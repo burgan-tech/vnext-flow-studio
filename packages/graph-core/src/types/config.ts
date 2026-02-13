@@ -46,6 +46,24 @@ export interface DatabaseConfig {
 }
 
 /**
+ * Monitoring / analytics database configuration (ClickHouse)
+ * Used by Instance Monitor to query transition history
+ */
+export interface MonitoringConfig {
+  /** ClickHouse HTTP endpoint (e.g. http://localhost:8123) */
+  clickhouseUrl?: string;
+
+  /** ClickHouse database name (default: workflow_analytics) */
+  clickhouseDatabase?: string;
+
+  /** ClickHouse user (default: default) */
+  clickhouseUser?: string;
+
+  /** ClickHouse password */
+  clickhousePassword?: string;
+}
+
+/**
  * Environment configuration
  * Note: Domain is now read from vnext.config.json, not from environment settings
  */
@@ -73,6 +91,9 @@ export interface EnvironmentConfig {
 
   /** Database config for direct cleanup (optional) */
   database?: DatabaseConfig;
+
+  /** Monitoring / analytics config (ClickHouse) for instance monitoring */
+  monitoring?: MonitoringConfig;
 }
 
 /**

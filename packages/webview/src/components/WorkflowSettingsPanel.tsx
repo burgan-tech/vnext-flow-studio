@@ -17,6 +17,7 @@ interface WorkflowSettings {
   key: string;
   domain: string;
   version: string;
+  flowVersion: string;
   tags: string[];
   type: 'C' | 'F' | 'S' | 'P';
   subFlowType?: 'S' | 'P';
@@ -274,14 +275,14 @@ export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow, on
 
   if (!settings) {
     return (
-      <div style={{ padding: '20px', background: 'white' }}>
+      <div style={{ padding: '20px', background: 'var(--rf-surface, white)', color: 'var(--rf-text, #0f172a)' }}>
         <div>Loading workflow settings...</div>
       </div>
     );
   }
 
   return (
-    <div style={{ background: 'white', display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ background: 'var(--rf-surface, white)', color: 'var(--rf-text, #0f172a)', display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Tabs */}
       <div className={styles.tabs}>
         <button
@@ -356,6 +357,19 @@ export function WorkflowSettingsPanel({ postMessage, catalogs = {}, workflow, on
                     placeholder="1.0.0"
                   />
                   {errors.version && <div className={styles.errorMessage}>{errors.version}</div>}
+                </div>
+
+                <div className={styles.field}>
+                  <label>Flow Version</label>
+                  <input
+                    type="text"
+                    value={settings.flowVersion}
+                    onChange={e => handleFieldChange('flowVersion', e.target.value)}
+                    className={errors.flowVersion ? styles.inputError : ''}
+                    placeholder="1.0.0"
+                  />
+                  {errors.flowVersion && <div className={styles.errorMessage}>{errors.flowVersion}</div>}
+                  <div className={styles.hint}>Runtime requires flowVersion for deployment</div>
                 </div>
               </div>
 

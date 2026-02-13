@@ -623,3 +623,166 @@ details summary:hover {
 .schema-form .btn-info {
   display: none;
 }
+
+/* ================================ */
+/* Attach to Instance Section       */
+/* ================================ */
+.test-runner__attach-section {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%);
+}
+
+.test-runner__attach-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.attach-description {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.attach-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.attach-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  background: #ffffff;
+  color: #0f172a;
+  transition: all 0.2s;
+}
+
+.attach-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.attach-input::placeholder {
+  color: #94a3b8;
+  font-family: inherit;
+}
+
+.btn-attach {
+  padding: 9px 16px;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-attach:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-attach:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.attach-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-list-instances {
+  padding: 8px 14px;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-list-instances:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-list-instances:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Instance List */
+.instance-list {
+  margin-top: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.instance-list-empty {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.instance-list-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.instance-list-item:last-child {
+  border-bottom: none;
+}
+
+.instance-list-item:hover {
+  background: #eff6ff;
+}
+
+.instance-list-item__id {
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  color: #1e40af;
+  font-weight: 500;
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.instance-list-item__info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.instance-list-item__state {
+  font-size: 11px;
+  font-weight: 500;
+  color: #16a34a;
+  background: #f0fdf4;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.instance-list-item__date {
+  font-size: 11px;
+  color: #94a3b8;
+}
