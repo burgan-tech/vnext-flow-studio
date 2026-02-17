@@ -188,3 +188,118 @@
 .task-search-panel__dropdown::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* ===== Dark Theme ===== */
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__label,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__label {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__required,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__required {
+  color: #f38ba8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__input,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__input {
+  color: #cdd6f4;
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__input:focus,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__input:focus {
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__input::placeholder,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__input::placeholder {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__view-btn,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__view-btn {
+  color: #89b4fa;
+  background: rgba(137, 180, 250, 0.1);
+  border-color: #89b4fa;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__view-btn:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__view-btn:hover {
+  background: #89b4fa;
+  color: #1e1e2e;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__dropdown,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__dropdown {
+  background: rgba(30, 30, 46, 0.95);
+  border-color: rgba(148, 163, 184, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__result-item:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__result-item:hover {
+  background: rgba(137, 180, 250, 0.1);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__result-key,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__result-key {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__result-version,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__result-version {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__result-path,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__result-path {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__result-description,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__result-description {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__empty,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__empty {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__divider,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__divider {
+  background: rgba(148, 163, 184, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__create-btn,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__create-btn {
+  color: #89b4fa;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__create-btn:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__create-btn:hover {
+  background: rgba(137, 180, 250, 0.1);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__help,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__help {
+  color: #6c7086;
+}
+
+/* Scrollbar Dark */
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__dropdown::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__dropdown::-webkit-scrollbar-track {
+  background: rgba(30, 30, 46, 0.6);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__dropdown::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__dropdown::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .task-search-panel__dropdown::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .task-search-panel__dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}

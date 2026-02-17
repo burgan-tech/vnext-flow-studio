@@ -21,7 +21,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run -w packages/core build && npm run -w packages/graph-core build && npm run -w packages/webview build && npm run -w packages/extension build",
+    "build": "npm run -w packages/core build && npm run -w packages/core extract-schemas && npm run -w packages/graph-core build && npm run -w packages/webview build && npm run -w packages/extension build",
     "build:ci": "npm run lint && npm run build",
     "watch": "npm -w packages/core run watch & npm -w packages/graph-core run watch & npm -w packages/webview run dev & npm -w packages/extension run watch",
     "lint": "eslint .",

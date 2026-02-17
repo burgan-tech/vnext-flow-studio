@@ -503,6 +503,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
       key: this.state.workflow.key,
       domain: this.state.workflow.domain,
       version: this.state.workflow.version,
+      flowVersion: this.state.workflow.flowVersion || '',
       labels: this.state.workflow.attributes.labels || [],
       tags: this.state.workflow.tags || [],
       type: this.state.workflow.attributes.type,
@@ -521,6 +522,7 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
     key?: string;
     domain?: string;
     version?: string;
+    flowVersion?: string;
     labels?: Array<{ label: string; language: string }>;
     tags?: string[];
     type?: 'C' | 'F' | 'S' | 'P';
@@ -541,6 +543,9 @@ export class WorkflowModel extends EventEmitter implements IModelEventEmitter {
     }
     if (settings.version !== undefined) {
       this.state.workflow.version = settings.version;
+    }
+    if (settings.flowVersion !== undefined) {
+      this.state.workflow.flowVersion = settings.flowVersion || undefined;
     }
     if (settings.tags !== undefined) {
       this.state.workflow.tags = settings.tags;

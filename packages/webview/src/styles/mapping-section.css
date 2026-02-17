@@ -283,3 +283,404 @@
 .mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"]:hover {
   background: #94a3b8 !important;
 }
+
+/* Template Grid (Code Mode) */
+.mapping-section__templates-section {
+  margin-bottom: 16px;
+}
+
+.mapping-section__templates-section .mapping-section__label {
+  margin-bottom: 10px;
+}
+
+.mapping-section__templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.mapping-section__template-card-wrapper {
+  position: relative;
+}
+
+.mapping-section__template-card {
+  width: 100%;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  text-align: left;
+}
+
+.mapping-section__template-card:hover {
+  background: #f8fafc;
+}
+
+.mapping-section__template-card-icon {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.mapping-section__template-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mapping-section__template-card-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.mapping-section__template-card-desc {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Tooltip */
+.mapping-section__tooltip {
+  position: fixed;
+  width: 500px;
+  max-width: 90vw;
+  max-height: min(500px, 80vh);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 100000;
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.mapping-section__tooltip-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.mapping-section__tooltip-title {
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mapping-section__tooltip-title-icon {
+  color: #64748b;
+}
+
+.mapping-section__tooltip-desc {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.mapping-section__tooltip-body {
+  flex: 1;
+  overflow: hidden;
+  min-height: 300px;
+  position: relative;
+}
+
+.mapping-section__tooltip-editor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* VS Code Button */
+.mapping-section__vscode-btn-wrapper {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.mapping-section__vscode-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  background-color: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.mapping-section__vscode-btn:hover {
+  background-color: #2563eb;
+}
+
+.mapping-section__hint--info {
+  color: #3b82f6;
+  margin-top: 8px;
+}
+
+/* ===== Dark Theme ===== */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section {
+  background: rgba(30, 30, 46, 0.6);
+  border-color: rgba(148, 163, 184, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__title,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__title {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__subtitle,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__subtitle {
+  color: #a6adc8;
+}
+
+/* Mode Selector */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__mode-selector,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__mode-selector {
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__radio,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__radio {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__radio:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__radio:hover {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__radio input[type="radio"],
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__radio input[type="radio"] {
+  accent-color: #89b4fa;
+}
+
+/* Content Area */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__content,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__content {
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+/* Empty State */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__empty,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__empty {
+  color: #6c7086;
+}
+
+/* Labels */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__label,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__label {
+  color: #a6adc8;
+}
+
+/* Select / Input */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__select,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__select,
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__input,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__input {
+  color: #cdd6f4;
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__select:focus,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__select:focus,
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__input:focus,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__input:focus {
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__select option,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__select option {
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+/* Open Mapper Button */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__open-mapper-btn,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__open-mapper-btn {
+  background: #89b4fa;
+  color: #1e1e2e;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__open-mapper-btn:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__open-mapper-btn:hover {
+  background: #74c7ec;
+}
+
+/* Hint */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__hint,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__hint {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__hint--warning,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__hint--warning {
+  color: #fde047;
+}
+
+/* Template Buttons */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__template-btn,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__template-btn {
+  background: rgba(137, 180, 250, 0.1);
+  color: #a6adc8;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__template-btn:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__template-btn:hover {
+  background: rgba(137, 180, 250, 0.2);
+  border-color: #89b4fa;
+  color: #cdd6f4;
+}
+
+/* Monaco Wrapper */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__monaco-wrapper,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__monaco-wrapper {
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+/* Scrollbars Dark */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section ::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section *::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section ::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section *::-webkit-scrollbar-track {
+  background: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section ::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section *::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section ::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section *::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3) !important;
+  border-color: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section ::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section *::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section ::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section *::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5) !important;
+}
+
+/* Template Cards Dark */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__template-card,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__template-card {
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__template-card:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__template-card:hover {
+  background: rgba(137, 180, 250, 0.1);
+  border-color: rgba(137, 180, 250, 0.3);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__template-card-icon,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__template-card-icon {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__template-card-name,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__template-card-name {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__template-card-desc,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__template-card-desc {
+  color: #6c7086;
+}
+
+/* VS Code Button Dark */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__vscode-btn,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__vscode-btn {
+  background-color: #89b4fa;
+  color: #1e1e2e;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__vscode-btn:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__vscode-btn:hover {
+  background-color: #74c7ec;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__hint--info,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__hint--info {
+  color: #89b4fa;
+}
+
+/* Tooltip Dark */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__tooltip,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__tooltip {
+  background: rgba(30, 30, 46, 0.95);
+  border-color: rgba(148, 163, 184, 0.2);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__tooltip-header,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__tooltip-header {
+  background: rgba(30, 30, 46, 0.6);
+  border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__tooltip-title,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__tooltip-title {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__tooltip-title-icon,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__tooltip-title-icon {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section__tooltip-desc,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section__tooltip-desc {
+  color: #6c7086;
+}
+
+/* Monaco scrollbar dark overrides */
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section .monaco-scrollable-element > .scrollbar > .slider,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(148, 163, 184, 0.3) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section .monaco-scrollable-element > .scrollbar > .slider:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(148, 163, 184, 0.5) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section .monaco-scrollable-element > .scrollbar,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section .monaco-scrollable-element > .scrollbar {
+  background: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"],
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] {
+  background: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"],
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"] {
+  background: rgba(148, 163, 184, 0.3) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"]:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .mapping-section .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"]:hover {
+  background: rgba(148, 163, 184, 0.5) !important;
+}

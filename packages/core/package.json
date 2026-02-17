@@ -12,7 +12,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "watch": "tsc -w -p tsconfig.json"
+    "watch": "tsc -w -p tsconfig.json",
+    "extract-schemas": "node scripts/extract-schemas.js"
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -22,6 +23,7 @@
     "semver": "^7.6.2"
   },
   "devDependencies": {
+    "@burgan-tech/vnext-schema": "^0.0.35",
     "@types/node": "^20.0.0",
     "typescript": "^5.4.0"
   }

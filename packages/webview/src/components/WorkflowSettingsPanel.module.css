@@ -442,3 +442,124 @@
 .content::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Dark theme support */
+:global(body[data-vscode-theme-kind="vscode-dark"]) .tabs,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .tabs {
+  background: rgba(30, 30, 46, 0.6);
+  border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .tab,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .tab {
+  color: #a6adc8;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .tab:hover,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .tab:hover {
+  color: #89b4fa;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .tabActive,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .tabActive {
+  color: #89b4fa;
+  border-bottom-color: #89b4fa;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .sectionTitle,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .sectionTitle {
+  color: #cdd6f4;
+  border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .field label,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .field label {
+  color: #a6adc8;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .field input,
+:global(body[data-vscode-theme-kind="vscode-dark"]) .field select,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .field input,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .field select {
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #cdd6f4;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .field input:focus,
+:global(body[data-vscode-theme-kind="vscode-dark"]) .field select:focus,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .field input:focus,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .field select:focus {
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.15);
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .hint,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .hint {
+  color: #6c7086;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .warning,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .warning {
+  background: rgba(250, 204, 21, 0.1);
+  border-color: rgba(250, 204, 21, 0.3);
+  color: #fde047;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .tag,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .tag {
+  background: rgba(137, 180, 250, 0.15);
+  color: #89b4fa;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .tag button,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .tag button {
+  color: #89b4fa;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .footer,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .footer {
+  background: rgba(30, 30, 46, 0.6);
+  border-top-color: rgba(148, 163, 184, 0.15);
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .cancelButton,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .cancelButton {
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #a6adc8;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .referenceItem,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .referenceItem {
+  background: rgba(30, 30, 46, 0.6);
+  border-color: rgba(148, 163, 184, 0.15);
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .referenceText,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .referenceText {
+  color: #cdd6f4;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .languageTabs,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .languageTabs {
+  background: rgba(30, 30, 46, 0.6);
+  border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .languageTab,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .languageTab {
+  color: #a6adc8;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .languageTab:hover,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .languageTab:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #cdd6f4;
+}
+
+:global(body[data-vscode-theme-kind="vscode-dark"]) .languageTabActive,
+:global(body[data-vscode-theme-kind="vscode-high-contrast"]) .languageTabActive {
+  color: #89b4fa;
+  border-bottom-color: #89b4fa;
+}

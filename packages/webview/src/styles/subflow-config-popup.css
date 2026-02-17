@@ -23,7 +23,8 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   width: 900px;
   max-width: 90vw;
-  height: 700px;
+  height: auto;
+  min-height: 500px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -319,4 +320,213 @@
 
 .subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"]:hover {
   background: #94a3b8 !important;
+}
+
+/* ===== Dark Theme ===== */
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup {
+  background: rgba(30, 30, 46, 0.95);
+  border-color: rgba(148, 163, 184, 0.15);
+  color: #cdd6f4;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__header,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__header {
+  background: rgba(30, 30, 46, 0.6);
+  border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__title,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__title {
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__dirty-indicator,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__dirty-indicator {
+  color: #f38ba8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__close-btn,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__close-btn {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__close-btn:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__close-btn:hover {
+  background: rgba(137, 180, 250, 0.1);
+  color: #cdd6f4;
+}
+
+/* Tabs */
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__tabs,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__tabs {
+  background: rgba(30, 30, 46, 0.6);
+  border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__tab,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__tab {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__tab:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__tab:hover {
+  background: rgba(137, 180, 250, 0.1);
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__tab.active,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__tab.active {
+  color: #89b4fa;
+  border-bottom-color: #89b4fa;
+}
+
+/* Content */
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__content,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__content {
+  background: rgba(30, 30, 46, 0.95);
+}
+
+/* Settings */
+body[data-vscode-theme-kind="vscode-dark"] .subflow-settings__label,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-settings__label {
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-settings__required,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-settings__required {
+  color: #f38ba8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-settings__select,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-settings__select {
+  color: #cdd6f4;
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-settings__select:focus,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-settings__select:focus {
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-settings__select option,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-settings__select option {
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-settings__help,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-settings__help {
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-settings__empty,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-settings__empty {
+  color: #6c7086;
+}
+
+/* Footer */
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__footer,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__footer {
+  background: rgba(30, 30, 46, 0.6);
+  border-top-color: rgba(148, 163, 184, 0.15);
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__hint,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__hint {
+  color: #6c7086;
+}
+
+/* Buttons */
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__btn--primary,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__btn--primary {
+  background: #89b4fa;
+  color: #1e1e2e;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__btn--primary:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__btn--primary:hover {
+  background: #74c7ec;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__btn--primary:disabled,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__btn--primary:disabled {
+  background: rgba(148, 163, 184, 0.2);
+  color: #6c7086;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__btn--secondary,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__btn--secondary {
+  background: rgba(148, 163, 184, 0.15);
+  color: #a6adc8;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup__btn--secondary:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup__btn--secondary:hover {
+  background: rgba(148, 163, 184, 0.25);
+  color: #cdd6f4;
+}
+
+/* Scrollbars Dark */
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup ::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup *::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup ::-webkit-scrollbar-track,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup *::-webkit-scrollbar-track {
+  background: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup ::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup *::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup ::-webkit-scrollbar-thumb,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup *::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3) !important;
+  border-color: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup ::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup *::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup ::-webkit-scrollbar-thumb:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup *::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5) !important;
+}
+
+/* Monaco scrollbar dark overrides */
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup .monaco-scrollable-element > .scrollbar > .slider,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(148, 163, 184, 0.3) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup .monaco-scrollable-element > .scrollbar > .slider:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(148, 163, 184, 0.5) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup .monaco-scrollable-element > .scrollbar,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup .monaco-scrollable-element > .scrollbar {
+  background: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"],
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] {
+  background: rgba(30, 30, 46, 0.6) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"],
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"] {
+  background: rgba(148, 163, 184, 0.3) !important;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"]:hover,
+body[data-vscode-theme-kind="vscode-high-contrast"] .subflow-config-popup .monaco-scrollable-element > div[class*="scrollbar"][role="presentation"] > div[class*="slider"]:hover {
+  background: rgba(148, 163, 184, 0.5) !important;
 }

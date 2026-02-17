@@ -279,6 +279,46 @@ public class DaprBindingMapping : ScriptBase, IMapping
     }
 }`;
 
+    case '10': // NotificationTask
+      return `using System;
+using System.Threading.Tasks;
+using amorphie.workflow.core.Models;
+
+/// <summary>
+/// Notification Task Mapping
+/// Configures notification delivery settings.
+/// Mapping type: G (Notification)
+/// </summary>
+public class ${className} : IMapping
+{
+    public Task<ScriptResponse> InputHandler(ScriptContext context, ScriptResponse response)
+    {
+        // Configure notification
+        response.Data = new
+        {
+            // Notification settings
+            title = "Notification Title",
+            message = "Notification message content",
+            channel = "email", // email, sms, push
+            recipients = new[] { "user@example.com" }
+        };
+
+        return Task.FromResult(response);
+    }
+
+    public Task<ScriptResponse> OutputHandler(ScriptContext context, ScriptResponse response)
+    {
+        // Process notification result
+        response.Data = new
+        {
+            success = context.Body.IsSuccess,
+            sentAt = DateTime.UtcNow
+        };
+
+        return Task.FromResult(response);
+    }
+}`;
+
     default:
       return baseTemplate;
   }

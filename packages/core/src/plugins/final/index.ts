@@ -32,6 +32,9 @@ function getStateSubTypeIcon(stateSubType?: StateSubType): string {
     case 1: return '✓'; // Success
     case 2: return '✗'; // Failed
     case 3: return '⊘'; // Cancelled
+    case 4: return '⏸'; // Suspended
+    case 5: return '⏳'; // Busy
+    case 6: return '👤'; // Human
     default: return '';
   }
 }

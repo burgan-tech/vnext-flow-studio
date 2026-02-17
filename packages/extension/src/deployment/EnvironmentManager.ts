@@ -18,20 +18,35 @@ export class EnvironmentManager {
 
   /**
    * Get all configured environments
+   * Checks both workspace and global settings (workspace takes priority)
    */
   static getEnvironments(): Record<string, EnvironmentConfig> {
     const config = vscode.workspace.getConfiguration(this.SETTINGS_KEY);
-    const environments = config.get<Record<string, EnvironmentConfig>>(this.ENVIRONMENTS_KEY);
-    console.log('[EnvironmentManager] All environments from settings:', JSON.stringify(environments, null, 2));
-    return environments || {};
+    const workspaceEnvs = config.inspect<Record<string, EnvironmentConfig>>(this.ENVIRONMENTS_KEY);
+
+    // Merge: global first, then workspace overrides
+    const globalEnvs = workspaceEnvs?.globalValue || {};
+    const localEnvs = workspaceEnvs?.workspaceValue || {};
+    const merged = { ...globalEnvs, ...localEnvs };
+
+    // If neither has anything, try the plain get (covers defaults)
+    if (Object.keys(merged).length === 0) {
+      const environments = config.get<Record<string, EnvironmentConfig>>(this.ENVIRONMENTS_KEY);
+      return environments || {};
+    }
+
+    return merged;
   }
 
   /**
    * Get the active environment ID
+   * Checks both workspace and global settings
    */
   static getActiveEnvironmentId(): string | undefined {
     const config = vscode.workspace.getConfiguration(this.SETTINGS_KEY);
-    return config.get<string>(this.ACTIVE_ENV_KEY);
+    const inspection = config.inspect<string>(this.ACTIVE_ENV_KEY);
+    // Workspace value takes priority over global
+    return inspection?.workspaceValue || inspection?.globalValue || config.get<string>(this.ACTIVE_ENV_KEY);
   }
 
   /**
@@ -53,14 +68,23 @@ export class EnvironmentManager {
 
   /**
    * Set the active environment
+   * Saves to both workspace and global so it persists across workspaces
    */
   static async setActiveEnvironment(envId: string): Promise<void> {
     const config = vscode.workspace.getConfiguration(this.SETTINGS_KEY);
-    await config.update(this.ACTIVE_ENV_KEY, envId, vscode.ConfigurationTarget.Workspace);
+    // Save to global (persists across workspaces)
+    await config.update(this.ACTIVE_ENV_KEY, envId, vscode.ConfigurationTarget.Global);
+    // Also save to workspace (overrides in this workspace)
+    try {
+      await config.update(this.ACTIVE_ENV_KEY, envId, vscode.ConfigurationTarget.Workspace);
+    } catch {
+      // Workspace update may fail if no workspace folder is open
+    }
   }
 
   /**
    * Add or update an environment
+   * Saves to both workspace and global so it persists across workspaces
    */
   static async saveEnvironment(envConfig: EnvironmentConfig): Promise<void> {
     const config = vscode.workspace.getConfiguration(this.SETTINGS_KEY);
@@ -68,11 +92,22 @@ export class EnvironmentManager {
 
     environments[envConfig.id] = envConfig;
 
+    // Save to global (persists across workspaces)
     await config.update(
       this.ENVIRONMENTS_KEY,
       environments,
-      vscode.ConfigurationTarget.Workspace
+      vscode.ConfigurationTarget.Global
     );
+    // Also save to workspace
+    try {
+      await config.update(
+        this.ENVIRONMENTS_KEY,
+        environments,
+        vscode.ConfigurationTarget.Workspace
+      );
+    } catch {
+      // Workspace update may fail if no workspace folder is open
+    }
   }
 
   /**
@@ -84,16 +119,19 @@ export class EnvironmentManager {
 
     delete environments[envId];
 
-    await config.update(
-      this.ENVIRONMENTS_KEY,
-      environments,
-      vscode.ConfigurationTarget.Workspace
-    );
+    // Remove from both global and workspace
+    await config.update(this.ENVIRONMENTS_KEY, environments, vscode.ConfigurationTarget.Global);
+    try {
+      await config.update(this.ENVIRONMENTS_KEY, environments, vscode.ConfigurationTarget.Workspace);
+    } catch { /* ignore */ }
 
     // If this was the active environment, clear it
     const activeEnvId = this.getActiveEnvironmentId();
     if (activeEnvId === envId) {
-      await config.update(this.ACTIVE_ENV_KEY, undefined, vscode.ConfigurationTarget.Workspace);
+      await config.update(this.ACTIVE_ENV_KEY, undefined, vscode.ConfigurationTarget.Global);
+      try {
+        await config.update(this.ACTIVE_ENV_KEY, undefined, vscode.ConfigurationTarget.Workspace);
+      } catch { /* ignore */ }
     }
   }
 

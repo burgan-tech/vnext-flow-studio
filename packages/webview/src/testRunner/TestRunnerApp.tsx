@@ -59,6 +59,13 @@ export function TestRunnerApp() {
   const [isConnectedToCanvas, setIsConnectedToCanvas] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Attach to external instance
+  const [attachInstanceId, setAttachInstanceId] = useState('');
+  const [isAttaching, setIsAttaching] = useState(false);
+  const [instanceList, setInstanceList] = useState<Array<{ instanceId: string; state: string; created: string }>>([]);
+  const [isLoadingInstances, setIsLoadingInstances] = useState(false);
+  const [showInstanceList, setShowInstanceList] = useState(false);
+
   // History
   const [transitionHistory, setTransitionHistory] = useState<TransitionHistoryEntry[]>([]);
 
@@ -254,6 +261,58 @@ export function TestRunnerApp() {
             });
             setSubFlowWorkflow(message.subFlowWorkflow);
             setSubFlowInfo(message.subFlowInfo);
+          }
+          break;
+
+        case 'test:instancesList':
+          console.log('[TestRunnerApp] Received instances list:', message.instances?.length);
+          setInstanceList(message.instances || []);
+          setIsLoadingInstances(false);
+          break;
+
+        case 'test:attachResult':
+          console.log('[TestRunnerApp] Attach result:', message);
+          setIsAttaching(false);
+          if (message.error) {
+            setError(message.error);
+          } else {
+            // Set the attached instance as current
+            setCurrentInstance({
+              instanceId: message.instanceId,
+              currentState: message.currentState,
+              data: message.data || {},
+              transitions: message.transitions || []
+            });
+            setError(null);
+            // Build history from visited states
+            if (message.visitedStates && message.visitedStates.length > 0) {
+              const historyEntries: TransitionHistoryEntry[] = message.visitedStates.map((state: string, index: number) => ({
+                timestamp: new Date().toISOString(),
+                transitionKey: state,
+                transitionType: index === 0 ? 'start' as const : 'state' as const,
+                request: {},
+                status: 'success' as const,
+                response: { state }
+              }));
+              setTransitionHistory(historyEntries);
+            }
+            // Auto-connect to canvas for highlighting
+            setIsConnectedToCanvas(true);
+            vscode.postMessage({
+              type: 'test:connectInstance',
+              instanceId: message.instanceId,
+              workflowKey: workflow?.key,
+              stateKey: message.currentState
+            });
+            // Send history highlighting
+            if (message.visitedStates && message.visitedStates.length > 0) {
+              vscode.postMessage({
+                type: 'test:highlightHistory',
+                workflowKey: workflow?.key,
+                history: message.visitedStates,
+                currentState: message.currentState
+              });
+            }
           }
           break;
         }
@@ -503,6 +562,58 @@ export function TestRunnerApp() {
     }
   }, [currentInstance, workflow, isConnectedToCanvas, transitionHistory]);
 
+  // Handle attach to external instance
+  const handleAttachInstance = useCallback((instanceId?: string) => {
+    const idToAttach = instanceId || attachInstanceId.trim();
+    if (!idToAttach || !workflow) return;
+
+    console.log('[TestRunnerApp] Attaching to instance:', idToAttach);
+    setIsAttaching(true);
+    setError(null);
+
+    vscode.postMessage({
+      type: 'test:attachInstance',
+      instanceId: idToAttach,
+      workflowKey: workflow.key,
+      domain: workflow.domain
+    });
+  }, [attachInstanceId, workflow]);
+
+  // Handle list instances
+  const handleListInstances = useCallback(() => {
+    if (!workflow) return;
+
+    console.log('[TestRunnerApp] Listing instances for:', workflow.key);
+    setIsLoadingInstances(true);
+    setShowInstanceList(true);
+
+    vscode.postMessage({
+      type: 'test:listInstances',
+      workflowKey: workflow.key,
+      domain: workflow.domain
+    });
+  }, [workflow]);
+
+  // Handle detach (reset to initial state)
+  const handleDetach = useCallback(() => {
+    console.log('[TestRunnerApp] Detaching from instance');
+
+    // Disconnect canvas highlighting
+    if (isConnectedToCanvas) {
+      vscode.postMessage({ type: 'test:disconnectInstance' });
+      setIsConnectedToCanvas(false);
+    }
+
+    setCurrentInstance(null);
+    setTransitionHistory([]);
+    setModelTransitions([]);
+    setSelectedTransitionKey(null);
+    setSubFlowWorkflow(null);
+    setSubFlowInfo(null);
+    setAttachInstanceId('');
+    setError(null);
+  }, [isConnectedToCanvas]);
+
   const handleTransitionSelect = useCallback((transitionKey: string) => {
     console.log('[TestRunnerApp] Transition selected:', transitionKey);
     currentTransitionRef.current = transitionKey;
@@ -591,22 +702,97 @@ export function TestRunnerApp() {
       </header>
 
       <main className="test-runner__content">
+        {/* Attach to External Instance Section */}
+        {!currentInstance && testStatus?.ready && (
+          <section className="test-runner__attach-section">
+            <h3>📡 Attach to Instance</h3>
+            <p className="attach-description">
+              Connect to an existing workflow instance (e.g. started via Postman) to visualize its state on the canvas.
+            </p>
+            <div className="attach-input-row">
+              <input
+                type="text"
+                className="attach-input"
+                placeholder="Enter Instance ID..."
+                value={attachInstanceId}
+                onChange={(e) => setAttachInstanceId(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAttachInstance();
+                }}
+                disabled={isAttaching}
+              />
+              <button
+                className="btn-attach"
+                onClick={() => handleAttachInstance()}
+                disabled={!attachInstanceId.trim() || isAttaching}
+              >
+                {isAttaching ? '⏳ Attaching...' : '🔗 Attach'}
+              </button>
+            </div>
+            <div className="attach-actions">
+              <button
+                className="btn-list-instances"
+                onClick={handleListInstances}
+                disabled={isLoadingInstances}
+              >
+                {isLoadingInstances ? '⏳ Loading...' : '📋 List Running Instances'}
+              </button>
+            </div>
+
+            {/* Instance List */}
+            {showInstanceList && (
+              <div className="instance-list">
+                {instanceList.length === 0 && !isLoadingInstances ? (
+                  <div className="instance-list-empty">No instances found for this workflow.</div>
+                ) : (
+                  instanceList.map(inst => (
+                    <div
+                      key={inst.instanceId}
+                      className="instance-list-item"
+                      onClick={() => handleAttachInstance(inst.instanceId)}
+                    >
+                      <div className="instance-list-item__id">{inst.instanceId}</div>
+                      <div className="instance-list-item__info">
+                        <span className="instance-list-item__state">State: {inst.state}</span>
+                        <span className="instance-list-item__date">{new Date(inst.created).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Top Bar */}
         {(availableTransitions.length > 0 || currentInstance) && (
           <div className="test-runner__topbar">
             <div className="topbar-left">
               {currentInstance && (
-                <button
-                  onClick={handleToggleCanvasConnection}
-                  className="btn-canvas-toggle"
-                  style={{
-                    background: isConnectedToCanvas ? '#fef2f2' : '#f1f5f9',
-                    borderColor: isConnectedToCanvas ? '#fca5a5' : '#cbd5e1',
-                    color: isConnectedToCanvas ? '#dc2626' : '#0f172a'
-                  }}
-                >
-                  {isConnectedToCanvas ? '⏸ Disconnect' : '▶ Connect'}
-                </button>
+                <>
+                  <button
+                    onClick={handleToggleCanvasConnection}
+                    className="btn-canvas-toggle"
+                    style={{
+                      background: isConnectedToCanvas ? '#fef2f2' : '#f1f5f9',
+                      borderColor: isConnectedToCanvas ? '#fca5a5' : '#cbd5e1',
+                      color: isConnectedToCanvas ? '#dc2626' : '#0f172a'
+                    }}
+                  >
+                    {isConnectedToCanvas ? '⏸ Disconnect' : '▶ Connect'}
+                  </button>
+                  <button
+                    onClick={handleDetach}
+                    className="btn-canvas-toggle"
+                    style={{
+                      background: '#fefce8',
+                      borderColor: '#fde047',
+                      color: '#854d0e'
+                    }}
+                  >
+                    ↩ Detach
+                  </button>
+                </>
               )}
             </div>
             <div className="topbar-right">

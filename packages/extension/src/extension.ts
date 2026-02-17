@@ -9,6 +9,12 @@ import { VNextToolsProvider, registerVNextToolsCommands } from './vnext-tools';
 import { TaskQuickEditorProvider } from './taskEditor/TaskQuickEditorProvider';
 import { SettingsEditorProvider } from './settings/SettingsEditorProvider';
 import { TestPanelProvider } from './testing/TestPanelProvider';
+import { InstanceMonitorProvider } from './monitoring/InstanceMonitorProvider';
+import { ComponentIndex } from './intellisense/ComponentIndex';
+import { registerJsonDefinitionProvider } from './intellisense/JsonDefinitionProvider';
+import { registerJsonReferenceValidator } from './intellisense/JsonReferenceValidator';
+import { registerCsxCompletionProvider } from './intellisense/CsxCompletionProvider';
+import { registerCsxHoverProvider } from './intellisense/CsxHoverProvider';
 import {
   FLOW_AND_DIAGRAM_GLOBS,
   FLOW_FILE_GLOBS,
@@ -817,6 +823,36 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     TestPanelProvider.register(context, modelBridge)
   );
+
+  // Register instance monitor provider
+  context.subscriptions.push(
+    InstanceMonitorProvider.register(context, modelBridge)
+  );
+
+  // ── IntelliSense: Component Index + Cross-File Navigation ────────
+  const componentIndex = ComponentIndex.getInstance();
+  componentIndex.initialize().then(() => {
+    console.log(`[Extension] ComponentIndex ready: ${componentIndex.size} components indexed`);
+  }).catch(err => {
+    console.error('[Extension] ComponentIndex initialization failed:', err);
+  });
+  context.subscriptions.push(componentIndex);
+
+  // Go-to-Definition for JSON references (Ctrl+Click → target file)
+  context.subscriptions.push(
+    registerJsonDefinitionProvider(context, componentIndex)
+  );
+
+  // Cross-file reference validation (broken ref → red squiggle)
+  const refValidatorDisposables = registerJsonReferenceValidator(context, componentIndex);
+  for (const d of refValidatorDisposables) {
+    context.subscriptions.push(d);
+  }
+
+  // ── IntelliSense: CSX Completion + Hover ─────────────────────────
+  // Provides autocomplete and hover docs for .csx script files
+  context.subscriptions.push(registerCsxCompletionProvider(context));
+  context.subscriptions.push(registerCsxHoverProvider(context));
 
   // Clean up on deactivation
   context.subscriptions.push({
