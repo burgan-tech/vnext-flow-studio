@@ -64,14 +64,18 @@ interface ElkChild {
   properties?: Record<string, string>;
 }
 
-function createPorts(ownerId: string, state: State | 'event'): ElkPort[] {
+function createPorts(ownerId: string, state: State | 'event', direction: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP' = 'RIGHT'): ElkPort[] {
+  const isVertical = direction === 'DOWN' || direction === 'UP';
+  const inSide = isVertical ? 'NORTH' : 'WEST';
+  const outSide = isVertical ? 'SOUTH' : 'EAST';
+
   const ports: ElkPort[] = [];
   ports.push({
     id: `${ownerId}.in`,
     width: PORT_SIZE,
     height: PORT_SIZE,
     properties: {
-      'org.eclipse.elk.port.side': 'WEST'
+      'org.eclipse.elk.port.side': inSide
     }
   });
 
@@ -83,7 +87,7 @@ function createPorts(ownerId: string, state: State | 'event'): ElkPort[] {
       width: PORT_SIZE,
       height: PORT_SIZE,
       properties: {
-        'org.eclipse.elk.port.side': 'EAST'
+        'org.eclipse.elk.port.side': outSide
       }
     });
   }
@@ -91,7 +95,7 @@ function createPorts(ownerId: string, state: State | 'event'): ElkPort[] {
   return ports;
 }
 
-function createChildFromState(state: State, override?: { width: number; height: number }): ElkChild {
+function createChildFromState(state: State, override?: { width: number; height: number }, direction: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP' = 'RIGHT'): ElkChild {
   const isEventLike = state.stateType === 1 || state.stateType === 3;
   const base = isEventLike ? EVENT_NODE_SIZE : ACTIVITY_NODE_SIZE;
   const size = override ?? base;
@@ -100,19 +104,19 @@ function createChildFromState(state: State, override?: { width: number; height: 
     id: state.key,
     width: size.width,
     height: size.height,
-    ports: createPorts(state.key, state),
+    ports: createPorts(state.key, state, direction),
     properties: {
       'org.eclipse.elk.portConstraints': 'FIXED_ORDER'
     }
   };
 }
 
-function createEventChild(id: string, override?: { width: number; height: number }): ElkChild {
+function createEventChild(id: string, override?: { width: number; height: number }, direction: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP' = 'RIGHT'): ElkChild {
   return {
     id,
     width: (override ?? EVENT_NODE_SIZE).width,
     height: (override ?? EVENT_NODE_SIZE).height,
-    ports: createPorts(id, 'event'),
+    ports: createPorts(id, 'event', direction),
     properties: {
       'org.eclipse.elk.portConstraints': 'FIXED_ORDER',
       'org.eclipse.elk.portAlignment.default': 'CENTER'
@@ -134,9 +138,10 @@ export async function autoLayout(
   }
 
   const stateKeys = new Set(states.map((state: State) => state.key));
+  const direction = options.direction ?? 'RIGHT';
 
   const children: ElkChild[] = states.map((s: State) =>
-    createChildFromState(s, options.nodeSizes?.[s.key])
+    createChildFromState(s, options.nodeSizes?.[s.key], direction)
   );
   const edges: Array<{
     id: string;
@@ -196,7 +201,7 @@ export async function autoLayout(
   }
 
   if (workflow.attributes.startTransition && stateKeys.has(workflow.attributes.startTransition.target)) {
-    children.push(createEventChild(START_NODE_ID, options.nodeSizes?.[START_NODE_ID]));
+    children.push(createEventChild(START_NODE_ID, options.nodeSizes?.[START_NODE_ID], direction));
     const edgeId = `t:start:${workflow.attributes.startTransition.target}`;
     const labelSize = options.edgeLabelSizes?.[edgeId];
     edges.push({
@@ -210,7 +215,7 @@ export async function autoLayout(
   }
 
   if (workflow.attributes.timeout && stateKeys.has(workflow.attributes.timeout.target)) {
-    children.push(createEventChild(TIMEOUT_NODE_ID, options.nodeSizes?.[TIMEOUT_NODE_ID]));
+    children.push(createEventChild(TIMEOUT_NODE_ID, options.nodeSizes?.[TIMEOUT_NODE_ID], direction));
     const edgeId = `t:timeout:${workflow.attributes.timeout.key}`;
     const labelSize = options.edgeLabelSizes?.[edgeId];
     edges.push({
@@ -225,23 +230,23 @@ export async function autoLayout(
 
   // Smart preset: wider spacing, better readability, prioritize straight edges
   const isSmart = options.preset === 'smart';
-  const columnSpacing = isSmart ? 280 : (options.columnSpacing ?? DEFAULT_COLUMN_SPACING);
-  const rowSpacing = isSmart ? 160 : (options.rowSpacing ?? DEFAULT_ROW_SPACING);
+  const columnSpacing = isSmart ? 350 : (options.columnSpacing ?? DEFAULT_COLUMN_SPACING);
+  const rowSpacing = isSmart ? 200 : (options.rowSpacing ?? DEFAULT_ROW_SPACING);
 
   const layoutOptions: Record<string, string> = {
     ...BASE_LAYOUT_OPTIONS,
-    'elk.direction': options.direction ?? 'RIGHT', // Direction can be RIGHT, DOWN, LEFT, or UP
+    'elk.direction': direction,
     // Correct ELK property names for layered algorithm spacing
     'elk.layered.spacing.nodeNodeBetweenLayers': String(columnSpacing),
     'elk.spacing.nodeNode': String(rowSpacing),
     // Edge routing improvements to reduce overlap and accommodate labels
-    'elk.spacing.edgeNode': isSmart ? '60' : '40', // More space between edges and nodes for labels
-    'elk.spacing.edgeEdge': isSmart ? '35' : '25', // More spacing between parallel edges for labels
+    'elk.spacing.edgeNode': isSmart ? '80' : '40', // More space between edges and nodes for labels
+    'elk.spacing.edgeEdge': isSmart ? '50' : '25', // More spacing between parallel edges for labels
     'elk.spacing.portPort': '20',
-    'elk.layered.spacing.edgeSpacingFactor': isSmart ? '2.5' : '2.0', // More space between parallel edges for labels
+    'elk.layered.spacing.edgeSpacingFactor': isSmart ? '3.0' : '2.0', // More space between parallel edges for labels
     'elk.layered.edgeRouting.selfLoopSpacing': '30', // Space for self-loops if any
     'elk.edgeLabels.inline': 'false', // Keep labels separate from edge path
-    'elk.spacing.edgeLabel': isSmart ? '15' : '10', // Space around edge labels
+    'elk.spacing.edgeLabel': isSmart ? '25' : '10', // Space around edge labels
     // Smart preset: additional optimizations for readability
     ...(isSmart ? {
       'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX', // Better node placement for readability
@@ -249,6 +254,7 @@ export async function autoLayout(
       'elk.layered.thoroughness': '200', // Extra optimization passes
       'elk.layered.crossingMinimization.greedySwitch.type': 'TWO_SIDED',
       'elk.layered.layering.strategy': 'NETWORK_SIMPLEX', // Better layer assignment for flow order
+      'elk.layered.spacing.baseValue': '80', // Wider base spacing for smart preset
     } : {})
   };
 

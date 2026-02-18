@@ -177,10 +177,43 @@
   overflow: hidden;
 }
 
+.monitor-body--resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+/* ---- Resizer Handle ---- */
+.resizer-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s;
+  z-index: 10;
+}
+
+.resizer-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -2px;
+  right: -2px;
+  bottom: 0;
+}
+
+.resizer-handle:hover {
+  background: #3b82f6;
+}
+
+.monitor-body--resizing .resizer-handle {
+  background: #2563eb;
+}
+
 /* ---- Left Sidebar: Instance List ---- */
 .monitor-sidebar {
-  width: 320px;
-  min-width: 280px;
+  min-width: 200px;
+  max-width: 600px;
   background: #ffffff;
   border-right: 1px solid #e2e8f0;
   display: flex;
@@ -1009,6 +1042,15 @@ body[data-vscode-theme-kind="vscode-dark"] .stats-bar__label {
 body[data-vscode-theme-kind="vscode-dark"] .stats-bar__item--active .stats-bar__value { color: #89b4fa; }
 body[data-vscode-theme-kind="vscode-dark"] .stats-bar__item--completed .stats-bar__value { color: #a6e3a1; }
 body[data-vscode-theme-kind="vscode-dark"] .stats-bar__item--failed .stats-bar__value { color: #f38ba8; }
+
+/* Dark: Resizer Handle */
+body[data-vscode-theme-kind="vscode-dark"] .resizer-handle:hover {
+  background: #89b4fa;
+}
+
+body[data-vscode-theme-kind="vscode-dark"] .monitor-body--resizing .resizer-handle {
+  background: #74a8f9;
+}
 
 /* Dark: Sidebar */
 body[data-vscode-theme-kind="vscode-dark"] .monitor-sidebar {
