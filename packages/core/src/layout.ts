@@ -2,6 +2,8 @@ import ELK from 'elkjs/lib/elk.bundled.js';
 import type { Diagram, Workflow, State } from './types/index.js';
 import { START_NODE_ID, TIMEOUT_NODE_ID } from './adapter.js';
 
+export type LayoutDirection = 'RIGHT' | 'DOWN' | 'LEFT' | 'UP';
+
 export interface AutoLayoutOptions {
   startX?: number;
   startY?: number;
@@ -10,7 +12,7 @@ export interface AutoLayoutOptions {
   // Optional measured sizes from the webview (React Flow v12)
   nodeSizes?: Record<string, { width: number; height: number }>;
   edgeLabelSizes?: Record<string, { width: number; height: number }>;
-  direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP';
+  direction?: LayoutDirection;
   preset?: 'smart';
 }
 
@@ -64,10 +66,15 @@ interface ElkChild {
   properties?: Record<string, string>;
 }
 
-function createPorts(ownerId: string, state: State | 'event', direction: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP' = 'RIGHT'): ElkPort[] {
-  const isVertical = direction === 'DOWN' || direction === 'UP';
-  const inSide = isVertical ? 'NORTH' : 'WEST';
-  const outSide = isVertical ? 'SOUTH' : 'EAST';
+const PORT_SIDES: Record<LayoutDirection, { inSide: string; outSide: string }> = {
+  RIGHT: { inSide: 'WEST',  outSide: 'EAST'  },
+  LEFT:  { inSide: 'EAST',  outSide: 'WEST'  },
+  DOWN:  { inSide: 'NORTH', outSide: 'SOUTH' },
+  UP:    { inSide: 'SOUTH', outSide: 'NORTH' },
+};
+
+function createPorts(ownerId: string, state: State | 'event', direction: LayoutDirection = 'RIGHT'): ElkPort[] {
+  const { inSide, outSide } = PORT_SIDES[direction];
 
   const ports: ElkPort[] = [];
   ports.push({
@@ -95,7 +102,7 @@ function createPorts(ownerId: string, state: State | 'event', direction: 'RIGHT'
   return ports;
 }
 
-function createChildFromState(state: State, override?: { width: number; height: number }, direction: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP' = 'RIGHT'): ElkChild {
+function createChildFromState(state: State, override?: { width: number; height: number }, direction: LayoutDirection = 'RIGHT'): ElkChild {
   const isEventLike = state.stateType === 1 || state.stateType === 3;
   const base = isEventLike ? EVENT_NODE_SIZE : ACTIVITY_NODE_SIZE;
   const size = override ?? base;
@@ -111,7 +118,7 @@ function createChildFromState(state: State, override?: { width: number; height: 
   };
 }
 
-function createEventChild(id: string, override?: { width: number; height: number }, direction: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP' = 'RIGHT'): ElkChild {
+function createEventChild(id: string, override?: { width: number; height: number }, direction: LayoutDirection = 'RIGHT'): ElkChild {
   return {
     id,
     width: (override ?? EVENT_NODE_SIZE).width,
@@ -243,7 +250,7 @@ export async function autoLayout(
     'elk.spacing.edgeNode': isSmart ? '80' : '40', // More space between edges and nodes for labels
     'elk.spacing.edgeEdge': isSmart ? '50' : '25', // More spacing between parallel edges for labels
     'elk.spacing.portPort': '20',
-    'elk.layered.spacing.edgeSpacingFactor': isSmart ? '3.0' : '2.0', // More space between parallel edges for labels
+    'elk.layered.spacing.edgeEdgeBetweenLayers': isSmart ? '30' : '20', // More space between parallel edges across layers
     'elk.layered.edgeRouting.selfLoopSpacing': '30', // Space for self-loops if any
     'elk.edgeLabels.inline': 'false', // Keep labels separate from edge path
     'elk.spacing.edgeLabel': isSmart ? '25' : '10', // Space around edge labels
