@@ -113,6 +113,53 @@ export function InstanceMonitorApp() {
   // Pagination
   const [pagination, setPagination] = useState<{ page: number; pageSize: number; totalCount: number; totalPages: number; hasNext?: boolean; hasPrev?: boolean } | null>(null);
 
+  // Resizable sidebar
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [isResizingState, setIsResizingState] = useState(false);
+  const isResizing = useRef(false);
+  const monitorBodyRef = useRef<HTMLDivElement>(null);
+
+  // Resize handler
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current || !monitorBodyRef.current) return;
+      e.preventDefault();
+      const bodyRect = monitorBodyRef.current.getBoundingClientRect();
+      const newWidth = e.clientX - bodyRect.left;
+      setSidebarWidth(Math.max(200, Math.min(600, newWidth)));
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing.current) {
+        isResizing.current = false;
+        setIsResizingState(false);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      // Reset body styles in case component unmounts mid-drag
+      if (isResizing.current) {
+        isResizing.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+  }, []);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    setIsResizingState(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
   // Handle messages from extension
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -719,9 +766,9 @@ export function InstanceMonitorApp() {
         </div>
       )}
 
-      <div className="monitor-body">
+      <div className={`monitor-body ${isResizingState ? 'monitor-body--resizing' : ''}`} ref={monitorBodyRef}>
         {/* Left: Instance List */}
-        <aside className="monitor-sidebar">
+        <aside className="monitor-sidebar" style={{ width: sidebarWidth }}>
           <div className="sidebar-header">
             <input
               type="text"
@@ -853,6 +900,12 @@ export function InstanceMonitorApp() {
             )}
           </div>
         </aside>
+
+        {/* Resizer Handle */}
+        <div
+          className="resizer-handle"
+          onMouseDown={handleResizeStart}
+        />
 
         {/* Right: Instance Detail */}
         <main className="monitor-detail">
