@@ -133,6 +133,8 @@ export function Canvas({ initialWorkflow, initialDiagram }: CanvasProps) {
   const [pluginVariants, setPluginVariants] = useState<Map<string, StateVariant[]>>(new Map());
   const [_designHints, setDesignHints] = useState<Map<string, DesignHints>>(new Map());
   const pendingMeasuredAutoLayout = useRef(false);
+  const pendingFitView = useRef(false);
+  const layoutRequestId = useRef(0);
   const [isConnecting, setIsConnecting] = useState(false);
   const [showDocumentation, setShowDocumentation] = useState(false);
   const [activePanel, setActivePanel] = useState<'states' | 'deploy' | 'dependencies' | 'settings' | null>(null);
@@ -736,9 +738,17 @@ ${documentation.split('\n').slice(1).join('\n')}`;
               return position ? { ...node, position } : node;
             }))
           );
-          if (reactFlowInstance) {
+          // Only fitView after explicit auto-layout requests, not after drag-persist round-trips.
+          // We snapshot layoutRequestId at the time of the request; if another layout was
+          // dispatched in between (or if this is a drag-persist update that didn't bump the
+          // counter), the captured id will mismatch and we skip the fitView.
+          if (pendingFitView.current && reactFlowInstance) {
+            const capturedId = layoutRequestId.current;
+            pendingFitView.current = false;
             requestAnimationFrame(() => {
-              reactFlowInstance.fitView({ padding: 0.2, duration: 200 });
+              if (layoutRequestId.current === capturedId) {
+                reactFlowInstance.fitView({ padding: 0.2, duration: 200 });
+              }
             });
           }
           break;
@@ -1747,6 +1757,8 @@ ${documentation.split('\n').slice(1).join('\n')}`;
       }
     }
 
+    layoutRequestId.current += 1;
+    pendingFitView.current = true;
     postMessage({ type: 'request:autoLayout', nodeSizes: sizeMap, edgeLabelSizes, direction, preset });
     setContextMenu(null);
   }, [postMessage, nodes, edges]);
@@ -3108,8 +3120,6 @@ ${documentation.split('\n').slice(1).join('\n')}`;
             snapGrid={[20, 20]}
             defaultEdgeOptions={defaultEdgeOptions}
             defaultMarkerColor="#94a3b8"
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
             defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             disableKeyboardA11y={true}
             onInit={setReactFlowInstance}
@@ -3317,14 +3327,17 @@ ${documentation.split('\n').slice(1).join('\n')}`;
           onContextMenu={(event) => event.preventDefault()}
         >
           <button type="button" className="flow-context-menu__item" onClick={() => handleAutoLayoutRequest('RIGHT', 'smart')}>
-            ✨ Smart Layout
+            ✨ Smart Layout (Left → Right)
+          </button>
+          <button type="button" className="flow-context-menu__item" onClick={() => handleAutoLayoutRequest('DOWN', 'smart')}>
+            ✨ Smart Layout (Top → Down)
           </button>
           <div className="flow-context-menu__divider" />
           <button type="button" className="flow-context-menu__item" onClick={() => handleAutoLayoutRequest('RIGHT')}>
-            Auto Layout (Left to Right)
+            Auto Layout (Left → Right)
           </button>
           <button type="button" className="flow-context-menu__item" onClick={() => handleAutoLayoutRequest('DOWN')}>
-            Auto Layout (Top to Bottom)
+            Auto Layout (Top → Down)
           </button>
         </div>
       )}

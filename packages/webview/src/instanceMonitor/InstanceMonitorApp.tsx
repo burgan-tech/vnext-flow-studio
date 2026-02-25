@@ -52,6 +52,10 @@ interface WorkflowStats {
   avgDuration: number;
 }
 
+const SIDEBAR_DEFAULT_WIDTH = 320;
+const SIDEBAR_MIN_WIDTH = 200;
+const SIDEBAR_MAX_WIDTH = 600;
+
 declare const acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
 
@@ -112,6 +116,64 @@ export function InstanceMonitorApp() {
 
   // Pagination
   const [pagination, setPagination] = useState<{ page: number; pageSize: number; totalCount: number; totalPages: number; hasNext?: boolean; hasPrev?: boolean } | null>(null);
+
+  // Resizable sidebar
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
+  const [isResizingState, setIsResizingState] = useState(false);
+  const isResizing = useRef(false);
+  const bodyLeftRef = useRef(0);
+  const monitorBodyRef = useRef<HTMLDivElement>(null);
+
+  // Resize handler
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current) return;
+      e.preventDefault();
+      const newWidth = e.clientX - bodyLeftRef.current;
+      setSidebarWidth(Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, newWidth)));
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing.current) {
+        isResizing.current = false;
+        setIsResizingState(false);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      if (isResizing.current) {
+        isResizing.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+  }, []);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    bodyLeftRef.current = monitorBodyRef.current?.getBoundingClientRect().left ?? 0;
+    isResizing.current = true;
+    setIsResizingState(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const handleResizeKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 50 : 10;
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setSidebarWidth(prev => Math.min(SIDEBAR_MAX_WIDTH, prev + step));
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setSidebarWidth(prev => Math.max(SIDEBAR_MIN_WIDTH, prev - step));
+    }
+  }, []);
 
   // Handle messages from extension
   useEffect(() => {
@@ -719,9 +781,9 @@ export function InstanceMonitorApp() {
         </div>
       )}
 
-      <div className="monitor-body">
+      <div className={`monitor-body ${isResizingState ? 'monitor-body--resizing' : ''}`} ref={monitorBodyRef}>
         {/* Left: Instance List */}
-        <aside className="monitor-sidebar">
+        <aside className="monitor-sidebar" style={{ width: sidebarWidth }}>
           <div className="sidebar-header">
             <input
               type="text"
@@ -853,6 +915,20 @@ export function InstanceMonitorApp() {
             )}
           </div>
         </aside>
+
+        {/* Resizer Handle */}
+        <div
+          className="resizer-handle"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          aria-valuemin={SIDEBAR_MIN_WIDTH}
+          aria-valuemax={SIDEBAR_MAX_WIDTH}
+          aria-valuenow={sidebarWidth}
+          tabIndex={0}
+          onMouseDown={handleResizeStart}
+          onKeyDown={handleResizeKeyDown}
+        />
 
         {/* Right: Instance Detail */}
         <main className="monitor-detail">
